@@ -268,10 +268,10 @@
             { "name": "APPLICATIONINSIGHTS_CONNECTION_STRING", "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString]" },
             { "name": "ANALYTICS_BACKEND", "value": "LogAnalytics" },
             { "name": "LOG_ANALYTICS_DCE", "value": "[reference(resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dceName')), '2022-06-01').logsIngestion.endpoint]" },
-            { "name": "LOG_ANALYTICS_DCR_ID", "value": "[resourceId('Microsoft.Insights/dataCollectionRules', variables('dcrName'))]" },
+            { "name": "LOG_ANALYTICS_DCR_ID", "value": "[reference(resourceId('Microsoft.Insights/dataCollectionRules', variables('dcrName')), '2022-06-01').immutableId]" },
             { "name": "LOG_ANALYTICS_WORKSPACE_ID", "value": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName')), '2022-10-01').customerId]" },
             { "name": "TENANT_ID", "value": "[subscription().tenantId]" },
-            { "name": "WEBSITE_RUN_FROM_PACKAGE", "value": "https://github.com/JacobWLMS/IntuneReporting/releases/download/releases/release-v1.0.0.zip" }
+            { "name": "WEBSITE_RUN_FROM_PACKAGE", "value": "https://github.com/JacobWLMS/IntuneReporting/releases/latest/download/function-app.zip" }
           ]
         }
       }
