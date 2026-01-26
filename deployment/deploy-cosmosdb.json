@@ -6,7 +6,8 @@
       "name": "intune-analytics-platform",
       "version": "2.1.0"
     },
-    "description": "Deploy Intune Analytics Platform with Cosmos DB Free Tier - Lower cost alternative to ADX"
+    "description": "[COMING SOON] Deploy Intune Analytics Platform with Cosmos DB Free Tier - Lower cost alternative to ADX. This template is not yet functional.",
+    "status": "coming-soon"
   },
   "parameters": {
     "baseName": {
@@ -26,16 +27,16 @@
     },
     "repoUrl": {
       "type": "string",
-      "defaultValue": "https://github.com/jacobwlms/Intunereporting",
+      "defaultValue": "https://github.com/jacobwlms/IntuneReporting",
       "metadata": {
         "description": "GitHub repository URL containing the function code"
       }
     },
     "repoBranch": {
       "type": "string",
-      "defaultValue": "cosmosdb",
+      "defaultValue": "main",
       "metadata": {
-        "description": "Branch to deploy from (use 'cosmosdb' branch for Cosmos DB version)"
+        "description": "[COMING SOON] Branch to deploy from. Cosmos DB support not yet implemented."
       }
     },
     "enableFreeTier": {

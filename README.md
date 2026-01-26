@@ -9,7 +9,7 @@ Choose your data backend:
 | Option | Deploy | Cost | Best For |
 |--------|--------|------|----------|
 | **ADX (Recommended)** | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjacobwlms%2FIntunereporting%2Fmain%2Fdeployment%2Fdeploy-function-app.json) | ~$4-5/day | Powerful KQL queries, time-series analysis |
-| **Cosmos DB (Free Tier)** | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjacobwlms%2FIntunereporting%2Fmain%2Fdeployment%2Fdeploy-cosmosdb.json) | ~$0/month | Budget-conscious, JSON queries |
+| **Cosmos DB (Free Tier)** | 🚧 Coming Soon | ~$0/month | Budget-conscious, JSON queries |
 
 > 📖 **Full setup instructions**: [SETUP.md](SETUP.md)
 
