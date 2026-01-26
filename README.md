@@ -1,15 +1,29 @@
 # Intune Analytics Platform
 
-Export Microsoft Intune data to Azure Data Explorer for compliance monitoring, endpoint analytics, and custom alerting.
+Export Microsoft Intune data to Azure for compliance monitoring, endpoint analytics, and custom alerting.
 
 ## 🚀 One-Click Deploy
 
-Choose your data backend:
+Choose your analytics backend:
 
 | Option | Deploy | Cost | Best For |
 |--------|--------|------|----------|
-| **ADX (Recommended)** | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjacobwlms%2FIntunereporting%2Fmain%2Fdeployment%2Fdeploy-function-app.json) | ~$4-5/day | Powerful KQL queries, time-series analysis |
-| **Cosmos DB (Free Tier)** | 🚧 Coming Soon | ~$0/month | Budget-conscious, JSON queries |
+| **Azure Data Explorer** | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FJacobWLMS%2FIntuneReporting%2Fmain%2Fdeployment%2Fdeploy-adx.json) | Free tier | Powerful KQL, materialized views, time-series |
+| **Log Analytics** | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FJacobWLMS%2FIntuneReporting%2Fmain%2Fdeployment%2Fdeploy-loganalytics.json) | Pay-per-GB | Simpler setup, Azure Monitor integration |
+
+### Which should I choose?
+
+| Feature | ADX | Log Analytics |
+|---------|-----|---------------|
+| **Cost** | Free dev tier (1 cluster per subscription) | ~$2.76/GB ingested |
+| **Query Language** | KQL (full power) | KQL (subset) |
+| **Materialized Views** | ✅ Yes | ❌ No |
+| **Custom Functions** | ✅ Yes | ✅ Yes |
+| **Azure Monitor Alerts** | Via export | ✅ Native |
+| **Sentinel Integration** | Via export | ✅ Native |
+| **Setup Complexity** | Medium | Simple |
+
+**Recommendation**: Start with **ADX** for the free tier and powerful analytics. Use **Log Analytics** if you already have a workspace or need Sentinel/Azure Monitor integration.
 
 > 📖 **Full setup instructions**: [SETUP.md](SETUP.md)
 

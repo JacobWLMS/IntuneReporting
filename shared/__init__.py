@@ -7,11 +7,13 @@ import logging
 import asyncio
 from datetime import datetime, timezone
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Protocol
+from abc import ABC, abstractmethod
 
 from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
-from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
-from azure.kusto.ingest import QueuedIngestClient, IngestionProperties, DataFormat
+from azure.kusto.data import KustoClient, KustoConnectionStringBuilder, DataFormat
+from azure.kusto.ingest import QueuedIngestClient, IngestionProperties
+from azure.monitor.ingestion import LogsIngestionClient
 from msgraph_beta import GraphServiceClient
 
 # Retry configuration for Graph API rate limiting
@@ -21,8 +23,18 @@ BASE_DELAY = 30
 @dataclass
 class Config:
     """Configuration from environment variables"""
+    # Backend choice: 'ADX' or 'LogAnalytics'
+    analytics_backend: str = os.environ.get('ANALYTICS_BACKEND', 'ADX')
+    
+    # ADX settings
     adx_cluster: str = os.environ.get('ADX_CLUSTER_URI', '')
     adx_database: str = os.environ.get('ADX_DATABASE', 'IntuneAnalytics')
+    
+    # Log Analytics settings
+    log_analytics_dce: str = os.environ.get('LOG_ANALYTICS_DCE', '')  # Data Collection Endpoint
+    log_analytics_dcr_id: str = os.environ.get('LOG_ANALYTICS_DCR_ID', '')  # Data Collection Rule ID
+    log_analytics_workspace_id: str = os.environ.get('LOG_ANALYTICS_WORKSPACE_ID', '')
+    
     tenant_id: str = os.environ.get('TENANT_ID', '')
     dry_run: bool = False
     output_path: str = ''
@@ -32,7 +44,28 @@ class Config:
         return cls()
 
 
-class ADXClient:
+# Table name to Log Analytics stream mapping
+LOG_ANALYTICS_STREAMS = {
+    'ManagedDevices': 'Custom-IntuneDevices_CL',
+    'CompliancePolicies': 'Custom-IntuneCompliancePolicies_CL', 
+    'DeviceComplianceStates': 'Custom-IntuneComplianceStates_CL',
+    'DeviceScores': 'Custom-IntuneDeviceScores_CL',
+    'StartupPerformance': 'Custom-IntuneStartupPerformance_CL',
+    'AppReliability': 'Custom-IntuneAppReliability_CL',
+    'SyncState': 'Custom-IntuneSyncState_CL'
+}
+
+
+class IngestionClient(ABC):
+    """Abstract base class for data ingestion"""
+    
+    @abstractmethod
+    def ingest(self, table: str, data: list[dict]) -> int:
+        """Ingest data to the specified table"""
+        pass
+
+
+class ADXClient(IngestionClient):
     """Azure Data Explorer client for ingestion"""
     
     def __init__(self, config: Config):
@@ -62,6 +95,52 @@ class ADXClient:
         from io import StringIO
         client.ingest_from_stream(StringIO(jsonl), props)
         return len(data)
+
+
+class LogAnalyticsClient(IngestionClient):
+    """Log Analytics client for ingestion via Data Collection Rules"""
+    
+    def __init__(self, config: Config):
+        self.config = config
+        self._client: Optional[LogsIngestionClient] = None
+    
+    def _get_client(self) -> LogsIngestionClient:
+        if not self._client:
+            credential = ManagedIdentityCredential() if os.environ.get('WEBSITE_INSTANCE_ID') else DefaultAzureCredential()
+            self._client = LogsIngestionClient(endpoint=self.config.log_analytics_dce, credential=credential)
+        return self._client
+    
+    def ingest(self, table: str, data: list[dict]) -> int:
+        """Ingest data to Log Analytics custom table"""
+        if not data:
+            return 0
+        
+        # Map table name to stream name
+        stream_name = LOG_ANALYTICS_STREAMS.get(table, f'Custom-{table}_CL')
+        
+        client = self._get_client()
+        
+        # Log Analytics expects TimeGenerated field (ISO 8601 format)
+        for record in data:
+            if 'IngestionTime' in record and 'TimeGenerated' not in record:
+                record['TimeGenerated'] = record['IngestionTime']
+        
+        client.upload(
+            rule_id=self.config.log_analytics_dcr_id,
+            stream_name=stream_name,
+            logs=data
+        )
+        return len(data)
+
+
+def get_ingestion_client(config: Config) -> IngestionClient:
+    """Factory function to get the appropriate ingestion client based on config"""
+    if config.analytics_backend.upper() == 'LOGANALYTICS':
+        logging.info("Using Log Analytics backend")
+        return LogAnalyticsClient(config)
+    else:
+        logging.info("Using Azure Data Explorer backend")
+        return ADXClient(config)
 
 
 def get_graph_client() -> GraphServiceClient:
