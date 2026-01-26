@@ -1,0 +1,73 @@
+{
+  "title": "Intune Analytics - Endpoint Analytics",
+  "tiles": [
+    {
+      "id": "avg-startup-score",
+      "title": "🚀 Avg Startup Score",
+      "query": "DeviceScores_Current | summarize round(avg(StartupPerformanceScore), 1)",
+      "visualType": "stat"
+    },
+    {
+      "id": "avg-reliability-score",
+      "title": "🔧 Avg App Reliability Score",
+      "query": "DeviceScores_Current | summarize round(avg(AppReliabilityScore), 1)",
+      "visualType": "stat"
+    },
+    {
+      "id": "avg-boot-time",
+      "title": "⏱️ Avg Boot Time (sec)",
+      "query": "StartupPerformance\n| where IngestionTime > ago(7d)\n| summarize round(avg(TotalBootTimeInMs) / 1000, 1)",
+      "visualType": "stat"
+    },
+    {
+      "id": "problematic-apps",
+      "title": "💥 Apps with Issues",
+      "query": "AppReliability_Current | where AppCrashCount > 0 or AppHangCount > 0 | count",
+      "visualType": "stat"
+    },
+    {
+      "id": "startup-trend",
+      "title": "📈 Boot Time Trend (7 days)",
+      "query": "StartupPerformance\n| where IngestionTime > ago(7d)\n| summarize AvgBootMs=avg(TotalBootTimeInMs) by bin(StartTime, 1d)\n| extend AvgBootSec = round(AvgBootMs / 1000, 1)\n| project StartTime, AvgBootSec",
+      "visualType": "linechart"
+    },
+    {
+      "id": "slow-startup-devices",
+      "title": "🐌 Slow Startup Devices (>60s)",
+      "query": "SlowStartupDevices(60000)\n| take 15\n| project DeviceName, UserPrincipalName, AvgBootTimeMs, MaxBootTimeMs, Model",
+      "visualType": "table"
+    },
+    {
+      "id": "boot-time-distribution",
+      "title": "⏱️ Boot Time Distribution",
+      "query": "StartupPerformance\n| where IngestionTime > ago(7d)\n| extend BootBucket = case(\n    TotalBootTimeInMs < 30000, '<30s (Fast)',\n    TotalBootTimeInMs < 60000, '30-60s (Normal)',\n    TotalBootTimeInMs < 120000, '60-120s (Slow)',\n    '>120s (Very Slow)')\n| summarize Count=count() by BootBucket",
+      "visualType": "piechart"
+    },
+    {
+      "id": "worst-apps",
+      "title": "💥 Most Problematic Apps",
+      "query": "ProblematicApps()\n| take 10\n| project AppDisplayName, AppPublisher, TotalIssues, AppCrashCount, AppHangCount",
+      "visualType": "table"
+    },
+    {
+      "id": "crash-leaders",
+      "title": "📊 Apps by Crash Count",
+      "query": "AppReliability_Current\n| where AppCrashCount > 0\n| top 10 by AppCrashCount\n| project AppDisplayName, AppCrashCount",
+      "visualType": "barchart"
+    },
+    {
+      "id": "restart-reasons",
+      "title": "🔄 Restart Categories",
+      "query": "StartupPerformance\n| where IngestionTime > ago(7d)\n| summarize Count=count() by RestartCategory\n| order by Count desc",
+      "visualType": "piechart"
+    },
+    {
+      "id": "score-comparison",
+      "title": "📊 Score Comparison by Health Status",
+      "query": "DeviceScores_Current\n| summarize \n    AvgEndpoint=round(avg(EndpointAnalyticsScore), 1),\n    AvgStartup=round(avg(StartupPerformanceScore), 1),\n    AvgReliability=round(avg(AppReliabilityScore), 1)\n    by HealthStatus",
+      "visualType": "table"
+    }
+  ],
+  "parameters": [],
+  "description": "Deep dive into Endpoint Analytics - startup performance, app reliability, and device health scores. Identify slow devices and problematic applications."
+}

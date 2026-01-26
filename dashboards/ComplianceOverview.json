@@ -1,0 +1,55 @@
+{
+  "title": "Intune Analytics - Compliance Overview",
+  "tiles": [
+    {
+      "id": "compliance-rate",
+      "title": "🎯 Overall Compliance Rate",
+      "query": "DeviceHealthOverview() | project ComplianceRate",
+      "visualType": "stat"
+    },
+    {
+      "id": "compliance-summary",
+      "title": "📊 Compliance by Status",
+      "query": "DeviceComplianceStates_Current\n| summarize Count=count() by Status\n| order by Count desc",
+      "visualType": "piechart"
+    },
+    {
+      "id": "noncompliant-count",
+      "title": "⚠️ Non-Compliant Devices",
+      "query": "DeviceComplianceStates_Current\n| where Status == 'noncompliant'\n| summarize count()",
+      "visualType": "stat"
+    },
+    {
+      "id": "policy-breakdown",
+      "title": "📋 Compliance by Policy",
+      "query": "ComplianceSummaryByPolicy()\n| project PolicyName, Compliant, NonCompliant, ComplianceRate\n| order by NonCompliant desc",
+      "visualType": "table"
+    },
+    {
+      "id": "worst-policies",
+      "title": "❌ Worst Performing Policies",
+      "query": "ComplianceSummaryByPolicy()\n| top 5 by NonCompliant\n| project PolicyName, NonCompliant, ComplianceRate",
+      "visualType": "barchart"
+    },
+    {
+      "id": "noncompliant-devices",
+      "title": "🔴 Non-Compliant Devices (Top 20)",
+      "query": "NonCompliantDevices()\n| take 20\n| project DeviceName, UserDisplayName, PolicyName, FailedSettingCount",
+      "visualType": "table"
+    },
+    {
+      "id": "compliance-by-os",
+      "title": "💻 Compliance by OS",
+      "query": "ManagedDevices_Current\n| summarize \n    Total=count(),\n    Compliant=countif(ComplianceState == 'compliant')\n    by OperatingSystem\n| extend Rate = round(100.0 * Compliant / Total, 1)\n| project OperatingSystem, Compliant, Total, Rate",
+      "visualType": "barchart"
+    },
+    {
+      "id": "new-noncompliant",
+      "title": "🆕 Newly Non-Compliant (Last 6h)",
+      "query": "AlertNewNonCompliant()\n| project DeviceName, UserDisplayName, PolicyName, DetectedAt",
+      "visualType": "table"
+    }
+  ],
+  "parameters": [],
+  "description": "Monitor device compliance status across your Intune environment. Shows overall compliance rates, policy-level breakdowns, and identifies non-compliant devices requiring attention."
+}

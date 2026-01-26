@@ -1,0 +1,67 @@
+{
+  "title": "Intune Analytics - Database Admin",
+  "tiles": [
+    {
+      "id": "last-sync",
+      "title": "⏰ Last Successful Sync",
+      "query": "SyncState\n| where Status == 'Success'\n| top 1 by IngestionTime desc\n| project format_datetime(IngestionTime, 'yyyy-MM-dd HH:mm')",
+      "visualType": "stat"
+    },
+    {
+      "id": "sync-status",
+      "title": "✅ Sync Status (Last 24h)",
+      "query": "SyncState\n| where IngestionTime > ago(24h)\n| summarize Success=countif(Status == 'Success'), Failed=countif(Status != 'Success')\n| project Status = iff(Failed == 0, '✅ All Good', strcat('⚠️ ', Failed, ' Failed'))",
+      "visualType": "stat"
+    },
+    {
+      "id": "total-records",
+      "title": "📊 Total Records (Current Views)",
+      "query": "print Devices=toscalar(ManagedDevices_Current | count),\n      Policies=toscalar(CompliancePolicies_Current | count),\n      ComplianceStates=toscalar(DeviceComplianceStates_Current | count),\n      DeviceScores=toscalar(DeviceScores_Current | count),\n      Apps=toscalar(AppReliability_Current | count)",
+      "visualType": "table"
+    },
+    {
+      "id": "data-freshness",
+      "title": "📅 Data Freshness by Table",
+      "query": "union\n  (ManagedDevices | summarize LastIngestion=max(IngestionTime) | extend Table='ManagedDevices'),\n  (CompliancePolicies | summarize LastIngestion=max(IngestionTime) | extend Table='CompliancePolicies'),\n  (DeviceComplianceStates | summarize LastIngestion=max(IngestionTime) | extend Table='DeviceComplianceStates'),\n  (DeviceScores | summarize LastIngestion=max(IngestionTime) | extend Table='DeviceScores'),\n  (StartupPerformance | summarize LastIngestion=max(IngestionTime) | extend Table='StartupPerformance'),\n  (AppReliability | summarize LastIngestion=max(IngestionTime) | extend Table='AppReliability')\n| project Table, LastIngestion, AgeHours=round(datetime_diff('hour', now(), LastIngestion), 1)\n| order by AgeHours desc",
+      "visualType": "table"
+    },
+    {
+      "id": "sync-history",
+      "title": "📈 Sync History (7 days)",
+      "query": "SyncState\n| where IngestionTime > ago(7d)\n| summarize Syncs=count(), Records=sum(RecordCount) by bin(IngestionTime, 1d), ExportType\n| order by IngestionTime asc",
+      "visualType": "barchart"
+    },
+    {
+      "id": "sync-duration",
+      "title": "⏱️ Average Sync Duration",
+      "query": "SyncState\n| where IngestionTime > ago(7d) and Status == 'Success'\n| summarize AvgDuration=round(avg(DurationSeconds), 1), MaxDuration=round(max(DurationSeconds), 1) by ExportType\n| project ExportType, AvgDuration, MaxDuration",
+      "visualType": "table"
+    },
+    {
+      "id": "raw-vs-current",
+      "title": "📊 Raw Table vs Current View (Dedup Ratio)",
+      "query": "print\n  DevicesRaw=toscalar(ManagedDevices | count),\n  DevicesCurrent=toscalar(ManagedDevices_Current | count),\n  ComplianceRaw=toscalar(DeviceComplianceStates | count),\n  ComplianceCurrent=toscalar(DeviceComplianceStates_Current | count),\n  ScoresRaw=toscalar(DeviceScores | count),\n  ScoresCurrent=toscalar(DeviceScores_Current | count)\n| extend \n  DevicesDedupRatio=round(100.0 * DevicesCurrent / DevicesRaw, 1),\n  ComplianceDedupRatio=round(100.0 * ComplianceCurrent / ComplianceRaw, 1),\n  ScoresDedupRatio=round(100.0 * ScoresCurrent / ScoresRaw, 1)",
+      "visualType": "table"
+    },
+    {
+      "id": "failed-syncs",
+      "title": "❌ Failed Syncs (Last 7 days)",
+      "query": "SyncState\n| where IngestionTime > ago(7d) and Status != 'Success'\n| project IngestionTime, ExportType, Status, ErrorMessage\n| order by IngestionTime desc",
+      "visualType": "table"
+    },
+    {
+      "id": "ingestion-volume",
+      "title": "📈 Daily Ingestion Volume",
+      "query": "SyncState\n| where IngestionTime > ago(14d)\n| summarize TotalRecords=sum(RecordCount) by bin(IngestionTime, 1d)\n| order by IngestionTime asc",
+      "visualType": "linechart"
+    },
+    {
+      "id": "table-sizes",
+      "title": "💾 Estimated Table Sizes",
+      "query": ".show table ManagedDevices extents | summarize ExtentCount=count(), SizeMB=round(sum(OriginalSize) / 1024 / 1024, 2) | extend Table='ManagedDevices'\n| union (.show table DeviceComplianceStates extents | summarize ExtentCount=count(), SizeMB=round(sum(OriginalSize) / 1024 / 1024, 2) | extend Table='DeviceComplianceStates')\n| union (.show table DeviceScores extents | summarize ExtentCount=count(), SizeMB=round(sum(OriginalSize) / 1024 / 1024, 2) | extend Table='DeviceScores')\n| union (.show table StartupPerformance extents | summarize ExtentCount=count(), SizeMB=round(sum(OriginalSize) / 1024 / 1024, 2) | extend Table='StartupPerformance')\n| project Table, SizeMB, ExtentCount\n| order by SizeMB desc",
+      "visualType": "table"
+    }
+  ],
+  "parameters": [],
+  "description": "Monitor database health, sync status, data freshness, and ingestion metrics. Use this to ensure data is being collected correctly."
+}

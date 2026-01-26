@@ -1,0 +1,61 @@
+{
+  "title": "Intune Analytics - User Overview",
+  "tiles": [
+    {
+      "id": "total-users",
+      "title": "👥 Users with Devices",
+      "query": "ManagedDevices_Current\n| where isnotempty(UserPrincipalName)\n| summarize dcount(UserPrincipalName)",
+      "visualType": "stat"
+    },
+    {
+      "id": "multi-device-users",
+      "title": "📱 Multi-Device Users",
+      "query": "ManagedDevices_Current\n| where isnotempty(UserPrincipalName)\n| summarize DeviceCount=count() by UserPrincipalName\n| where DeviceCount > 1\n| count",
+      "visualType": "stat"
+    },
+    {
+      "id": "avg-devices",
+      "title": "📊 Avg Devices/User",
+      "query": "ManagedDevices_Current\n| where isnotempty(UserPrincipalName)\n| summarize DeviceCount=count() by UserPrincipalName\n| summarize round(avg(DeviceCount), 1)",
+      "visualType": "stat"
+    },
+    {
+      "id": "devices-per-user",
+      "title": "📱 Devices per User Distribution",
+      "query": "ManagedDevices_Current\n| where isnotempty(UserPrincipalName)\n| summarize DeviceCount=count() by UserPrincipalName\n| summarize Users=count() by DeviceCount\n| order by DeviceCount asc",
+      "visualType": "barchart"
+    },
+    {
+      "id": "users-most-devices",
+      "title": "🏆 Users with Most Devices",
+      "query": "ManagedDevices_Current\n| where isnotempty(UserPrincipalName)\n| summarize \n    DeviceCount=count(),\n    Devices=make_set(DeviceName),\n    OSTypes=make_set(OperatingSystem)\n    by UserPrincipalName, UserDisplayName\n| order by DeviceCount desc\n| take 15\n| project UserDisplayName, UserPrincipalName, DeviceCount, OSTypes",
+      "visualType": "table"
+    },
+    {
+      "id": "users-noncompliant",
+      "title": "❌ Users with Non-Compliant Devices",
+      "query": "ManagedDevices_Current\n| where ComplianceState == 'noncompliant'\n| where isnotempty(UserPrincipalName)\n| summarize NonCompliantDevices=count(), Devices=make_set(DeviceName) by UserPrincipalName, UserDisplayName\n| order by NonCompliantDevices desc\n| take 15\n| project UserDisplayName, NonCompliantDevices, Devices",
+      "visualType": "table"
+    },
+    {
+      "id": "user-os-breakdown",
+      "title": "💻 Device OS by User Count",
+      "query": "ManagedDevices_Current\n| where isnotempty(UserPrincipalName)\n| summarize Users=dcount(UserPrincipalName), Devices=count() by OperatingSystem\n| order by Users desc",
+      "visualType": "table"
+    },
+    {
+      "id": "users-poor-health",
+      "title": "⚠️ Users with Poor Health Devices",
+      "query": "DeviceScores_Current\n| where EndpointAnalyticsScore < 50\n| join kind=leftouter ManagedDevices_Current on DeviceName\n| where isnotempty(UserPrincipalName)\n| summarize \n    PoorHealthDevices=count(),\n    AvgScore=round(avg(EndpointAnalyticsScore), 1)\n    by UserPrincipalName, UserDisplayName\n| order by PoorHealthDevices desc\n| take 15",
+      "visualType": "table"
+    },
+    {
+      "id": "user-compliance-rate",
+      "title": "✅ User Compliance Summary",
+      "query": "ManagedDevices_Current\n| where isnotempty(UserPrincipalName)\n| summarize \n    TotalDevices=count(),\n    Compliant=countif(ComplianceState == 'compliant'),\n    NonCompliant=countif(ComplianceState == 'noncompliant')\n    by UserPrincipalName, UserDisplayName\n| where TotalDevices > 1\n| extend ComplianceRate=round(100.0 * Compliant / TotalDevices, 0)\n| where ComplianceRate < 100\n| order by NonCompliant desc\n| take 20\n| project UserDisplayName, TotalDevices, Compliant, NonCompliant, ComplianceRate",
+      "visualType": "table"
+    }
+  ],
+  "parameters": [],
+  "description": "User-centric view of device management - devices per user, compliance by user, and users needing attention."
+}

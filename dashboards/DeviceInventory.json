@@ -1,0 +1,97 @@
+{
+  "title": "Intune Analytics - Device Inventory",
+  "tiles": [
+    {
+      "id": "total-devices",
+      "title": "📱 Total Managed Devices",
+      "query": "ManagedDevices_Current | count",
+      "visualType": "stat"
+    },
+    {
+      "id": "active-7d",
+      "title": "✅ Active (Last 7 days)",
+      "query": "ManagedDevices_Current | where LastSyncDateTime > ago(7d) | count",
+      "visualType": "stat"
+    },
+    {
+      "id": "stale-14d",
+      "title": "👻 Stale (>14 days)",
+      "query": "ManagedDevices_Current | where LastSyncDateTime < ago(14d) | count",
+      "visualType": "stat"
+    },
+    {
+      "id": "encrypted",
+      "title": "🔐 Encrypted",
+      "query": "ManagedDevices_Current | where IsEncrypted == true | count",
+      "visualType": "stat"
+    },
+    {
+      "id": "os-distribution",
+      "title": "💻 Devices by Operating System",
+      "query": "ManagedDevices_Current\n| summarize Count=count() by OperatingSystem\n| order by Count desc",
+      "visualType": "piechart"
+    },
+    {
+      "id": "manufacturer-distribution",
+      "title": "🏭 Devices by Manufacturer",
+      "query": "ManagedDevices_Current\n| summarize Count=count() by Manufacturer\n| top 10 by Count\n| order by Count desc",
+      "visualType": "barchart"
+    },
+    {
+      "id": "model-distribution",
+      "title": "📱 Top 15 Device Models",
+      "query": "ManagedDevices_Current\n| summarize Count=count() by Model, Manufacturer\n| top 15 by Count\n| project Model, Manufacturer, Count",
+      "visualType": "table"
+    },
+    {
+      "id": "os-versions",
+      "title": "🔢 OS Version Distribution (Windows)",
+      "query": "ManagedDevices_Current\n| where OperatingSystem has 'Windows'\n| summarize Count=count() by OSVersion\n| top 10 by Count\n| order by Count desc",
+      "visualType": "barchart"
+    },
+    {
+      "id": "management-agent",
+      "title": "🔧 Management Agent Types",
+      "query": "ManagedDevices_Current\n| summarize Count=count() by ManagementAgent\n| order by Count desc",
+      "visualType": "piechart"
+    },
+    {
+      "id": "compliance-by-os",
+      "title": "✅ Compliance by OS",
+      "query": "ManagedDevices_Current\n| summarize \n    Total=count(),\n    Compliant=countif(ComplianceState == 'compliant'),\n    NonCompliant=countif(ComplianceState == 'noncompliant')\n    by OperatingSystem\n| extend ComplianceRate=round(100.0 * Compliant / Total, 1)\n| project OperatingSystem, Compliant, NonCompliant, Total, ComplianceRate\n| order by Total desc",
+      "visualType": "table"
+    },
+    {
+      "id": "encryption-by-os",
+      "title": "🔐 Encryption by OS",
+      "query": "ManagedDevices_Current\n| summarize \n    Total=count(),\n    Encrypted=countif(IsEncrypted == true),\n    NotEncrypted=countif(IsEncrypted == false or isnull(IsEncrypted))\n    by OperatingSystem\n| extend EncryptionRate=round(100.0 * Encrypted / Total, 1)\n| project OperatingSystem, Encrypted, NotEncrypted, Total, EncryptionRate\n| order by Total desc",
+      "visualType": "table"
+    },
+    {
+      "id": "enrollment-trend",
+      "title": "📈 Enrollment Trend (90 days)",
+      "query": "ManagedDevices_Current\n| where EnrolledDateTime > ago(90d)\n| summarize NewDevices=count() by bin(EnrolledDateTime, 7d)\n| order by EnrolledDateTime asc",
+      "visualType": "linechart"
+    },
+    {
+      "id": "activity-distribution",
+      "title": "📅 Last Sync Distribution",
+      "query": "ManagedDevices_Current\n| extend SyncBucket = case(\n    LastSyncDateTime > ago(1d), 'Last 24h',\n    LastSyncDateTime > ago(7d), 'Last 7 days',\n    LastSyncDateTime > ago(14d), 'Last 14 days',\n    LastSyncDateTime > ago(30d), 'Last 30 days',\n    'Over 30 days')\n| summarize Count=count() by SyncBucket\n| order by Count desc",
+      "visualType": "piechart"
+    },
+    {
+      "id": "stale-device-list",
+      "title": "👻 Stale Devices (>14 days)",
+      "query": "StaleDevices(14)\n| take 25\n| project DeviceName, UserDisplayName, OperatingSystem, Model, DaysSinceSync, LastSyncDateTime",
+      "visualType": "table"
+    },
+    {
+      "id": "recently-enrolled",
+      "title": "🆕 Recently Enrolled (Last 7 days)",
+      "query": "ManagedDevices_Current\n| where EnrolledDateTime > ago(7d)\n| project DeviceName, UserPrincipalName, OperatingSystem, Model, EnrolledDateTime\n| order by EnrolledDateTime desc\n| take 20",
+      "visualType": "table"
+    }
+  ],
+  "parameters": [],
+  "description": "Device inventory overview - OS distribution, manufacturers, models, encryption status, and device lifecycle."
+}

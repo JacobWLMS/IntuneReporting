@@ -1,0 +1,6 @@
+# Function App package configuration
+azure-functions
+azure-identity
+azure-kusto-data
+azure-kusto-ingest
+msgraph-beta-sdk>=1.0.0

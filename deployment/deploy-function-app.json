@@ -1,0 +1,252 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "intune-analytics-platform",
+      "version": "2.0.0"
+    },
+    "description": "Deploy Intune Analytics Platform - Function App + ADX (optional)"
+  },
+  "parameters": {
+    "baseName": {
+      "type": "string",
+      "defaultValue": "intune-analytics",
+      "metadata": {
+        "description": "Base name for all resources (max 15 chars)"
+      },
+      "maxLength": 15
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources"
+      }
+    },
+    "deployAdxCluster": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Deploy new free-tier ADX cluster? Set false if using existing cluster."
+      }
+    },
+    "existingAdxClusterUri": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "URI of existing ADX cluster (only if deployAdxCluster is false)"
+      }
+    },
+    "existingAdxDatabase": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Name of existing ADX database (only if deployAdxCluster is false)"
+      }
+    }
+  },
+  "variables": {
+    "suffix": "[uniqueString(resourceGroup().id)]",
+    "functionAppName": "[concat(parameters('baseName'), '-fn-', take(variables('suffix'), 6))]",
+    "storageAccountName": "[concat(replace(parameters('baseName'), '-', ''), take(variables('suffix'), 8))]",
+    "appServicePlanName": "[concat(parameters('baseName'), '-plan')]",
+    "appInsightsName": "[concat(parameters('baseName'), '-ai')]",
+    "adxClusterName": "[concat(replace(parameters('baseName'), '-', ''), 'adx')]",
+    "adxDatabaseName": "IntuneAnalytics",
+    "adxClusterUri": "[if(parameters('deployAdxCluster'), concat('https://', variables('adxClusterName'), '.', parameters('location'), '.kusto.windows.net'), parameters('existingAdxClusterUri'))]",
+    "adxDatabase": "[if(parameters('deployAdxCluster'), variables('adxDatabaseName'), parameters('existingAdxDatabase'))]"
+  },
+  "resources": [
+    {
+      "comments": "Storage account for Function App",
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-01-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true,
+        "allowBlobPublicAccess": false
+      }
+    },
+    {
+      "comments": "Application Insights for monitoring",
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[variables('appInsightsName')]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web"
+      }
+    },
+    {
+      "comments": "Consumption plan for Function App (free tier)",
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2022-09-01",
+      "name": "[variables('appServicePlanName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Y1",
+        "tier": "Dynamic",
+        "size": "Y1",
+        "family": "Y"
+      },
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "comments": "Function App with managed identity",
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2022-09-01",
+      "name": "[variables('functionAppName')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp,linux",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
+      ],
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+        "httpsOnly": true,
+        "siteConfig": {
+          "linuxFxVersion": "PYTHON|3.11",
+          "pythonVersion": "3.11",
+          "appSettings": [
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-01-01').keys[0].value)]"
+            },
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~4"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "python"
+            },
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').InstrumentationKey]"
+            },
+            {
+              "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').ConnectionString]"
+            },
+            {
+              "name": "ADX_CLUSTER_URI",
+              "value": "[variables('adxClusterUri')]"
+            },
+            {
+              "name": "ADX_DATABASE",
+              "value": "[variables('adxDatabase')]"
+            },
+            {
+              "name": "TENANT_ID",
+              "value": "[subscription().tenantId]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "comments": "ADX Free Cluster (Dev SKU)",
+      "condition": "[parameters('deployAdxCluster')]",
+      "type": "Microsoft.Kusto/clusters",
+      "apiVersion": "2023-08-15",
+      "name": "[variables('adxClusterName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Dev(No SLA)_Standard_E2a_v4",
+        "tier": "Basic",
+        "capacity": 1
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "enableStreamingIngest": false,
+        "enablePurge": false,
+        "enableAutoStop": true
+      }
+    },
+    {
+      "comments": "ADX Database",
+      "condition": "[parameters('deployAdxCluster')]",
+      "type": "Microsoft.Kusto/clusters/databases",
+      "apiVersion": "2023-08-15",
+      "name": "[concat(variables('adxClusterName'), '/', variables('adxDatabaseName'))]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Kusto/clusters', variables('adxClusterName'))]"
+      ],
+      "kind": "ReadWrite",
+      "properties": {
+        "softDeletePeriod": "P30D",
+        "hotCachePeriod": "P7D"
+      }
+    },
+    {
+      "comments": "Grant Function App ingestor access to ADX database",
+      "condition": "[parameters('deployAdxCluster')]",
+      "type": "Microsoft.Kusto/clusters/databases/principalAssignments",
+      "apiVersion": "2023-08-15",
+      "name": "[concat(variables('adxClusterName'), '/', variables('adxDatabaseName'), '/FunctionAppIngestor')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Kusto/clusters/databases', variables('adxClusterName'), variables('adxDatabaseName'))]",
+        "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
+      ],
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2022-09-01', 'Full').identity.principalId]",
+        "role": "Ingestor",
+        "principalType": "App",
+        "tenantId": "[subscription().tenantId]"
+      }
+    }
+  ],
+  "outputs": {
+    "functionAppName": {
+      "type": "string",
+      "value": "[variables('functionAppName')]"
+    },
+    "functionAppUrl": {
+      "type": "string",
+      "value": "[concat('https://', reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2022-09-01').defaultHostName)]"
+    },
+    "functionAppPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2022-09-01', 'Full').identity.principalId]"
+    },
+    "adxClusterUri": {
+      "type": "string",
+      "value": "[variables('adxClusterUri')]"
+    },
+    "adxDatabaseName": {
+      "type": "string",
+      "value": "[variables('adxDatabase')]"
+    },
+    "appInsightsInstrumentationKey": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').InstrumentationKey]"
+    },
+    "nextSteps": {
+      "type": "object",
+      "value": {
+        "1_grantGraphPermissions": "Go to Azure Portal > Entra ID > App Registrations > [Function App Name] > API Permissions > Add: DeviceManagementManagedDevices.Read.All, DeviceManagementConfiguration.Read.All (Application type) > Grant admin consent",
+        "2_createAdxSchema": "Open ADX Web UI > Run database/Schema-Focused.kql to create tables and materialized views",
+        "3_deployFunctionCode": "Run: func azure functionapp publish [functionAppName] --python",
+        "4_verifySchedules": "Check Function App > Functions to see timer triggers are active"
+      }
+    }
+  }
+}

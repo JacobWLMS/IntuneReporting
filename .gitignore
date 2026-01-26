@@ -1,0 +1,31 @@
+# Intune Analytics Platform
+
+# Environment & Secrets
+.env
+local.settings.json
+!function-app/local.settings.json
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Azure Functions
+bin/
+obj/
+.python_packages/
+
+# IDE
+
+.vs/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & Output
+*.log
+output/

@@ -1,0 +1,10 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "ADX_CLUSTER_URI": "https://yourcluster.region.kusto.windows.net",
+    "ADX_DATABASE": "IntuneAnalytics",
+    "TENANT_ID": ""
+  }
+}
