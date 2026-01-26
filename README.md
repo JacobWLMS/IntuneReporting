@@ -78,35 +78,62 @@ Only data that drives action:
 1. Click the **Deploy to Azure** button above
 2. Fill in parameters (base name, resource group, region)
 3. Click **Review + create** → **Create**
-4. ⏳ Wait 15-25 minutes
+4. ⏳ Wait 10-15 minutes
 
 **Option 2: Azure CLI**
 
 ```bash
 az group create --name rg-intune-analytics --location uksouth
 
+# For ADX backend:
 az deployment group create \
   --resource-group rg-intune-analytics \
-  --template-file deployment/deploy-function-app.json \
+  --template-file deployment/deploy-adx.json \
+  --parameters baseName=intune-analytics
+
+# For Log Analytics backend:
+az deployment group create \
+  --resource-group rg-intune-analytics \
+  --template-file deployment/deploy-loganalytics.json \
   --parameters baseName=intune-analytics
 ```
 
-> ✅ **Automatically deployed**: Storage, Function App, ADX cluster, database schema, and function code from GitHub
+> ✅ **Automatically deployed**: Storage, Function App, database (ADX or Log Analytics), schema, and function code from GitHub
 
-### 2. Grant Graph API Permissions (Only Manual Step)
+### 2. Grant Graph API Permissions (Required Post-Deployment Step)
 
-The Function App's managed identity needs these **Application** permissions:
+The Function App's managed identity needs Microsoft Graph permissions to read Intune data. **This step requires an administrator with the "Application Administrator" role in Entra ID.**
 
-| Permission | Why |
-|------------|-----|
-| `DeviceManagementManagedDevices.Read.All` | Read devices and compliance |
-| `DeviceManagementConfiguration.Read.All` | Read endpoint analytics |
+| Permission | Purpose |
+|------------|---------|
+| `DeviceManagementManagedDevices.Read.All` | Read devices and compliance status |
+| `DeviceManagementConfiguration.Read.All` | Read endpoint analytics data |
 
-**To grant:**
-1. Azure Portal → **Entra ID** → **App registrations**
-2. Search for your Function App name
-3. **API Permissions** → **Add a permission** → **Microsoft Graph** → **Application permissions**
-4. Add the permissions above → **Grant admin consent**
+**Option A: Run the PowerShell script (Recommended)**
+
+After deployment completes, copy the `managedIdentityObjectId` from the outputs and run:
+
+```powershell
+# From the repo root
+.\scripts\Grant-GraphPermissions.ps1 -ManagedIdentityObjectId "<paste-object-id-here>"
+
+# Or let it auto-detect from your Function App
+.\scripts\Grant-GraphPermissions.ps1 -FunctionAppName "your-fn-name" -ResourceGroupName "your-rg"
+```
+
+**Option B: Manual via Azure Portal**
+
+1. Azure Portal → **Entra ID** → **Enterprise applications**
+2. Search for your Function App name (it's a managed identity)
+3. **Permissions** → See admin-consented permissions (may be empty initially)
+4. Use **Azure Cloud Shell** with these commands:
+
+```powershell
+$miId = "<your-managed-identity-object-id>"
+$graphId = (Get-AzADServicePrincipal -ApplicationId "00000003-0000-0000-c000-000000000000").Id
+New-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $miId -ResourceId $graphId -AppRoleId "dc377aa6-52d8-4e23-b271-2a7ae04cedf3"
+New-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $miId -ResourceId $graphId -AppRoleId "dc377aa6-52d8-4e23-b271-2a7ae6b159e6"
+```
 
 ### 3. Verify It Works
 

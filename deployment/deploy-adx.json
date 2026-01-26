@@ -47,9 +47,9 @@
     },
     "grantGraphPermissions": {
       "type": "bool",
-      "defaultValue": true,
+      "defaultValue": false,
       "metadata": {
-        "description": "Automatically grant Microsoft Graph API permissions. Requires Application Administrator role."
+        "description": "DEPRECATED: This parameter is no longer used. Graph permissions must be granted post-deployment using scripts/Grant-GraphPermissions.ps1"
       }
     }
   },
@@ -62,10 +62,7 @@
     "adxClusterName": "[concat(replace(parameters('baseName'), '-', ''), 'adx')]",
     "adxDatabaseName": "IntuneAnalytics",
     "adxClusterUri": "[if(parameters('deployAdxCluster'), concat('https://', variables('adxClusterName'), '.', parameters('location'), '.kusto.windows.net'), parameters('existingAdxClusterUri'))]",
-    "adxDatabase": "[if(parameters('deployAdxCluster'), variables('adxDatabaseName'), parameters('existingAdxDatabase'))]",
-    "graphAppId": "00000003-0000-0000-c000-000000000000",
-    "deviceMgmtReadAllRoleId": "dc377aa6-52d8-4e23-b271-2a7ae04cedf3",
-    "deviceConfigReadAllRoleId": "dc377aa6-52d8-4e23-b271-2a7ae6b159e6"
+    "adxDatabase": "[if(parameters('deployAdxCluster'), variables('adxDatabaseName'), parameters('existingAdxDatabase'))]"
   },
   "resources": [
     {
@@ -180,37 +177,6 @@
         "continueOnErrors": false,
         "scriptContent": ".create table ManagedDevices (DeviceId: string, DeviceName: string, UserId: string, UserPrincipalName: string, UserDisplayName: string, OperatingSystem: string, OSVersion: string, ComplianceState: string, ManagementAgent: string, EnrolledDateTime: datetime, LastSyncDateTime: datetime, Model: string, Manufacturer: string, SerialNumber: string, IsEncrypted: bool, IsSupervised: bool, AzureADDeviceId: string, IngestionTime: datetime, SourceSystem: string)\n\n.create materialized-view ManagedDevices_Current on table ManagedDevices { ManagedDevices | summarize arg_max(IngestionTime, *) by DeviceId }\n\n.create table CompliancePolicies (PolicyId: string, PolicyName: string, Description: string, CreatedDateTime: datetime, LastModifiedDateTime: datetime, PolicyType: string, IngestionTime: datetime, SourceSystem: string)\n\n.create materialized-view CompliancePolicies_Current on table CompliancePolicies { CompliancePolicies | summarize arg_max(IngestionTime, *) by PolicyId }\n\n.create table DeviceComplianceStates (DeviceId: string, DeviceName: string, UserId: string, UserPrincipalName: string, PolicyId: string, PolicyName: string, Status: string, StatusRaw: int, SettingCount: int, FailedSettingCount: int, LastContact: datetime, InGracePeriodCount: int, IngestionTime: datetime, SourceSystem: string)\n\n.create materialized-view DeviceComplianceStates_Current on table DeviceComplianceStates { DeviceComplianceStates | summarize arg_max(IngestionTime, *) by DeviceId, PolicyId }\n\n.create table DeviceScores (DeviceId: string, DeviceName: string, Model: string, Manufacturer: string, HealthStatus: string, EndpointAnalyticsScore: real, StartupPerformanceScore: real, AppReliabilityScore: real, WorkFromAnywhereScore: real, MeanResourceSpikeTimeScore: real, BatteryHealthScore: real, IngestionTime: datetime, SourceSystem: string)\n\n.create materialized-view DeviceScores_Current on table DeviceScores { DeviceScores | summarize arg_max(IngestionTime, *) by DeviceId }\n\n.create table StartupPerformance (DeviceId: string, StartTime: datetime, CoreBootTimeInMs: int, GroupPolicyBootTimeInMs: int, GroupPolicyLoginTimeInMs: int, CoreLoginTimeInMs: int, TotalBootTimeInMs: int, TotalLoginTimeInMs: int, IsFirstLogin: bool, IsFeatureUpdate: bool, OperatingSystemVersion: string, RestartCategory: string, RestartFaultBucket: string, IngestionTime: datetime, SourceSystem: string)\n\n.create table AppReliability (AppName: string, AppDisplayName: string, AppPublisher: string, ActiveDeviceCount: int, AppCrashCount: int, AppHangCount: int, MeanTimeToFailureInMinutes: int, AppHealthScore: real, AppHealthStatus: string, IngestionTime: datetime, SourceSystem: string)\n\n.create materialized-view AppReliability_Current on table AppReliability { AppReliability | summarize arg_max(IngestionTime, *) by AppName }\n\n.create table SyncState (ExportType: string, RecordCount: int, StartTime: datetime, EndTime: datetime, DurationSeconds: real, Status: string, ErrorMessage: string, IngestionTime: datetime, SourceSystem: string)"
       }
-    },
-    {
-      "condition": "[parameters('grantGraphPermissions')]",
-      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-      "apiVersion": "2023-01-31",
-      "name": "[concat(variables('functionAppName'), '-deployer')]",
-      "location": "[parameters('location')]",
-      "tags": { "purpose": "ARM deployment script identity", "required-role": "Application Administrator (in Entra ID)" }
-    },
-    {
-      "condition": "[parameters('grantGraphPermissions')]",
-      "type": "Microsoft.Resources/deploymentScripts",
-      "apiVersion": "2023-08-01",
-      "name": "[concat(variables('functionAppName'), '-grant-graph')]",
-      "location": "[parameters('location')]",
-      "kind": "AzurePowerShell",
-      "identity": {
-        "type": "UserAssigned",
-        "userAssignedIdentities": { "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', concat(variables('functionAppName'), '-deployer'))]": {} }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', concat(variables('functionAppName'), '-deployer'))]",
-        "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
-      ],
-      "properties": {
-        "azPowerShellVersion": "12.0",
-        "retentionInterval": "PT1H",
-        "timeout": "PT10M",
-        "arguments": "[format('-ManagedIdentityPrincipalId \"{0}\" -GraphAppId \"{1}\" -DeviceMgmtReadAllRoleId \"{2}\" -DeviceConfigReadAllRoleId \"{3}\"', reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2022-09-01', 'Full').identity.principalId, variables('graphAppId'), variables('deviceMgmtReadAllRoleId'), variables('deviceConfigReadAllRoleId'))]",
-        "scriptContent": "param([string]$ManagedIdentityPrincipalId, [string]$GraphAppId, [string]$DeviceMgmtReadAllRoleId, [string]$DeviceConfigReadAllRoleId)\n$DeploymentScriptOutputs = @{}\ntry {\n    $graphSp = Get-AzADServicePrincipal -ApplicationId $GraphAppId -ErrorAction Stop\n    $roles = @($DeviceMgmtReadAllRoleId, $DeviceConfigReadAllRoleId)\n    foreach ($roleId in $roles) {\n        try {\n            New-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $ManagedIdentityPrincipalId -ResourceId $graphSp.Id -AppRoleId $roleId -ErrorAction Stop | Out-Null\n            Write-Host \"Granted role $roleId\"\n        } catch {\n            if ($_.Exception.Message -like '*already exists*') { Write-Host \"Role $roleId already assigned\" }\n            else { Write-Warning \"Failed to grant $roleId : $($_.Exception.Message)\" }\n        }\n    }\n    $DeploymentScriptOutputs['status'] = 'success'\n} catch {\n    Write-Warning \"Graph SP not found or access denied. Grant 'Application Administrator' role to the deployer identity.\"\n    $DeploymentScriptOutputs['status'] = 'manual-required'\n    $DeploymentScriptOutputs['command'] = \"New-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId '$ManagedIdentityPrincipalId' -ResourceId (Get-AzADServicePrincipal -ApplicationId '$GraphAppId').Id -AppRoleId '$DeviceMgmtReadAllRoleId'\"\n}"
-      }
     }
   ],
   "outputs": {
@@ -219,9 +185,13 @@
     "managedIdentityObjectId": { "type": "string", "value": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2022-09-01', 'Full').identity.principalId]" },
     "adxClusterUri": { "type": "string", "value": "[variables('adxClusterUri')]" },
     "adxDatabaseName": { "type": "string", "value": "[variables('adxDatabase')]" },
-    "manualPermissionsCommand": {
+    "nextStep": {
       "type": "string",
-      "value": "[concat('# Run in Azure Cloud Shell if auto-grant fails:\\n$miId = \"', reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2022-09-01', 'Full').identity.principalId, '\"\\n$graphId = (Get-AzADServicePrincipal -ApplicationId \"00000003-0000-0000-c000-000000000000\").Id\\nNew-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $miId -ResourceId $graphId -AppRoleId \"dc377aa6-52d8-4e23-b271-2a7ae04cedf3\"\\nNew-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $miId -ResourceId $graphId -AppRoleId \"dc377aa6-52d8-4e23-b271-2a7ae6b159e6\"')]"
+      "value": "IMPORTANT: Run scripts/Grant-GraphPermissions.ps1 to grant Microsoft Graph API permissions to the Function App's managed identity. This requires the Application Administrator role in Entra ID."
+    },
+    "grantPermissionsCommand": {
+      "type": "string",
+      "value": "[concat('.\\scripts\\Grant-GraphPermissions.ps1 -ManagedIdentityObjectId \"', reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2022-09-01', 'Full').identity.principalId, '\"')]"
     }
   }
 }
