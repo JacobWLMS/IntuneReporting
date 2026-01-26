@@ -1,0 +1,118 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# 💚 Intune Device Health\n---\nOverview of device health scores, activity, and performance metrics."
+      },
+      "name": "header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneDevices_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| count",
+        "size": 4,
+        "title": "📱 Total Managed Devices",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "tiles"
+      },
+      "name": "total-devices"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneDeviceScores_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| summarize round(avg(EndpointAnalyticsScore), 1)",
+        "size": 4,
+        "title": "💚 Average Health Score",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "tiles"
+      },
+      "name": "avg-health"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneDeviceScores_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where EndpointAnalyticsScore < 50\n| count",
+        "size": 4,
+        "title": "⚠️ Poor Health Devices (<50)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "tiles"
+      },
+      "name": "poor-health"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneDevices_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\n| where DaysSinceSync > 14\n| count",
+        "size": 4,
+        "title": "👻 Stale Devices (>14 days)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "tiles"
+      },
+      "name": "stale-count"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneDeviceScores_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| extend ScoreBucket = case(\n    EndpointAnalyticsScore >= 80, '80-100 Excellent',\n    EndpointAnalyticsScore >= 60, '60-79 Good',\n    EndpointAnalyticsScore >= 40, '40-59 Fair',\n    EndpointAnalyticsScore >= 20, '20-39 Poor',\n    '0-19 Critical')\n| summarize Count=count() by ScoreBucket\n| order by ScoreBucket asc",
+        "size": 2,
+        "title": "📊 Health Score Distribution",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "piechart"
+      },
+      "name": "health-distribution"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneDevices_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| summarize Count=count() by OperatingSystem\n| order by Count desc",
+        "size": 2,
+        "title": "💻 Devices by OS",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "piechart"
+      },
+      "name": "os-distribution"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneDeviceScores_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| join kind=inner (\n    IntuneDevices_CL\n    | summarize arg_max(TimeGenerated, *) by DeviceId\n    | project DeviceId, DeviceName, UserPrincipalName\n) on DeviceId\n| where EndpointAnalyticsScore < 50\n| project DeviceName, UserPrincipalName, EndpointAnalyticsScore, StartupPerformanceScore, AppReliabilityScore, HealthStatus\n| top 15 by EndpointAnalyticsScore asc",
+        "size": 0,
+        "title": "🔴 Worst Health Devices (Top 15)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "worst-devices"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneDevices_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\n| where DaysSinceSync > 14\n| project DeviceName, UserDisplayName, OperatingSystem, DaysSinceSync, LastSyncDateTime\n| top 20 by DaysSinceSync desc",
+        "size": 0,
+        "title": "👻 Stale Devices List",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "stale-devices"
+    }
+  ],
+  "isLocked": false,
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
