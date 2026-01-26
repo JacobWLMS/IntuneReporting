@@ -133,20 +133,19 @@ ManagedDevices | where ComplianceState == "noncompliant"
 ## 📁 Project Structure
 
 ```
-├── function-app/                 # Azure Function App
-│   ├── fn_compliance/           # Compliance export (every 6h)
-│   ├── fn_endpoint_analytics/   # Endpoint Analytics (daily)
-│   ├── shared/                  # Common utilities
-│   ├── host.json
-│   └── requirements.txt
+├── fn_compliance/               # Compliance export function (every 6h)
+├── fn_endpoint_analytics/       # Endpoint Analytics function (daily 8 AM)
+├── shared/                      # Common utilities (ADX client, Graph auth)
+├── host.json                    # Function App configuration
+├── requirements.txt             # Python dependencies
 ├── database/
 │   └── Schema-Focused.kql       # ADX schema + views + functions
-├── dashboards/
+├── dashboards/                  # ADX dashboard definitions
 │   ├── ComplianceOverview.json
 │   ├── DeviceHealth.json
-│   └── EndpointAnalyticsDeep.json
+│   └── ...
 ├── deployment/
-│   └── deploy-function-app.json # ARM template
+│   └── deploy-function-app.json # ARM template (one-click deploy)
 ├── SETUP.md                     # Detailed setup guide
 └── README.md
 ```

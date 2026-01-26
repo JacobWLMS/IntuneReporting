@@ -1,4 +1,4 @@
-# Function App package configuration
+# Azure Functions Python dependencies
 azure-functions
 azure-identity
 azure-kusto-data

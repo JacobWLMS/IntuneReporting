@@ -158,10 +158,6 @@
               "value": "true"
             },
             {
-              "name": "PROJECT",
-              "value": "function-app"
-            },
-            {
               "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
               "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName')), '2020-02-02').InstrumentationKey]"
             },
@@ -296,7 +292,7 @@
     "nextSteps": {
       "type": "object",
       "value": {
-        "1_grantGraphPermissions": "Go to Azure Portal > Entra ID > Enterprise Applications > Search for the Function App name > Permissions > Grant admin consent for: DeviceManagementManagedDevices.Read.All, DeviceManagementConfiguration.Read.All",
+        "1_grantGraphPermissions": "Go to Azure Portal > Entra ID > App registrations > Search for Function App name > API Permissions > Add: DeviceManagementManagedDevices.Read.All, DeviceManagementConfiguration.Read.All (Application type) > Grant admin consent",
         "note": "Everything else is automatic! ADX schema and function code are deployed during setup."
       }
     },
