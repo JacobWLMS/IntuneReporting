@@ -182,72 +182,19 @@
       }
     },
     {
-      "comments": "User-assigned managed identity for deployment scripts",
-      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-      "apiVersion": "2023-01-31",
-      "name": "[concat(parameters('baseName'), '-deploy-id')]",
-      "location": "[parameters('location')]"
-    },
-    {
-      "comments": "Grant Contributor role to deployment identity for Function App deployment",
-      "type": "Microsoft.Authorization/roleAssignments",
-      "apiVersion": "2022-04-01",
-      "name": "[guid(resourceGroup().id, concat(parameters('baseName'), '-deploy-id'), 'Contributor')]",
+      "comments": "Deploy function code from GitHub",
+      "type": "Microsoft.Web/sites/sourcecontrols",
+      "apiVersion": "2022-09-01",
+      "name": "[concat(variables('functionAppName'), '/web')]",
       "dependsOn": [
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', concat(parameters('baseName'), '-deploy-id'))]"
+        "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
       ],
       "properties": {
-        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
-        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', concat(parameters('baseName'), '-deploy-id')), '2023-01-31').principalId]",
-        "principalType": "ServicePrincipal"
+        "repoUrl": "[parameters('repoUrl')]",
+        "branch": "[parameters('repoBranch')]",
+        "isManualIntegration": true
       }
     },
-    {
-      "comments": "Deploy function code from GitHub via ZIP deploy",
-      "type": "Microsoft.Resources/deploymentScripts",
-      "apiVersion": "2023-08-01",
-      "name": "deployFunctionCode",
-      "location": "[parameters('location')]",
-      "kind": "AzureCLI",
-      "identity": {
-        "type": "UserAssigned",
-        "userAssignedIdentities": {
-          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', concat(parameters('baseName'), '-deploy-id'))]": {}
-        }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]",
-        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', concat(parameters('baseName'), '-deploy-id'))]",
-        "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceGroup().id, concat(parameters('baseName'), '-deploy-id'), 'Contributor'))]"
-      ],
-      "properties": {
-        "azCliVersion": "2.52.0",
-        "timeout": "PT15M",
-        "retentionInterval": "PT1H",
-        "environmentVariables": [
-          {
-            "name": "FUNCTION_APP_NAME",
-            "value": "[variables('functionAppName')]"
-          },
-          {
-            "name": "RESOURCE_GROUP",
-            "value": "[resourceGroup().name]"
-          },
-          {
-            "name": "REPO_URL",
-            "value": "[parameters('repoUrl')]"
-          },
-          {
-            "name": "REPO_BRANCH",
-            "value": "[parameters('repoBranch')]"
-          },
-          {
-            "name": "SUBSCRIPTION_ID",
-            "value": "[subscription().subscriptionId]"
-          }
-        ],
-        "scriptContent": "#!/bin/bash\nset -e\n\n# Login with managed identity\necho 'Authenticating with managed identity...'\naz login --identity\naz account set --subscription \"$SUBSCRIPTION_ID\"\n\n# Download repo as ZIP\nREPO_ZIP_URL=\"${REPO_URL}/archive/refs/heads/${REPO_BRANCH}.zip\"\necho \"Downloading from: $REPO_ZIP_URL\"\ncurl -sL -o repo.zip \"$REPO_ZIP_URL\"\n\n# Extract\nunzip -q repo.zip\nREPO_DIR=$(ls -d */ | head -1)\ncd \"$REPO_DIR\"\n\n# Create deployment package (only function files)\necho 'Creating deployment package...'\nzip -rq ../deploy.zip host.json requirements.txt fn_* shared/\ncd ..\n\n# Deploy to Function App\necho 'Deploying to Function App...'\naz functionapp deployment source config-zip \\\n  --resource-group \"$RESOURCE_GROUP\" \\\n  --name \"$FUNCTION_APP_NAME\" \\\n  --src deploy.zip \\\n  --timeout 300\n\necho 'Deployment complete!'\necho \"{\\\"status\\\": \\\"success\\\"}\" > $AZ_SCRIPTS_OUTPUT_PATH"
-      }
     },
     {
       "comments": "ADX Free Cluster (Dev SKU)",
