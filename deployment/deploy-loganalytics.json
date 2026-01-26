@@ -80,6 +80,7 @@
       "name": "[concat(variables('workspaceName'), '/IntuneDevices_CL')]",
       "dependsOn": ["[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"],
       "properties": {
+        "plan": "Analytics",
         "schema": {
           "name": "IntuneDevices_CL",
           "columns": [
@@ -113,6 +114,7 @@
       "name": "[concat(variables('workspaceName'), '/IntuneCompliancePolicies_CL')]",
       "dependsOn": ["[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"],
       "properties": {
+        "plan": "Analytics",
         "schema": {
           "name": "IntuneCompliancePolicies_CL",
           "columns": [
@@ -135,6 +137,7 @@
       "name": "[concat(variables('workspaceName'), '/IntuneComplianceStates_CL')]",
       "dependsOn": ["[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"],
       "properties": {
+        "plan": "Analytics",
         "schema": {
           "name": "IntuneComplianceStates_CL",
           "columns": [
@@ -163,6 +166,7 @@
       "name": "[concat(variables('workspaceName'), '/IntuneDeviceScores_CL')]",
       "dependsOn": ["[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"],
       "properties": {
+        "plan": "Analytics",
         "schema": {
           "name": "IntuneDeviceScores_CL",
           "columns": [
@@ -190,6 +194,7 @@
       "name": "[concat(variables('workspaceName'), '/IntuneStartupPerformance_CL')]",
       "dependsOn": ["[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"],
       "properties": {
+        "plan": "Analytics",
         "schema": {
           "name": "IntuneStartupPerformance_CL",
           "columns": [
@@ -219,6 +224,7 @@
       "name": "[concat(variables('workspaceName'), '/IntuneAppReliability_CL')]",
       "dependsOn": ["[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"],
       "properties": {
+        "plan": "Analytics",
         "schema": {
           "name": "IntuneAppReliability_CL",
           "columns": [
@@ -244,6 +250,7 @@
       "name": "[concat(variables('workspaceName'), '/IntuneSyncState_CL')]",
       "dependsOn": ["[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"],
       "properties": {
+        "plan": "Analytics",
         "schema": {
           "name": "IntuneSyncState_CL",
           "columns": [
