@@ -195,7 +195,6 @@
         "isManualIntegration": true
       }
     },
-    },
     {
       "comments": "ADX Free Cluster (Dev SKU)",
       "condition": "[parameters('deployAdxCluster')]",
