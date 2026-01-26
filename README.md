@@ -50,18 +50,29 @@ Only data that drives action:
 
 ## 🚀 Quick Start
 
-### 1. Deploy Infrastructure
+### 1. Deploy (One-Click)
 
-Click the "Deploy to Azure" button above, or run:
+**Option 1: Azure Portal (Recommended)**
+
+1. Click the **Deploy to Azure** button above
+2. Fill in parameters (base name, resource group, region)
+3. Click **Review + create** → **Create**
+4. ⏳ Wait 15-25 minutes
+
+**Option 2: Azure CLI**
 
 ```bash
+az group create --name rg-intune-analytics --location uksouth
+
 az deployment group create \
-  --resource-group YOUR-RG \
+  --resource-group rg-intune-analytics \
   --template-file deployment/deploy-function-app.json \
   --parameters baseName=intune-analytics
 ```
 
-### 2. Grant Graph API Permissions
+> ✅ **Automatically deployed**: Storage, Function App, ADX cluster, database schema, and function code from GitHub
+
+### 2. Grant Graph API Permissions (Only Manual Step)
 
 The Function App's managed identity needs these **Application** permissions:
 
@@ -71,32 +82,12 @@ The Function App's managed identity needs these **Application** permissions:
 | `DeviceManagementConfiguration.Read.All` | Read endpoint analytics |
 
 **To grant:**
-1. Azure Portal → Entra ID → Enterprise Applications
-2. Find your Function App (by principal ID from deployment output)
-3. API Permissions → Add permissions → Microsoft Graph → Application
-4. Add the permissions above → Grant admin consent
+1. Azure Portal → **Entra ID** → **App registrations**
+2. Search for your Function App name
+3. **API Permissions** → **Add a permission** → **Microsoft Graph** → **Application permissions**
+4. Add the permissions above → **Grant admin consent**
 
-### 3. Create ADX Schema
-
-Open your ADX cluster in the [ADX Web UI](https://dataexplorer.azure.com/) and run:
-
-```
-database/Schema-Focused.kql
-```
-
-This creates:
-- Tables with 7-day retention (raw data)
-- Materialized views (current state - no duplicates!)
-- Functions for common queries and alerts
-
-### 4. Deploy Function Code
-
-```bash
-cd function-app
-func azure functionapp publish YOUR-FUNCTION-APP-NAME --python
-```
-
-### 5. Verify It Works
+### 3. Verify It Works
 
 Check the Function App logs in Application Insights, or wait for the first scheduled run.
 

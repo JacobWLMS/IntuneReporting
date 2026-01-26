@@ -6,20 +6,55 @@ Complete setup instructions for deploying the Intune Analytics Platform.
 
 - Azure subscription with permissions to create resources
 - Global Admin or Intune Admin role (for granting Graph API permissions)
-- [Azure CLI](https://docs.microsoft.com/cli/azure/install-azure-cli) installed
-- [Azure Functions Core Tools](https://docs.microsoft.com/azure/azure-functions/functions-run-local) v4+
+- Microsoft Intune with devices enrolled (requires M365 E3/E5 or Intune standalone license)
+
+## What Gets Deployed Automatically
+
+The deployment template creates and configures everything:
+
+| Resource | Details |
+|----------|--------|
+| ✅ Storage Account | For Function App state |
+| ✅ App Service Plan | Consumption (free tier) |
+| ✅ Application Insights | Monitoring & logs |
+| ✅ Function App | Python 3.11, with code deployed from GitHub |
+| ✅ ADX Cluster | Dev/Free tier with auto-stop |
+| ✅ ADX Database | IntuneAnalytics |
+| ✅ ADX Schema | All tables, views, and functions |
+| ✅ Permissions | Function App → ADX Ingestor role |
+
+**Only manual step**: Grant Graph API permissions (security requirement - cannot be automated)
+
+---
 
 ## Step 1: Deploy Infrastructure
 
-### Option A: Azure Portal (One-Click)
+### Option 1: Azure Portal (Recommended)
 
-1. Click the "Deploy to Azure" button in the README
-2. Fill in parameters:
-   - **baseName**: Short name for resources (e.g., `intune-analytics`)
-   - **deployAdxCluster**: `true` for new free-tier cluster, `false` if using existing
-3. Click "Review + Create"
+1. Click the **Deploy to Azure** button in the [README](README.md), or:
+   - Go to [Azure Portal](https://portal.azure.com)
+   - Search **"Deploy a custom template"**
+   - Click **"Build your own template in the editor"**
+   - Paste contents of [deploy-function-app.json](deployment/deploy-function-app.json)
+   - Click **Save**
 
-### Option B: Azure CLI
+2. Fill in the parameters:
+
+   | Parameter | Value |
+   |-----------|-------|
+   | **Subscription** | Your Azure subscription |
+   | **Resource Group** | Create new or select existing |
+   | **Region** | UK South (or your preferred region) |
+   | **Base Name** | `intune-analytics` (max 15 chars) |
+   | **Repo Url** | `https://github.com/jacobwlms/Intunereporting` |
+   | **Repo Branch** | `main` |
+   | **Deploy Adx Cluster** | `true` (unless using existing cluster) |
+
+3. Click **Review + create** → **Create**
+
+4. ⏳ Wait **15-25 minutes** (ADX cluster provisioning takes time)
+
+### Option 2: Azure CLI
 
 ```bash
 # Login and set subscription
@@ -89,43 +124,31 @@ foreach ($permission in $permissions) {
 Write-Host "Permissions granted successfully"
 ```
 
-## Step 3: Create ADX Schema
+## Step 3: Verify Deployment
+
+> **Note**: ADX schema and function code are deployed automatically by the ARM template. No manual steps needed!
+
+### Verify ADX Schema (Optional)
 
 1. Open the [ADX Web UI](https://dataexplorer.azure.com/)
 2. Connect to your cluster (URI from deployment output)
 3. Select the `IntuneAnalytics` database
-4. Open `database/Schema-Focused.kql`
-5. Run each command block (Ctrl+Shift+E for each `.create` statement)
+4. Run: `.show tables` - you should see 7 tables
+5. Run: `.show functions` - you should see 9 functions
 
-This creates:
-- **Tables** with 7-day retention for raw data
-- **Materialized views** for current state (no duplicates)
-- **Functions** for common queries and alerts
+## Step 4: Verify Function App
 
-## Step 4: Deploy Function Code
+### Check Functions Deployed
 
-```bash
-# Navigate to function app folder
-cd function-app
-
-# Deploy to Azure
-func azure functionapp publish YOUR-FUNCTION-APP-NAME --python
-```
-
-Replace `YOUR-FUNCTION-APP-NAME` with the name from deployment output.
-
-## Step 5: Verify Deployment
-
-### Check Function App
-
-1. Azure Portal → Function App → Functions
+1. Azure Portal → Function App → **Functions**
 2. You should see:
    - `fn_compliance` (runs every 6 hours)
    - `fn_endpoint_analytics` (runs daily at 8 AM UTC)
+3. Check **Deployment Center** → should show GitHub connected
 
 ### Check Logs
 
-1. Function App → Monitor → Logs
+1. Function App → **Monitor** → Logs
 2. Or: Application Insights → Logs → query:
    ```kusto
    traces
@@ -134,27 +157,32 @@ Replace `YOUR-FUNCTION-APP-NAME` with the name from deployment output.
    | order by timestamp desc
    ```
 
-### Trigger Manual Run
+### Trigger Manual Run (Optional)
 
 To test immediately without waiting for schedule:
 
-1. Function App → Functions → `fn_compliance` → Code + Test → Test/Run
-2. Or via CLI:
-   ```bash
-   az functionapp function invoke \
-     --resource-group rg-intune-analytics \
-     --name YOUR-FUNCTION-APP-NAME \
-     --function-name fn_compliance
-   ```
+**Option 1: Azure Portal**
+1. Function App → Functions → `fn_compliance` → **Code + Test** → **Test/Run**
 
-## Step 6: Import Dashboards
+**Option 2: Azure CLI**
+```bash
+az functionapp function invoke \
+  --resource-group rg-intune-analytics \
+  --name YOUR-FUNCTION-APP-NAME \
+  --function-name fn_compliance
+```
+
+## Step 5: Import Dashboards
 
 1. Open [ADX Web UI](https://dataexplorer.azure.com/)
 2. Go to **Dashboards** → **Import from file**
-3. Import each dashboard from the `dashboards/` folder:
-   - `ComplianceOverview.json`
-   - `DeviceHealth.json`
-   - `EndpointAnalyticsDeep.json`
+3. Import dashboards from the `dashboards/` folder:
+   - `ComplianceOverview.json` - Compliance rates, non-compliant devices
+   - `DeviceHealth.json` - Device inventory, encryption status
+   - `DeviceInventory.json` - Full device list with details
+   - `EndpointAnalyticsDeep.json` - Startup times, app reliability
+   - `SecurityPosture.json` - Security overview
+   - `UserOverview.json` - Per-user device view
 
 ## Troubleshooting
 
