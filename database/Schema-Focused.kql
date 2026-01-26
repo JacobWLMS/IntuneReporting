@@ -38,7 +38,7 @@
 ```
 
 // Materialized view = always get latest record per device (QUERY THIS!)
-.create materialized-view with (backfill=true) ManagedDevices_Current on table ManagedDevices {
+.create materialized-view ManagedDevices_Current on table ManagedDevices {
     ManagedDevices
     | summarize arg_max(IngestionTime, *) by DeviceId
 }
@@ -64,7 +64,7 @@
 { "SoftDeletePeriod": "7.00:00:00", "Recoverability": "Disabled" }
 ```
 
-.create materialized-view with (backfill=true) CompliancePolicies_Current on table CompliancePolicies {
+.create materialized-view CompliancePolicies_Current on table CompliancePolicies {
     CompliancePolicies
     | summarize arg_max(IngestionTime, *) by PolicyId
 }
@@ -93,7 +93,7 @@
 ```
 
 // Current compliance state per device per policy
-.create materialized-view with (backfill=true) DeviceComplianceStates_Current on table DeviceComplianceStates {
+.create materialized-view DeviceComplianceStates_Current on table DeviceComplianceStates {
     DeviceComplianceStates
     | summarize arg_max(IngestionTime, *) by DeviceId, PolicyId
 }
@@ -124,7 +124,7 @@
 { "SoftDeletePeriod": "7.00:00:00", "Recoverability": "Disabled" }
 ```
 
-.create materialized-view with (backfill=true) DeviceScores_Current on table DeviceScores {
+.create materialized-view DeviceScores_Current on table DeviceScores {
     DeviceScores
     | summarize arg_max(IngestionTime, *) by DeviceId
 }
@@ -174,7 +174,7 @@
 { "SoftDeletePeriod": "7.00:00:00", "Recoverability": "Disabled" }
 ```
 
-.create materialized-view with (backfill=true) AppReliability_Current on table AppReliability {
+.create materialized-view AppReliability_Current on table AppReliability {
     AppReliability
     | summarize arg_max(IngestionTime, *) by AppName
 }
