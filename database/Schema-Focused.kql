@@ -292,9 +292,9 @@
 }
 
 // Stale devices (not synced in X days)
-.create-or-alter function StaleDevices(days: int = 14) {
+.create-or-alter function StaleDevices(daysInactive: int = 14) {
     ManagedDevices_Current
-    | where LastSyncDateTime < ago(1d * days)
+    | where LastSyncDateTime < ago(1d * daysInactive)
     | project 
         DeviceId,
         DeviceName,
