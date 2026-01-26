@@ -2,7 +2,7 @@
 
 Export Microsoft Intune data to Azure Data Explorer for compliance monitoring, endpoint analytics, and custom alerting.
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FYOUR-ORG%2Fintune-analytics%2Fmain%2Fdeployment%2Fdeploy-function-app.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjacobwlms%2FIntunereporting%2Fmain%2Fdeployment%2Fdeploy-function-app.json)
 
 > 📖 **Full setup instructions**: [SETUP.md](SETUP.md)
 
