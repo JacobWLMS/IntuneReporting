@@ -75,6 +75,193 @@
       }
     },
     {
+      "type": "Microsoft.OperationalInsights/workspaces/tables",
+      "apiVersion": "2022-10-01",
+      "name": "[concat(variables('workspaceName'), '/IntuneDevices_CL')]",
+      "dependsOn": ["[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"],
+      "properties": {
+        "schema": {
+          "name": "IntuneDevices_CL",
+          "columns": [
+            { "name": "TimeGenerated", "type": "datetime" },
+            { "name": "DeviceId", "type": "string" },
+            { "name": "DeviceName", "type": "string" },
+            { "name": "UserId", "type": "string" },
+            { "name": "UserPrincipalName", "type": "string" },
+            { "name": "UserDisplayName", "type": "string" },
+            { "name": "OperatingSystem", "type": "string" },
+            { "name": "OSVersion", "type": "string" },
+            { "name": "ComplianceState", "type": "string" },
+            { "name": "ManagementAgent", "type": "string" },
+            { "name": "EnrolledDateTime", "type": "datetime" },
+            { "name": "LastSyncDateTime", "type": "datetime" },
+            { "name": "Model", "type": "string" },
+            { "name": "Manufacturer", "type": "string" },
+            { "name": "SerialNumber", "type": "string" },
+            { "name": "IsEncrypted", "type": "boolean" },
+            { "name": "IsSupervised", "type": "boolean" },
+            { "name": "AzureADDeviceId", "type": "string" },
+            { "name": "IngestionTime", "type": "datetime" },
+            { "name": "SourceSystem", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/tables",
+      "apiVersion": "2022-10-01",
+      "name": "[concat(variables('workspaceName'), '/IntuneCompliancePolicies_CL')]",
+      "dependsOn": ["[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"],
+      "properties": {
+        "schema": {
+          "name": "IntuneCompliancePolicies_CL",
+          "columns": [
+            { "name": "TimeGenerated", "type": "datetime" },
+            { "name": "PolicyId", "type": "string" },
+            { "name": "PolicyName", "type": "string" },
+            { "name": "Description", "type": "string" },
+            { "name": "CreatedDateTime", "type": "datetime" },
+            { "name": "LastModifiedDateTime", "type": "datetime" },
+            { "name": "PolicyType", "type": "string" },
+            { "name": "IngestionTime", "type": "datetime" },
+            { "name": "SourceSystem", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/tables",
+      "apiVersion": "2022-10-01",
+      "name": "[concat(variables('workspaceName'), '/IntuneComplianceStates_CL')]",
+      "dependsOn": ["[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"],
+      "properties": {
+        "schema": {
+          "name": "IntuneComplianceStates_CL",
+          "columns": [
+            { "name": "TimeGenerated", "type": "datetime" },
+            { "name": "DeviceId", "type": "string" },
+            { "name": "DeviceName", "type": "string" },
+            { "name": "UserId", "type": "string" },
+            { "name": "UserPrincipalName", "type": "string" },
+            { "name": "PolicyId", "type": "string" },
+            { "name": "PolicyName", "type": "string" },
+            { "name": "Status", "type": "string" },
+            { "name": "StatusRaw", "type": "int" },
+            { "name": "SettingCount", "type": "int" },
+            { "name": "FailedSettingCount", "type": "int" },
+            { "name": "LastContact", "type": "datetime" },
+            { "name": "InGracePeriodCount", "type": "int" },
+            { "name": "IngestionTime", "type": "datetime" },
+            { "name": "SourceSystem", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/tables",
+      "apiVersion": "2022-10-01",
+      "name": "[concat(variables('workspaceName'), '/IntuneDeviceScores_CL')]",
+      "dependsOn": ["[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"],
+      "properties": {
+        "schema": {
+          "name": "IntuneDeviceScores_CL",
+          "columns": [
+            { "name": "TimeGenerated", "type": "datetime" },
+            { "name": "DeviceId", "type": "string" },
+            { "name": "DeviceName", "type": "string" },
+            { "name": "Model", "type": "string" },
+            { "name": "Manufacturer", "type": "string" },
+            { "name": "HealthStatus", "type": "string" },
+            { "name": "EndpointAnalyticsScore", "type": "real" },
+            { "name": "StartupPerformanceScore", "type": "real" },
+            { "name": "AppReliabilityScore", "type": "real" },
+            { "name": "WorkFromAnywhereScore", "type": "real" },
+            { "name": "MeanResourceSpikeTimeScore", "type": "real" },
+            { "name": "BatteryHealthScore", "type": "real" },
+            { "name": "IngestionTime", "type": "datetime" },
+            { "name": "SourceSystem", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/tables",
+      "apiVersion": "2022-10-01",
+      "name": "[concat(variables('workspaceName'), '/IntuneStartupPerformance_CL')]",
+      "dependsOn": ["[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"],
+      "properties": {
+        "schema": {
+          "name": "IntuneStartupPerformance_CL",
+          "columns": [
+            { "name": "TimeGenerated", "type": "datetime" },
+            { "name": "DeviceId", "type": "string" },
+            { "name": "StartTime", "type": "datetime" },
+            { "name": "CoreBootTimeInMs", "type": "int" },
+            { "name": "GroupPolicyBootTimeInMs", "type": "int" },
+            { "name": "GroupPolicyLoginTimeInMs", "type": "int" },
+            { "name": "CoreLoginTimeInMs", "type": "int" },
+            { "name": "TotalBootTimeInMs", "type": "int" },
+            { "name": "TotalLoginTimeInMs", "type": "int" },
+            { "name": "IsFirstLogin", "type": "boolean" },
+            { "name": "IsFeatureUpdate", "type": "boolean" },
+            { "name": "OperatingSystemVersion", "type": "string" },
+            { "name": "RestartCategory", "type": "string" },
+            { "name": "RestartFaultBucket", "type": "string" },
+            { "name": "IngestionTime", "type": "datetime" },
+            { "name": "SourceSystem", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/tables",
+      "apiVersion": "2022-10-01",
+      "name": "[concat(variables('workspaceName'), '/IntuneAppReliability_CL')]",
+      "dependsOn": ["[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"],
+      "properties": {
+        "schema": {
+          "name": "IntuneAppReliability_CL",
+          "columns": [
+            { "name": "TimeGenerated", "type": "datetime" },
+            { "name": "AppName", "type": "string" },
+            { "name": "AppDisplayName", "type": "string" },
+            { "name": "AppPublisher", "type": "string" },
+            { "name": "ActiveDeviceCount", "type": "int" },
+            { "name": "AppCrashCount", "type": "int" },
+            { "name": "AppHangCount", "type": "int" },
+            { "name": "MeanTimeToFailureInMinutes", "type": "int" },
+            { "name": "AppHealthScore", "type": "real" },
+            { "name": "AppHealthStatus", "type": "string" },
+            { "name": "IngestionTime", "type": "datetime" },
+            { "name": "SourceSystem", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/tables",
+      "apiVersion": "2022-10-01",
+      "name": "[concat(variables('workspaceName'), '/IntuneSyncState_CL')]",
+      "dependsOn": ["[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"],
+      "properties": {
+        "schema": {
+          "name": "IntuneSyncState_CL",
+          "columns": [
+            { "name": "TimeGenerated", "type": "datetime" },
+            { "name": "ExportType", "type": "string" },
+            { "name": "RecordCount", "type": "int" },
+            { "name": "StartTime", "type": "datetime" },
+            { "name": "EndTime", "type": "datetime" },
+            { "name": "DurationSeconds", "type": "real" },
+            { "name": "Status", "type": "string" },
+            { "name": "ErrorMessage", "type": "string" },
+            { "name": "IngestionTime", "type": "datetime" },
+            { "name": "SourceSystem", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
       "type": "Microsoft.Insights/dataCollectionEndpoints",
       "apiVersion": "2022-06-01",
       "name": "[variables('dceName')]",
@@ -88,7 +275,14 @@
       "location": "[parameters('location')]",
       "dependsOn": [
         "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]",
-        "[resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dceName'))]"
+        "[resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dceName'))]",
+        "[resourceId('Microsoft.OperationalInsights/workspaces/tables', variables('workspaceName'), 'IntuneDevices_CL')]",
+        "[resourceId('Microsoft.OperationalInsights/workspaces/tables', variables('workspaceName'), 'IntuneCompliancePolicies_CL')]",
+        "[resourceId('Microsoft.OperationalInsights/workspaces/tables', variables('workspaceName'), 'IntuneComplianceStates_CL')]",
+        "[resourceId('Microsoft.OperationalInsights/workspaces/tables', variables('workspaceName'), 'IntuneDeviceScores_CL')]",
+        "[resourceId('Microsoft.OperationalInsights/workspaces/tables', variables('workspaceName'), 'IntuneStartupPerformance_CL')]",
+        "[resourceId('Microsoft.OperationalInsights/workspaces/tables', variables('workspaceName'), 'IntuneAppReliability_CL')]",
+        "[resourceId('Microsoft.OperationalInsights/workspaces/tables', variables('workspaceName'), 'IntuneSyncState_CL')]"
       ],
       "properties": {
         "dataCollectionEndpointId": "[resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dceName'))]",
