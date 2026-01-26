@@ -125,6 +125,10 @@
       "identity": {
         "type": "SystemAssigned"
       },
+      "tags": {
+        "deployment-version": "2.1.1",
+        "managed-identity": "enabled"
+      },
       "dependsOn": [
         "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
         "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
@@ -291,15 +295,16 @@
     },
     "grantPermissionsCommand": {
       "type": "string",
-      "value": "[concat('# Run this in Azure Cloud Shell (PowerShell)\\n$miId = \"', reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2022-09-01', 'Full').identity.principalId, '\"\\n$graphId = (Get-AzADServicePrincipal -ApplicationId \"00000003-0000-0000-c000-000000000000\").Id\\nNew-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $miId -ResourceId $graphId -AppRoleId \"dc377aa6-52d8-4e23-b271-2a7ae04cedf3\"\\nNew-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $miId -ResourceId $graphId -AppRoleId \"dc377aa6-52d8-4e23-b271-2a7ae6b159e6\"')]"
+      "value": "[concat('# Run this in Azure Cloud Shell (PowerShell)\\n# Step 1: Ensure managed identity is enabled\\nUpdate-AzFunctionApp -ResourceGroupName \"', resourceGroup().name, '\" -Name \"', variables('functionAppName'), '\" -IdentityType SystemAssigned -Force\\n\\n# Step 2: Get the managed identity principal ID\\n$miId = (Get-AzFunctionApp -ResourceGroupName \"', resourceGroup().name, '\" -Name \"', variables('functionAppName'), '\").IdentityPrincipalId\\nWrite-Host \"Managed Identity ID: $miId\"\\n\\n# Step 3: Grant Graph API permissions\\n$graphId = (Get-AzADServicePrincipal -ApplicationId \"00000003-0000-0000-c000-000000000000\").Id\\nNew-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $miId -ResourceId $graphId -AppRoleId \"dc377aa6-52d8-4e23-b271-2a7ae04cedf3\" -ErrorAction SilentlyContinue\\nNew-AzADServicePrincipalAppRoleAssignment -ServicePrincipalId $miId -ResourceId $graphId -AppRoleId \"dc377aa6-52d8-4e23-b271-2a7ae6b159e6\" -ErrorAction SilentlyContinue\\nWrite-Host \"Graph API permissions granted!\"')]"
     },
     "nextSteps": {
       "type": "object",
       "value": {
-        "step1": "Copy the 'grantPermissionsCommand' output above",
-        "step2": "Open Azure Cloud Shell (PowerShell) at https://shell.azure.com",
-        "step3": "Paste and run the command to grant Graph API permissions",
-        "note": "This grants DeviceManagementManagedDevices.Read.All and DeviceManagementConfiguration.Read.All"
+        "step1": "Open Azure Cloud Shell at https://shell.azure.com (select PowerShell)",
+        "step2": "Copy the 'grantPermissionsCommand' output and paste into Cloud Shell",
+        "step3": "The script will: (1) Enable managed identity, (2) Grant Graph API permissions",
+        "permissions": "DeviceManagementManagedDevices.Read.All, DeviceManagementConfiguration.Read.All",
+        "note": "This is required for the Function App to read data from Intune/Graph API"
       }
     }
   }
