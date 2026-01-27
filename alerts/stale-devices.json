@@ -49,9 +49,9 @@
         "description": "[variables('alertDescription')]",
         "severity": 3,
         "enabled": true,
-        "evaluationFrequency": "P1D",
+        "evaluationFrequency": "PT6H",
         "scopes": ["[parameters('workspaceResourceId')]"],
-        "windowSize": "P1D",
+        "windowSize": "PT6H",
         "criteria": {
           "allOf": [
             {
