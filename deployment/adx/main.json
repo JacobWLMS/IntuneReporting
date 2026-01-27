@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "6465404535247070038"
+      "templateHash": "8091241720626236777"
     }
   },
   "parameters": {
@@ -35,6 +35,13 @@
       "defaultValue": "IntuneAnalytics",
       "metadata": {
         "description": "Azure Data Explorer database name"
+      }
+    },
+    "createRoleAssignments": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Create role assignments (requires Owner or User Access Administrator role). Set to false if you lack permissions - you can grant roles manually after deployment."
       }
     }
   },
@@ -74,6 +81,7 @@
       }
     },
     {
+      "condition": "[parameters('createRoleAssignments')]",
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
       "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",

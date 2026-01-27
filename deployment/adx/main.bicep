@@ -19,6 +19,9 @@ param adxClusterUri string = ''
 @description('Azure Data Explorer database name')
 param adxDatabaseName string = 'IntuneAnalytics'
 
+@description('Create role assignments (requires Owner or User Access Administrator role). Set to false if you lack permissions - you can grant roles manually after deployment.')
+param createRoleAssignments bool = true
+
 // ============================================================================
 // Variables
 // ============================================================================
@@ -66,9 +69,10 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
 
 // ============================================================================
 // Role Assignment: Managed Identity -> Storage Blob Data Owner
+// (Conditional - requires Owner or User Access Administrator role)
 // ============================================================================
 
-resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (createRoleAssignments) {
   name: guid(storageAccount.id, managedIdentity.id, storageBlobDataOwnerRoleId)
   scope: storageAccount
   properties: {

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "2222787562170696634"
+      "templateHash": "10686173570156281138"
     }
   },
   "parameters": {
@@ -30,6 +30,13 @@
       "maxValue": 730,
       "metadata": {
         "description": "Data retention in days (30 days free, then pay-per-GB)"
+      }
+    },
+    "createRoleAssignments": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Create role assignments (requires Owner or User Access Administrator role). Set to false if you lack permissions - you can grant roles manually after deployment."
       }
     }
   },
@@ -73,6 +80,7 @@
       }
     },
     {
+      "condition": "[parameters('createRoleAssignments')]",
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
       "scope": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
@@ -1209,11 +1217,11 @@
         "[resourceId('Microsoft.Insights/dataCollectionRules', variables('dcrName'))]",
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]",
         "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
-        "[extensionResourceId(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')), variables('storageBlobDataOwnerRoleId')))]",
         "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
       ]
     },
     {
+      "condition": "[parameters('createRoleAssignments')]",
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
       "scope": "[resourceId('Microsoft.Insights/dataCollectionRules', variables('dcrName'))]",
