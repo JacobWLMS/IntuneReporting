@@ -1,0 +1,16 @@
+# Azure Functions runtime
+azure-functions>=1.17.0
+
+# Azure Identity & Authentication
+azure-identity>=1.15.0
+msal>=1.26.0
+
+# Microsoft Graph SDK
+msgraph-beta-sdk>=1.2.0
+
+# Log Analytics ingestion
+azure-monitor-ingestion>=1.0.3
+
+# Azure Data Explorer (optional - for ADX backend)
+azure-kusto-data>=4.3.0
+azure-kusto-ingest>=4.3.0
