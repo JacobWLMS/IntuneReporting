@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "16505797207793024347"
+      "templateHash": "11158832466725875022"
     }
   },
   "parameters": {
@@ -105,7 +105,7 @@
           },
           {
             "name": "STORAGE_KEY",
-            "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-05-01').keys[0].value]"
+            "secureValue": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-05-01').keys[0].value]"
           },
           {
             "name": "CONTAINER_NAME",
@@ -116,7 +116,7 @@
             "value": "https://github.com/JacobWLMS/IntuneReporting/releases/download/latest/released-package.zip"
           }
         ],
-        "scriptContent": "      # Download from GitHub\n      curl -L -o /tmp/released-package.zip \"$ZIP_URL\"\n      \n      # Upload to storage using account key\n      az storage blob upload \\\n        --account-name \"$STORAGE_ACCOUNT\" \\\n        --account-key \"$STORAGE_KEY\" \\\n        --container-name \"$CONTAINER_NAME\" \\\n        --name \"released-package.zip\" \\\n        --file /tmp/released-package.zip \\\n        --overwrite\n      \n      echo \"✅ Function code deployed to storage\"\n    "
+        "scriptContent": "set -e\necho \"Starting deployment script...\"\necho \"Downloading from GitHub: $ZIP_URL\"\ncurl -L -f -o /tmp/released-package.zip \"$ZIP_URL\"\necho \"Download complete. File size: $(stat -c%s /tmp/released-package.zip) bytes\"\necho \"Uploading to storage account: $STORAGE_ACCOUNT\"\naz storage blob upload \\\n  --account-name \"$STORAGE_ACCOUNT\" \\\n  --account-key \"$STORAGE_KEY\" \\\n  --container-name \"$CONTAINER_NAME\" \\\n  --name \"released-package.zip\" \\\n  --file /tmp/released-package.zip \\\n  --overwrite\necho \"Upload complete\"\necho \"{\\\"status\\\": \\\"success\\\", \\\"blobName\\\": \\\"released-package.zip\\\"}\" > $AZ_SCRIPTS_OUTPUT_PATH\n    "
       },
       "dependsOn": [
         "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('storageAccountName'), 'default', 'deploymentpackage')]",
