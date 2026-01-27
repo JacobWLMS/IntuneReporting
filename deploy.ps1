@@ -1,550 +1,637 @@
-#Requires -Version 7.0
 <#
 .SYNOPSIS
-    Intune Reporting - One-Command Deployment
+    Intune Reporting - Production Deployment Script (PowerShell)
 
 .DESCRIPTION
     Deploys all Azure resources for Intune Reporting:
     - Resource Group
-    - Log Analytics Workspace with custom tables
+    - Log Analytics Workspace with custom tables (30-day retention)
     - Data Collection Endpoint & Rule
-    - Function App with all export functions
+    - Function App (Flex Consumption - scales to zero)
     - App Registration for Microsoft Graph access
+    - Azure Monitor Workbooks for visualization
+
+.PARAMETER Name
+    Naming prefix for resources (e.g., 'contoso-intune')
+
+.PARAMETER Location
+    Azure region (default: eastus)
+
+.PARAMETER ResourceGroup
+    Resource group name (default: rg-{Name})
+
+.PARAMETER SkipConfirmation
+    Skip confirmation prompt
 
 .EXAMPLE
-    .\deploy.ps1
+    .\deploy.ps1 -Name "contoso-intune" -Location "westeurope"
 
 .EXAMPLE
-    .\deploy.ps1 -ResourceGroup "my-rg" -Location "westus2"
+    .\deploy.ps1 -Name "test-intune" -SkipConfirmation
 #>
 
 [CmdletBinding()]
 param(
-    [string]$ResourceGroup = "rg-intune-reporting",
+    [Parameter(Mandatory = $false)]
+    [string]$Name,
+
+    [Parameter(Mandatory = $false)]
     [string]$Location = "eastus",
-    [string]$Prefix = "intune"
+
+    [Parameter(Mandatory = $false)]
+    [string]$ResourceGroup,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipConfirmation
 )
 
 $ErrorActionPreference = "Stop"
 
-#######################################
-# Helper Functions
-#######################################
+#region Helper Functions
+function Write-Log {
+    param([string]$Message, [string]$Level = "INFO")
+    $color = switch ($Level) {
+        "INFO"    { "Cyan" }
+        "SUCCESS" { "Green" }
+        "WARN"    { "Yellow" }
+        "ERROR"   { "Red" }
+        "STEP"    { "Magenta" }
+        default   { "White" }
+    }
+    $prefix = switch ($Level) {
+        "INFO"    { "[INFO]" }
+        "SUCCESS" { "[OK]" }
+        "WARN"    { "[WARN]" }
+        "ERROR"   { "[ERROR]" }
+        "STEP"    { "===" }
+        default   { "" }
+    }
+    if ($Level -eq "STEP") {
+        Write-Host ""
+        Write-Host "$prefix $Message $prefix" -ForegroundColor $color
+    } else {
+        Write-Host "$prefix $Message" -ForegroundColor $color
+    }
+}
+#endregion
 
-function Write-Info { param($Message) Write-Host "[INFO] $Message" -ForegroundColor Cyan }
-function Write-Success { param($Message) Write-Host "[SUCCESS] $Message" -ForegroundColor Green }
-function Write-Warn { param($Message) Write-Host "[WARN] $Message" -ForegroundColor Yellow }
-function Write-Err { param($Message) Write-Host "[ERROR] $Message" -ForegroundColor Red }
-
-#######################################
-# Check Prerequisites
-#######################################
-
+#region Prerequisites Check
 function Test-Prerequisites {
-    Write-Info "Checking prerequisites..."
+    Write-Log "Checking prerequisites" -Level STEP
 
     # Check az cli
-    if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
-        Write-Err "Azure CLI (az) is not installed."
-        Write-Host "Install from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-windows"
+    try {
+        $null = az version 2>$null
+        Write-Log "Azure CLI installed" -Level SUCCESS
+    } catch {
+        Write-Log "Azure CLI (az) is not installed" -Level ERROR
+        Write-Host "Install from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
         exit 1
     }
 
     # Check func core tools
-    if (-not (Get-Command func -ErrorAction SilentlyContinue)) {
-        Write-Err "Azure Functions Core Tools (func) is not installed."
-        Write-Host ""
-        Write-Host "Install with one of these methods:"
-        Write-Host "  winget install Microsoft.Azure.FunctionsCoreTools"
-        Write-Host "  npm install -g azure-functions-core-tools@4"
-        Write-Host "  choco install azure-functions-core-tools"
-        Write-Host ""
-        Write-Host "Or download from: https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local"
+    try {
+        $null = func --version 2>$null
+        Write-Log "Functions Core Tools installed" -Level SUCCESS
+    } catch {
+        Write-Log "Azure Functions Core Tools (func) is not installed" -Level ERROR
+        Write-Host "Install: npm install -g azure-functions-core-tools@4"
         exit 1
     }
 
     # Check logged in
-    $account = az account show 2>$null | ConvertFrom-Json
-    if (-not $account) {
-        Write-Err "Not logged in to Azure CLI."
+    $accountJson = az account show 2>$null
+    if (-not $accountJson) {
+        Write-Log "Not logged in to Azure CLI" -Level ERROR
         Write-Host "Run: az login"
         exit 1
     }
 
-    Write-Success "Prerequisites OK (Subscription: $($account.name))"
-    return $account
+    $account = $accountJson | ConvertFrom-Json
+    $script:SubscriptionName = $account.name
+    $script:SubscriptionId = $account.id
+    $script:TenantId = $account.tenantId
+    Write-Log "Logged in to: $($script:SubscriptionName)" -Level SUCCESS
 }
+#endregion
 
-#######################################
-# Generate Unique Names
-#######################################
+#region Configuration
+function Get-Configuration {
+    Write-Log "Configuration" -Level STEP
 
-function Get-ResourceNames {
-    param($Account)
+    if (-not $Name) {
+        Write-Host ""
+        Write-Host "Enter a naming prefix for your resources."
+        Write-Host "This will be used to create readable resource names like:"
+        Write-Host "  - {prefix}-law (Log Analytics Workspace)"
+        Write-Host "  - {prefix}-func (Function App)"
+        Write-Host ""
+        $script:NamePrefix = Read-Host "Naming prefix (e.g., contoso-intune)"
 
-    $subscriptionId = $Account.id
-    $hash = [System.BitConverter]::ToString(
-        [System.Security.Cryptography.MD5]::Create().ComputeHash(
-            [System.Text.Encoding]::UTF8.GetBytes($subscriptionId)
-        )
-    ).Replace("-", "").Substring(0, 8).ToLower()
+        if (-not $script:NamePrefix) {
+            Write-Log "Naming prefix is required" -Level ERROR
+            exit 1
+        }
+    } else {
+        $script:NamePrefix = $Name
+    }
 
-    return @{
-        StorageAccount = "$($Prefix)stor$hash"
-        FunctionApp = "$Prefix-func-$hash"
-        LogAnalyticsWorkspace = "$Prefix-law-$hash"
-        DCE = "$Prefix-dce-$hash"
-        DCR = "$Prefix-dcr-$hash"
-        AppRegistration = "intune-reporting-$hash"
+    # Sanitize name prefix
+    $script:NamePrefix = ($script:NamePrefix -replace '[^a-zA-Z0-9-]', '-').ToLower()
+
+    # Set resource names
+    if (-not $ResourceGroup) {
+        $script:ResourceGroupName = "rg-$($script:NamePrefix)"
+    } else {
+        $script:ResourceGroupName = $ResourceGroup
+    }
+
+    $script:StorageAccountName = ($script:NamePrefix -replace '-', '') + "stor"
+    if ($script:StorageAccountName.Length -gt 24) {
+        $script:StorageAccountName = $script:StorageAccountName.Substring(0, 24)
+    }
+
+    $script:FunctionAppName = "$($script:NamePrefix)-func"
+    $script:LogAnalyticsName = "$($script:NamePrefix)-law"
+    $script:DceName = "$($script:NamePrefix)-dce"
+    $script:DcrName = "$($script:NamePrefix)-dcr"
+    $script:AppRegistrationName = "$($script:NamePrefix)-app"
+
+    Write-Host ""
+    Write-Host "Resources to be created:"
+    Write-Host "  Resource Group:     $($script:ResourceGroupName)"
+    Write-Host "  Location:           $Location"
+    Write-Host "  Storage Account:    $($script:StorageAccountName)"
+    Write-Host "  Function App:       $($script:FunctionAppName)"
+    Write-Host "  Log Analytics:      $($script:LogAnalyticsName)"
+    Write-Host "  DCE:                $($script:DceName)"
+    Write-Host "  DCR:                $($script:DcrName)"
+    Write-Host "  App Registration:   $($script:AppRegistrationName)"
+    Write-Host ""
+
+    if (-not $SkipConfirmation) {
+        $confirm = Read-Host "Deploy with these settings? (y/n)"
+        if ($confirm -notmatch '^[Yy]') {
+            Write-Log "Deployment cancelled" -Level INFO
+            exit 0
+        }
     }
 }
+#endregion
 
-#######################################
-# Create Resource Group
-#######################################
-
+#region Resource Creation
 function New-ResourceGroup {
-    Write-Info "Creating resource group..."
-    az group create --name $ResourceGroup --location $Location --output none
-    Write-Success "Resource group created: $ResourceGroup"
-}
+    Write-Log "Creating Resource Group" -Level STEP
 
-#######################################
-# Create Storage Account
-#######################################
+    $existing = az group show --name $script:ResourceGroupName 2>$null
+    if ($existing) {
+        Write-Log "Resource group $($script:ResourceGroupName) already exists" -Level WARN
+    } else {
+        az group create --name $script:ResourceGroupName --location $Location --output none
+        Write-Log "Created resource group: $($script:ResourceGroupName)" -Level SUCCESS
+    }
+}
 
 function New-StorageAccount {
-    param($Names)
+    Write-Log "Creating Storage Account" -Level STEP
 
-    Write-Info "Creating storage account..."
-    az storage account create `
-        --name $Names.StorageAccount `
-        --resource-group $ResourceGroup `
-        --location $Location `
-        --sku Standard_LRS `
-        --output none
-    Write-Success "Storage account created: $($Names.StorageAccount)"
+    $existing = az storage account show --name $script:StorageAccountName --resource-group $script:ResourceGroupName 2>$null
+    if ($existing) {
+        Write-Log "Storage account $($script:StorageAccountName) already exists" -Level WARN
+    } else {
+        az storage account create `
+            --name $script:StorageAccountName `
+            --resource-group $script:ResourceGroupName `
+            --location $Location `
+            --sku Standard_LRS `
+            --output none
+        Write-Log "Created storage account: $($script:StorageAccountName)" -Level SUCCESS
+    }
 }
-
-#######################################
-# Create Log Analytics Workspace
-#######################################
 
 function New-LogAnalyticsWorkspace {
-    param($Names)
+    Write-Log "Creating Log Analytics Workspace" -Level STEP
 
-    Write-Info "Creating Log Analytics workspace..."
+    $existing = az monitor log-analytics workspace show --resource-group $script:ResourceGroupName --workspace-name $script:LogAnalyticsName 2>$null
+    if ($existing) {
+        Write-Log "Log Analytics workspace $($script:LogAnalyticsName) already exists" -Level WARN
+    } else {
+        az monitor log-analytics workspace create `
+            --resource-group $script:ResourceGroupName `
+            --workspace-name $script:LogAnalyticsName `
+            --location $Location `
+            --retention-time 30 `
+            --output none
+        Write-Log "Created Log Analytics workspace: $($script:LogAnalyticsName)" -Level SUCCESS
+    }
 
-    az monitor log-analytics workspace create `
-        --resource-group $ResourceGroup `
-        --workspace-name $Names.LogAnalyticsWorkspace `
-        --location $Location `
-        --retention-time 90 `
-        --output none
+    $workspaceJson = az monitor log-analytics workspace show `
+        --resource-group $script:ResourceGroupName `
+        --workspace-name $script:LogAnalyticsName 2>$null
 
-    $workspace = az monitor log-analytics workspace show `
-        --resource-group $ResourceGroup `
-        --workspace-name $Names.LogAnalyticsWorkspace | ConvertFrom-Json
+    $workspace = $workspaceJson | ConvertFrom-Json
+    $script:WorkspaceResourceId = $workspace.id
+    $script:WorkspaceCustomerId = $workspace.customerId
 
-    Write-Success "Log Analytics workspace created"
-    return $workspace
+    Write-Log "Workspace ID: $($script:WorkspaceCustomerId)" -Level INFO
 }
-
-#######################################
-# Create Custom Tables
-#######################################
 
 function New-CustomTables {
-    param($Names)
+    Write-Log "Creating Custom Tables" -Level STEP
 
-    Write-Info "Creating custom tables..."
+    $tableNames = @(
+        "IntuneDevices_CL",
+        "IntuneCompliancePolicies_CL",
+        "IntuneComplianceStates_CL",
+        "IntuneDeviceScores_CL",
+        "IntuneStartupPerformance_CL",
+        "IntuneAppReliability_CL",
+        "IntuneAutopilotDevices_CL",
+        "IntuneAutopilotProfiles_CL",
+        "IntuneSyncState_CL"
+    )
 
-    $tables = @{
-        "IntuneDevices_CL" = @(
-            @{name="TimeGenerated"; type="datetime"}
-            @{name="IngestionTime"; type="datetime"}
-            @{name="SourceSystem"; type="string"}
-            @{name="DeviceId"; type="string"}
-            @{name="DeviceName"; type="string"}
-            @{name="UserPrincipalName"; type="string"}
-            @{name="OperatingSystem"; type="string"}
-            @{name="OSVersion"; type="string"}
-            @{name="ComplianceState"; type="string"}
-            @{name="LastSyncDateTime"; type="datetime"}
-            @{name="Manufacturer"; type="string"}
-            @{name="Model"; type="string"}
-            @{name="SerialNumber"; type="string"}
-            @{name="IsEncrypted"; type="boolean"}
-        )
-        "IntuneCompliancePolicies_CL" = @(
-            @{name="TimeGenerated"; type="datetime"}
-            @{name="IngestionTime"; type="datetime"}
-            @{name="SourceSystem"; type="string"}
-            @{name="PolicyId"; type="string"}
-            @{name="PolicyName"; type="string"}
-            @{name="Description"; type="string"}
-            @{name="PolicyType"; type="string"}
-        )
-        "IntuneComplianceStates_CL" = @(
-            @{name="TimeGenerated"; type="datetime"}
-            @{name="IngestionTime"; type="datetime"}
-            @{name="SourceSystem"; type="string"}
-            @{name="DeviceId"; type="string"}
-            @{name="DeviceName"; type="string"}
-            @{name="PolicyId"; type="string"}
-            @{name="PolicyName"; type="string"}
-            @{name="Status"; type="string"}
-        )
-        "IntuneDeviceScores_CL" = @(
-            @{name="TimeGenerated"; type="datetime"}
-            @{name="IngestionTime"; type="datetime"}
-            @{name="SourceSystem"; type="string"}
-            @{name="DeviceId"; type="string"}
-            @{name="DeviceName"; type="string"}
-            @{name="EndpointAnalyticsScore"; type="real"}
-            @{name="StartupPerformanceScore"; type="real"}
-            @{name="AppReliabilityScore"; type="real"}
-        )
-        "IntuneStartupPerformance_CL" = @(
-            @{name="TimeGenerated"; type="datetime"}
-            @{name="IngestionTime"; type="datetime"}
-            @{name="SourceSystem"; type="string"}
-            @{name="DeviceId"; type="string"}
-            @{name="TotalBootTimeInMs"; type="int"}
-            @{name="TotalLoginTimeInMs"; type="int"}
-        )
-        "IntuneAppReliability_CL" = @(
-            @{name="TimeGenerated"; type="datetime"}
-            @{name="IngestionTime"; type="datetime"}
-            @{name="SourceSystem"; type="string"}
-            @{name="AppName"; type="string"}
-            @{name="AppCrashCount"; type="int"}
-            @{name="AppHangCount"; type="int"}
-        )
-        "IntuneAutopilotDevices_CL" = @(
-            @{name="TimeGenerated"; type="datetime"}
-            @{name="IngestionTime"; type="datetime"}
-            @{name="SourceSystem"; type="string"}
-            @{name="AutopilotDeviceId"; type="string"}
-            @{name="SerialNumber"; type="string"}
-            @{name="Manufacturer"; type="string"}
-            @{name="Model"; type="string"}
-            @{name="EnrollmentState"; type="string"}
-        )
-        "IntuneAutopilotProfiles_CL" = @(
-            @{name="TimeGenerated"; type="datetime"}
-            @{name="IngestionTime"; type="datetime"}
-            @{name="SourceSystem"; type="string"}
-            @{name="ProfileId"; type="string"}
-            @{name="DisplayName"; type="string"}
-            @{name="ProfileType"; type="string"}
-        )
-        "IntuneSyncState_CL" = @(
-            @{name="TimeGenerated"; type="datetime"}
-            @{name="IngestionTime"; type="datetime"}
-            @{name="SourceSystem"; type="string"}
-            @{name="ExportType"; type="string"}
-            @{name="RecordCount"; type="int"}
-            @{name="Status"; type="string"}
-            @{name="DurationSeconds"; type="real"}
-        )
-    }
+    foreach ($tableName in $tableNames) {
+        Write-Log "Creating table: $tableName" -Level INFO
 
-    foreach ($tableName in $tables.Keys) {
-        Write-Info "  Creating table: $tableName"
-        $columns = ($tables[$tableName] | ForEach-Object { "$($_.name)=$($_.type)" }) -join ","
+        $tableBody = @{
+            properties = @{
+                schema = @{
+                    name = $tableName
+                    columns = @(
+                        @{name="TimeGenerated"; type="datetime"}
+                        @{name="IngestionTime"; type="datetime"}
+                        @{name="SourceSystem"; type="string"}
+                    )
+                }
+                retentionInDays = 30
+                plan = "Analytics"
+            }
+        } | ConvertTo-Json -Depth 10
+
+        $uri = "https://management.azure.com$($script:WorkspaceResourceId)/tables/$($tableName)?api-version=2022-10-01"
 
         try {
-            az monitor log-analytics workspace table create `
-                --resource-group $ResourceGroup `
-                --workspace-name $Names.LogAnalyticsWorkspace `
-                --name $tableName `
-                --columns $columns `
-                --output none 2>$null
-        }
-        catch {
-            Write-Warn "  Table $tableName may already exist"
+            az rest --method PUT --uri $uri --body $tableBody --output none 2>$null
+        } catch {
+            Write-Log "Table $tableName may already exist" -Level WARN
         }
     }
 
-    Write-Success "Custom tables created"
+    Write-Log "Custom tables created" -Level SUCCESS
 }
-
-#######################################
-# Create Data Collection Endpoint
-#######################################
 
 function New-DataCollectionEndpoint {
-    param($Names)
+    Write-Log "Creating Data Collection Endpoint" -Level STEP
 
-    Write-Info "Creating Data Collection Endpoint..."
+    $existing = az monitor data-collection endpoint show --resource-group $script:ResourceGroupName --name $script:DceName 2>$null
+    if ($existing) {
+        Write-Log "DCE $($script:DceName) already exists" -Level WARN
+    } else {
+        az monitor data-collection endpoint create `
+            --resource-group $script:ResourceGroupName `
+            --name $script:DceName `
+            --location $Location `
+            --public-network-access Enabled `
+            --output none
+        Write-Log "Created DCE: $($script:DceName)" -Level SUCCESS
+    }
 
-    az monitor data-collection endpoint create `
-        --resource-group $ResourceGroup `
-        --name $Names.DCE `
-        --location $Location `
-        --public-network-access Enabled `
-        --output none
+    $dceJson = az monitor data-collection endpoint show `
+        --resource-group $script:ResourceGroupName `
+        --name $script:DceName 2>$null
 
-    $dce = az monitor data-collection endpoint show `
-        --resource-group $ResourceGroup `
-        --name $Names.DCE | ConvertFrom-Json
+    $dce = $dceJson | ConvertFrom-Json
+    $script:DceEndpoint = $dce.logsIngestion.endpoint
+    $script:DceResourceId = $dce.id
 
-    Write-Success "DCE created: $($dce.logsIngestion.endpoint)"
-    return $dce
+    Write-Log "DCE Endpoint: $($script:DceEndpoint)" -Level INFO
 }
-
-#######################################
-# Create Data Collection Rule
-#######################################
 
 function New-DataCollectionRule {
-    param($Names, $Workspace, $DCE)
+    Write-Log "Creating Data Collection Rule" -Level STEP
 
-    Write-Info "Creating Data Collection Rule..."
+    $streams = @(
+        "IntuneDevices_CL",
+        "IntuneCompliancePolicies_CL",
+        "IntuneComplianceStates_CL",
+        "IntuneDeviceScores_CL",
+        "IntuneStartupPerformance_CL",
+        "IntuneAppReliability_CL",
+        "IntuneAutopilotDevices_CL",
+        "IntuneAutopilotProfiles_CL",
+        "IntuneSyncState_CL"
+    )
 
-    # For simplicity, create a basic DCR - the full stream config would be more complex
-    # The DCR will accept data and route it to Log Analytics
+    $streamDeclarations = @{}
+    $dataFlows = @()
+
+    foreach ($stream in $streams) {
+        $streamName = "Custom-$stream"
+        $streamDeclarations[$streamName] = @{
+            columns = @(
+                @{name="TimeGenerated"; type="datetime"}
+                @{name="IngestionTime"; type="datetime"}
+                @{name="SourceSystem"; type="string"}
+            )
+        }
+        $dataFlows += @{
+            streams = @($streamName)
+            destinations = @("logAnalyticsWorkspace")
+            transformKql = "source"
+            outputStream = $streamName
+        }
+    }
+
+    $dcrBody = @{
+        location = $Location
+        properties = @{
+            dataCollectionEndpointId = $script:DceResourceId
+            streamDeclarations = $streamDeclarations
+            destinations = @{
+                logAnalytics = @(
+                    @{
+                        workspaceResourceId = $script:WorkspaceResourceId
+                        name = "logAnalyticsWorkspace"
+                    }
+                )
+            }
+            dataFlows = $dataFlows
+        }
+    } | ConvertTo-Json -Depth 10
+
+    $script:DcrResourceId = "/subscriptions/$($script:SubscriptionId)/resourceGroups/$($script:ResourceGroupName)/providers/Microsoft.Insights/dataCollectionRules/$($script:DcrName)"
+    $uri = "https://management.azure.com$($script:DcrResourceId)?api-version=2022-06-01"
 
     try {
-        az monitor data-collection rule create `
-            --resource-group $ResourceGroup `
-            --name $Names.DCR `
-            --location $Location `
-            --data-collection-endpoint-id $DCE.id `
-            --output none 2>$null
-    }
-    catch {
-        Write-Warn "DCR creation may need manual configuration"
+        az rest --method PUT --uri $uri --body $dcrBody --output none 2>$null
+    } catch {
+        Write-Log "DCR may already exist" -Level WARN
     }
 
-    $dcr = az monitor data-collection rule show `
-        --resource-group $ResourceGroup `
-        --name $Names.DCR 2>$null | ConvertFrom-Json
+    $dcrJson = az rest --method GET --uri $uri 2>$null
+    $dcr = $dcrJson | ConvertFrom-Json
+    $script:DcrImmutableId = $dcr.properties.immutableId
 
-    if ($dcr) {
-        Write-Success "DCR created: $($dcr.immutableId)"
+    if ($script:DcrImmutableId) {
+        Write-Log "Created DCR: $($script:DcrName) (ID: $($script:DcrImmutableId))" -Level SUCCESS
+    } else {
+        Write-Log "Failed to create DCR" -Level ERROR
+        exit 1
     }
-    else {
-        Write-Warn "Could not retrieve DCR - may need manual setup"
-        $dcr = @{ immutableId = "NEEDS_CONFIGURATION" }
-    }
-
-    return $dcr
 }
-
-#######################################
-# Create Function App
-#######################################
 
 function New-FunctionApp {
-    param($Names)
+    Write-Log "Creating Function App" -Level STEP
 
-    Write-Info "Creating Function App (Flex Consumption)..."
-
-    # Try Flex Consumption first (modern), fall back to legacy if region doesn't support it
-    $flexResult = az functionapp create `
-        --resource-group $ResourceGroup `
-        --flexconsumption-location $Location `
-        --runtime python `
-        --runtime-version 3.11 `
-        --name $Names.FunctionApp `
-        --storage-account $Names.StorageAccount `
-        --output none 2>&1
-
-    if ($LASTEXITCODE -eq 0) {
-        Write-Success "Function App created (Flex Consumption): $($Names.FunctionApp)"
+    $existing = az functionapp show --resource-group $script:ResourceGroupName --name $script:FunctionAppName 2>$null
+    if ($existing) {
+        Write-Log "Function App $($script:FunctionAppName) already exists" -Level WARN
+        return
     }
-    else {
-        Write-Warn "Flex Consumption not available in $Location, using legacy Consumption plan"
+
+    # Try Flex Consumption first
+    try {
         az functionapp create `
-            --resource-group $ResourceGroup `
-            --consumption-plan-location $Location `
+            --resource-group $script:ResourceGroupName `
+            --flexconsumption-location $Location `
             --runtime python `
             --runtime-version 3.11 `
-            --functions-version 4 `
-            --name $Names.FunctionApp `
-            --storage-account $Names.StorageAccount `
-            --os-type Linux `
-            --output none
-        Write-Success "Function App created (Consumption): $($Names.FunctionApp)"
-    }
-}
+            --name $script:FunctionAppName `
+            --storage-account $script:StorageAccountName `
+            --output none 2>$null
 
-#######################################
-# Create App Registration
-#######################################
+        if ($LASTEXITCODE -eq 0) {
+            Write-Log "Created Function App (Flex Consumption): $($script:FunctionAppName)" -Level SUCCESS
+            return
+        }
+    } catch { }
+
+    Write-Log "Flex Consumption not available, using legacy Consumption plan" -Level WARN
+    az functionapp create `
+        --resource-group $script:ResourceGroupName `
+        --consumption-plan-location $Location `
+        --runtime python `
+        --runtime-version 3.11 `
+        --functions-version 4 `
+        --name $script:FunctionAppName `
+        --storage-account $script:StorageAccountName `
+        --os-type Linux `
+        --output none
+    Write-Log "Created Function App (Consumption): $($script:FunctionAppName)" -Level SUCCESS
+}
 
 function New-AppRegistration {
-    param($Names)
+    Write-Log "Creating App Registration" -Level STEP
 
-    Write-Info "Creating App Registration..."
-
-    # Check if exists
-    $existingApp = az ad app list --display-name $Names.AppRegistration --query "[0].appId" -o tsv 2>$null
+    $existingApp = az ad app list --display-name $script:AppRegistrationName --query "[0].appId" -o tsv 2>$null
 
     if ($existingApp) {
-        Write-Info "App Registration already exists, using: $existingApp"
-        $clientId = $existingApp
-    }
-    else {
-        $clientId = az ad app create --display-name $Names.AppRegistration --query appId -o tsv
-        az ad sp create --id $clientId --output none 2>$null
+        Write-Log "App Registration already exists: $existingApp" -Level WARN
+        $script:AppClientId = $existingApp
+    } else {
+        $script:AppClientId = az ad app create --display-name $script:AppRegistrationName --query appId -o tsv
+        az ad sp create --id $script:AppClientId --output none 2>$null
+        Write-Log "Created App Registration: $($script:AppRegistrationName)" -Level SUCCESS
     }
 
-    # Create/reset secret
-    $clientSecret = az ad app credential reset `
-        --id $clientId `
+    $credentialJson = az ad app credential reset `
+        --id $script:AppClientId `
         --display-name "intune-reporting-secret" `
-        --years 2 `
-        --query password -o tsv
+        --years 2 2>$null
 
-    $tenantId = (az account show --query tenantId -o tsv)
+    $credential = $credentialJson | ConvertFrom-Json
+    $script:AppClientSecret = $credential.password
 
-    Write-Success "App Registration ready"
+    Write-Log "Client ID: $($script:AppClientId)" -Level INFO
+}
 
-    return @{
-        ClientId = $clientId
-        ClientSecret = $clientSecret
-        TenantId = $tenantId
+function Grant-DcrPermissions {
+    Write-Log "Granting DCR Permissions" -Level STEP
+
+    $spObjectId = az ad sp list --filter "appId eq '$($script:AppClientId)'" --query "[0].id" -o tsv 2>$null
+
+    if (-not $spObjectId) {
+        Write-Log "Could not find service principal, skipping DCR permission" -Level WARN
+        return
+    }
+
+    $roleDefId = "/subscriptions/$($script:SubscriptionId)/providers/Microsoft.Authorization/roleDefinitions/3913510d-42f4-4e42-8a64-420c390055eb"
+    $assignmentId = [guid]::NewGuid().ToString()
+
+    $assignmentBody = @{
+        properties = @{
+            roleDefinitionId = $roleDefId
+            principalId = $spObjectId
+            principalType = "ServicePrincipal"
+        }
+    } | ConvertTo-Json
+
+    $uri = "https://management.azure.com$($script:DcrResourceId)/providers/Microsoft.Authorization/roleAssignments/$($assignmentId)?api-version=2022-04-01"
+
+    try {
+        az rest --method PUT --uri $uri --body $assignmentBody --output none 2>$null
+        Write-Log "Granted Monitoring Metrics Publisher role on DCR" -Level SUCCESS
+    } catch {
+        Write-Log "DCR permission may already exist" -Level WARN
     }
 }
 
-#######################################
-# Configure Function App
-#######################################
-
-function Set-FunctionAppSettings {
-    param($Names, $AppReg, $DCE, $DCR)
-
-    Write-Info "Configuring Function App settings..."
-
-    $dceEndpoint = if ($DCE.logsIngestion) { $DCE.logsIngestion.endpoint } else { "NEEDS_CONFIGURATION" }
-    $dcrId = if ($DCR.immutableId) { $DCR.immutableId } else { "NEEDS_CONFIGURATION" }
+function Set-FunctionAppConfiguration {
+    Write-Log "Configuring Function App" -Level STEP
 
     az functionapp config appsettings set `
-        --resource-group $ResourceGroup `
-        --name $Names.FunctionApp `
+        --resource-group $script:ResourceGroupName `
+        --name $script:FunctionAppName `
         --settings `
-            "AZURE_TENANT_ID=$($AppReg.TenantId)" `
-            "AZURE_CLIENT_ID=$($AppReg.ClientId)" `
-            "AZURE_CLIENT_SECRET=$($AppReg.ClientSecret)" `
+            "AZURE_TENANT_ID=$($script:TenantId)" `
+            "AZURE_CLIENT_ID=$($script:AppClientId)" `
+            "AZURE_CLIENT_SECRET=$($script:AppClientSecret)" `
             "ANALYTICS_BACKEND=LogAnalytics" `
-            "LOG_ANALYTICS_DCE=$dceEndpoint" `
-            "LOG_ANALYTICS_DCR_ID=$dcrId" `
+            "LOG_ANALYTICS_DCE=$($script:DceEndpoint)" `
+            "LOG_ANALYTICS_DCR_ID=$($script:DcrImmutableId)" `
         --output none
 
-    Write-Success "Function App configured"
+    Write-Log "Function App configured" -Level SUCCESS
 }
 
-#######################################
-# Deploy Function Code
-#######################################
+function Publish-FunctionCode {
+    Write-Log "Deploying Function Code" -Level STEP
 
-function Publish-FunctionApp {
-    param($Names)
-
-    Write-Info "Deploying Function App code..."
-
-    $scriptDir = Split-Path -Parent $MyInvocation.ScriptName
+    $scriptDir = $PSScriptRoot
     if (-not $scriptDir) { $scriptDir = Get-Location }
-
     $functionsDir = Join-Path $scriptDir "functions"
 
     if (-not (Test-Path $functionsDir)) {
-        Write-Err "Functions directory not found: $functionsDir"
+        Write-Log "Functions directory not found: $functionsDir" -Level ERROR
         exit 1
     }
 
     Push-Location $functionsDir
     try {
-        func azure functionapp publish $Names.FunctionApp --python
-    }
-    finally {
+        func azure functionapp publish $script:FunctionAppName --python
+        Write-Log "Function code deployed" -Level SUCCESS
+    } finally {
         Pop-Location
     }
-
-    Write-Success "Function App code deployed"
 }
 
-#######################################
-# Print Summary
-#######################################
+function Deploy-Workbooks {
+    Write-Log "Deploying Workbooks" -Level STEP
 
-function Write-Summary {
-    param($Names, $AppReg)
+    $scriptDir = $PSScriptRoot
+    if (-not $scriptDir) { $scriptDir = Get-Location }
+    $workbooksDir = Join-Path $scriptDir "workbooks"
 
-    $subscriptionId = (az account show --query id -o tsv)
+    if (-not (Test-Path $workbooksDir)) {
+        Write-Log "Workbooks directory not found, skipping" -Level WARN
+        return
+    }
 
+    az extension add --name application-insights --yes 2>$null
+
+    $workbooks = @{
+        "device-inventory.workbook" = "Intune Device Inventory"
+        "compliance-overview.workbook" = "Intune Compliance Overview"
+        "device-health.workbook" = "Intune Device Health"
+        "autopilot-deployment.workbook" = "Intune Autopilot Deployment"
+    }
+
+    foreach ($file in $workbooks.Keys) {
+        $workbookPath = Join-Path $workbooksDir $file
+        $displayName = $workbooks[$file]
+
+        if (-not (Test-Path $workbookPath)) {
+            Write-Log "Workbook not found: $file" -Level WARN
+            continue
+        }
+
+        $hashBytes = [System.Security.Cryptography.MD5]::Create().ComputeHash(
+            [System.Text.Encoding]::UTF8.GetBytes("$($script:NamePrefix)-$file")
+        )
+        $guid = [guid]::new($hashBytes[0..15])
+        $workbookUuid = $guid.ToString()
+
+        Write-Log "Deploying: $displayName" -Level INFO
+
+        try {
+            az monitor app-insights workbook create `
+                --resource-group $script:ResourceGroupName `
+                --name $workbookUuid `
+                --display-name $displayName `
+                --kind shared `
+                --category workbook `
+                --location $Location `
+                --source-id $script:WorkspaceResourceId `
+                --serialized-data "@$workbookPath" `
+                --output none 2>$null
+        } catch {
+            Write-Log "Workbook may already exist: $displayName" -Level WARN
+        }
+    }
+
+    Write-Log "Workbooks deployed" -Level SUCCESS
+}
+#endregion
+
+#region Summary
+function Show-Summary {
     Write-Host ""
     Write-Host "==============================================" -ForegroundColor Green
     Write-Host "DEPLOYMENT COMPLETE" -ForegroundColor Green
     Write-Host "==============================================" -ForegroundColor Green
     Write-Host ""
-    Write-Host "Resources created in: $ResourceGroup"
+    Write-Host "Resources created in: $($script:ResourceGroupName)"
     Write-Host ""
-    Write-Host "Function App: https://$($Names.FunctionApp).azurewebsites.net"
-    Write-Host "Log Analytics: $($Names.LogAnalyticsWorkspace)"
+    Write-Host "Function App:    https://$($script:FunctionAppName).azurewebsites.net"
+    Write-Host "Log Analytics:   $($script:LogAnalyticsName)"
     Write-Host ""
     Write-Host "App Registration:"
-    Write-Host "  Name:      $($Names.AppRegistration)"
-    Write-Host "  Client ID: $($AppReg.ClientId)"
-    Write-Host "  Tenant ID: $($AppReg.TenantId)"
+    Write-Host "  Name:          $($script:AppRegistrationName)"
+    Write-Host "  Client ID:     $($script:AppClientId)"
+    Write-Host "  Tenant ID:     $($script:TenantId)"
     Write-Host ""
-    Write-Host "NEXT STEPS:" -ForegroundColor Yellow
+    Write-Host "IMPORTANT: Grant Microsoft Graph API permissions" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "1. Grant Microsoft Graph API permissions to the App Registration:"
+    Write-Host "1. Open Azure Portal > App Registrations > $($script:AppRegistrationName)"
+    Write-Host "2. Go to API Permissions > Add a permission > Microsoft Graph"
+    Write-Host "3. Select Application permissions and add:"
     Write-Host "   - DeviceManagementManagedDevices.Read.All"
     Write-Host "   - DeviceManagementConfiguration.Read.All"
     Write-Host "   - DeviceManagementServiceConfig.Read.All"
+    Write-Host "4. Click 'Grant admin consent'"
     Write-Host ""
-    Write-Host "   Open in Azure Portal:"
-    Write-Host "   https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/CallAnAPI/appId/$($AppReg.ClientId)"
+    Write-Host "Quick link:"
+    Write-Host "https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/CallAnAPI/appId/$($script:AppClientId)"
     Write-Host ""
-    Write-Host "2. Test the functions in Azure Portal:"
-    Write-Host "   https://portal.azure.com/#@/resource/subscriptions/$subscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.Web/sites/$($Names.FunctionApp)/functions"
+    Write-Host "Test endpoints:"
+    Write-Host "  Health:  https://$($script:FunctionAppName).azurewebsites.net/api/export/health"
+    Write-Host "  Test:    https://$($script:FunctionAppName).azurewebsites.net/api/export/test"
     Write-Host ""
     Write-Host "==============================================" -ForegroundColor Green
 }
+#endregion
 
-#######################################
-# Main
-#######################################
-
+#region Main
 Write-Host ""
 Write-Host "==============================================" -ForegroundColor Cyan
-Write-Host "  Intune Reporting - Deployment Script" -ForegroundColor Cyan
+Write-Host "  Intune Reporting - Production Deployment" -ForegroundColor Cyan
 Write-Host "==============================================" -ForegroundColor Cyan
 Write-Host ""
 
-$account = Test-Prerequisites
-$names = Get-ResourceNames -Account $account
-
-Write-Host ""
-Write-Host "Resource names to be created:"
-Write-Host "  Resource Group:     $ResourceGroup"
-Write-Host "  Storage Account:    $($names.StorageAccount)"
-Write-Host "  Function App:       $($names.FunctionApp)"
-Write-Host "  Log Analytics:      $($names.LogAnalyticsWorkspace)"
-Write-Host "  App Registration:   $($names.AppRegistration)"
-Write-Host ""
-
-$confirm = Read-Host "Deploy to Azure with these settings? (y/n)"
-if ($confirm -ne "y" -and $confirm -ne "Y") {
-    Write-Info "Deployment cancelled"
-    exit 0
-}
-
-Write-Host ""
-
+Test-Prerequisites
+Get-Configuration
 New-ResourceGroup
-New-StorageAccount -Names $names
-$workspace = New-LogAnalyticsWorkspace -Names $names
-New-CustomTables -Names $names
-$dce = New-DataCollectionEndpoint -Names $names
-$dcr = New-DataCollectionRule -Names $names -Workspace $workspace -DCE $dce
-New-FunctionApp -Names $names
-$appReg = New-AppRegistration -Names $names
-Set-FunctionAppSettings -Names $names -AppReg $appReg -DCE $dce -DCR $dcr
-Publish-FunctionApp -Names $names
-Write-Summary -Names $names -AppReg $appReg
+New-StorageAccount
+New-LogAnalyticsWorkspace
+New-CustomTables
+New-DataCollectionEndpoint
+New-DataCollectionRule
+New-FunctionApp
+New-AppRegistration
+Grant-DcrPermissions
+Set-FunctionAppConfiguration
+Publish-FunctionCode
+Deploy-Workbooks
+Show-Summary
+#endregion

@@ -227,7 +227,7 @@ create_log_analytics() {
             --resource-group "$RESOURCE_GROUP" \
             --workspace-name "$LOG_ANALYTICS" \
             --location "$LOCATION" \
-            --retention-time 90 \
+            --retention-time 30 \
             --output none
         log_success "Created Log Analytics workspace: $LOG_ANALYTICS"
     fi
@@ -281,7 +281,7 @@ create_custom_tables() {
                     {"name": "FreeStorageGB", "type": "real"}
                 ]
             },
-            "retentionInDays": 90,
+            "retentionInDays": 30,
             "plan": "Analytics"
         }
     }'
@@ -302,7 +302,7 @@ create_custom_tables() {
                     {"name": "LastModifiedDateTime", "type": "datetime"}
                 ]
             },
-            "retentionInDays": 90,
+            "retentionInDays": 30,
             "plan": "Analytics"
         }
     }'
@@ -327,7 +327,7 @@ create_custom_tables() {
                     {"name": "FailedSettingCount", "type": "int"}
                 ]
             },
-            "retentionInDays": 90,
+            "retentionInDays": 30,
             "plan": "Analytics"
         }
     }'
@@ -351,7 +351,7 @@ create_custom_tables() {
                     {"name": "WorkFromAnywhereScore", "type": "real"}
                 ]
             },
-            "retentionInDays": 90,
+            "retentionInDays": 30,
             "plan": "Analytics"
         }
     }'
@@ -374,7 +374,7 @@ create_custom_tables() {
                     {"name": "IsFeatureUpdate", "type": "boolean"}
                 ]
             },
-            "retentionInDays": 90,
+            "retentionInDays": 30,
             "plan": "Analytics"
         }
     }'
@@ -396,7 +396,7 @@ create_custom_tables() {
                     {"name": "MeanTimeToFailureInMinutes", "type": "int"}
                 ]
             },
-            "retentionInDays": 90,
+            "retentionInDays": 30,
             "plan": "Analytics"
         }
     }'
@@ -420,7 +420,7 @@ create_custom_tables() {
                     {"name": "UserPrincipalName", "type": "string"}
                 ]
             },
-            "retentionInDays": 90,
+            "retentionInDays": 30,
             "plan": "Analytics"
         }
     }'
@@ -442,7 +442,7 @@ create_custom_tables() {
                     {"name": "ProfileType", "type": "string"}
                 ]
             },
-            "retentionInDays": 90,
+            "retentionInDays": 30,
             "plan": "Analytics"
         }
     }'
@@ -462,7 +462,7 @@ create_custom_tables() {
                     {"name": "ErrorMessage", "type": "string"}
                 ]
             },
-            "retentionInDays": 90,
+            "retentionInDays": 30,
             "plan": "Analytics"
         }
     }'

@@ -3,7 +3,7 @@
 ## Current State
 **Date:** 2026-01-27
 **Status:** Working prototype - needs polish
-**Deployment Script:** Bash (deploy.sh) - PowerShell version needed
+**Deployment Scripts:** Both Bash (deploy.sh) and PowerShell (deploy.ps1) available
 
 ---
 
@@ -58,7 +58,7 @@
 
 ### Medium
 2. **Workbooks are basic** - Current workbooks have minimal visualizations, need improvement with proper KQL queries
-3. **No PowerShell deployment script** - Only bash script available, Windows users need Git Bash or WSL
+3. ~~No PowerShell deployment script~~ - **RESOLVED**: deploy.ps1 now available
 4. **No alert rules** - No automated alerting for failures or anomalies
 
 ### Low
@@ -70,10 +70,10 @@
 ## What's Missing / TODO
 
 ### High Priority
-- [ ] **PowerShell deployment script** (deploy.ps1) with same functionality as deploy.sh
+- [x] **PowerShell deployment script** (deploy.ps1) with same functionality as deploy.sh
 - [ ] **Improved workbooks** with rich KQL queries and visualizations
 - [ ] **Test documentation** - Formal test cases with expected outcomes
-- [ ] **Sample alert rules** (1-2) for common scenarios
+- [ ] **Sample alert rules** (1-2) for Intune data scenarios (e.g., non-compliant devices, stale sync)
 
 ### Medium Priority
 - [ ] Consider **Azure Dashboards** instead of/in addition to Workbooks
@@ -119,7 +119,7 @@ These must be granted manually after deployment:
 
 1. **Flex Consumption Plan** - Pay only when functions run (scales to zero)
 2. **Timer schedules** - Functions run on schedule, not continuously
-3. **Log Analytics retention** - Set to 90 days (configurable)
+3. **Log Analytics retention** - Set to 30 days (configurable)
 4. **No always-on resources** - Everything scales to zero when idle
 
 ---
