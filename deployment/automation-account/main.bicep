@@ -503,7 +503,7 @@ resource runbooks 'Microsoft.Automation/automationAccounts/runbooks@2023-11-01' 
   name: cfg.name
   location: location
   properties: {
-    runbookType: 'Python310'
+    runbookType: 'Python3'
     logProgress: true
     logVerbose: true
     description: cfg.desc
