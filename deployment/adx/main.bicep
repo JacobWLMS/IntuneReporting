@@ -83,17 +83,17 @@ resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-
 }
 
 // ============================================================================
-// App Service Plan (Consumption/Serverless)
+// App Service Plan (Flex Consumption)
 // ============================================================================
 
-resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
+resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: appServicePlanName
   location: location
   sku: {
-    name: 'Y1'
-    tier: 'Dynamic'
+    name: 'FC1'
+    tier: 'FlexConsumption'
   }
-  kind: 'linux'
+  kind: 'functionapp'
   properties: {
     reserved: true
   }
