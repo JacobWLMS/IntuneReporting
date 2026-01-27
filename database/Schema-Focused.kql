@@ -1,44 +1,57 @@
 // =============================================================================
-// INTUNE ANALYTICS - ADX SCHEMA WITH DEDUPLICATION
+// INTUNE ANALYTICS - ADX SCHEMA
 // =============================================================================
 // Architecture: Raw tables (short retention) + Materialized Views (current state)
-// This solves the "duplicate data" problem - query views, not raw tables
+// This solves the "duplicate data" problem - always query *_Current views!
 // =============================================================================
 
 // -----------------------------------------------------------------------------
-// CORE TABLES: Devices & Users (the anchors everything links to)
+// MANAGED DEVICES: Core inventory table (everything links to this)
+// Runbook: export_devices.py | Schedule: Every 4 hours
 // -----------------------------------------------------------------------------
 
 .create table ManagedDevices (
     DeviceId: string,
     DeviceName: string,
-    UserId: string,
     UserPrincipalName: string,
     UserDisplayName: string,
     OperatingSystem: string,
     OSVersion: string,
     ComplianceState: string,
-    ManagementAgent: string,
+    ManagementState: string,
     EnrolledDateTime: datetime,
     LastSyncDateTime: datetime,
-    Model: string,
     Manufacturer: string,
+    Model: string,
     SerialNumber: string,
+    IMEI: string,
+    ManagementAgent: string,
+    OwnerType: string,
+    DeviceEnrollmentType: string,
+    EmailAddress: string,
+    AzureADRegistered: bool,
+    AzureADDeviceId: string,
+    DeviceRegistrationState: string,
     IsEncrypted: bool,
     IsSupervised: bool,
-    AzureADDeviceId: string,
+    JailBroken: string,
+    AutopilotEnrolled: bool,
+    DeviceCategory: string,
+    TotalStorageGB: real,
+    FreeStorageGB: real,
+    PhysicalMemoryGB: real,
+    WiFiMacAddress: string,
+    EthernetMacAddress: string,
     TimeGenerated: datetime,
     IngestionTime: datetime,
     SourceSystem: string
 )
 
-// 7-day retention on raw table - we only need current state
 .alter table ManagedDevices policy retention 
 ```
 { "SoftDeletePeriod": "7.00:00:00", "Recoverability": "Disabled" }
 ```
 
-// Materialized view = always get latest record per device (QUERY THIS!)
 .create materialized-view ManagedDevices_Current on table ManagedDevices {
     ManagedDevices
     | summarize arg_max(IngestionTime, *) by DeviceId
@@ -46,7 +59,8 @@
 
 
 // -----------------------------------------------------------------------------
-// COMPLIANCE: The core actionable data
+// COMPLIANCE POLICIES: Policy definitions
+// Runbook: export_compliance.py | Schedule: Every 6 hours
 // -----------------------------------------------------------------------------
 
 .create table CompliancePolicies (
@@ -72,6 +86,11 @@
 }
 
 
+// -----------------------------------------------------------------------------
+// DEVICE COMPLIANCE STATES: Per-device per-policy compliance status
+// Runbook: export_compliance.py | Schedule: Every 6 hours
+// -----------------------------------------------------------------------------
+
 .create table DeviceComplianceStates (
     DeviceId: string,
     DeviceName: string,
@@ -95,7 +114,6 @@
 { "SoftDeletePeriod": "7.00:00:00", "Recoverability": "Disabled" }
 ```
 
-// Current compliance state per device per policy
 .create materialized-view DeviceComplianceStates_Current on table DeviceComplianceStates {
     DeviceComplianceStates
     | summarize arg_max(IngestionTime, *) by DeviceId, PolicyId
@@ -103,7 +121,8 @@
 
 
 // -----------------------------------------------------------------------------
-// ENDPOINT ANALYTICS: Performance and health metrics
+// DEVICE SCORES: Endpoint Analytics health scores
+// Runbook: export_endpoint_analytics.py | Schedule: Daily 8 AM UTC
 // -----------------------------------------------------------------------------
 
 .create table DeviceScores (
@@ -134,6 +153,12 @@
 }
 
 
+// -----------------------------------------------------------------------------
+// STARTUP PERFORMANCE: Boot and login timing history
+// Runbook: export_endpoint_analytics.py | Schedule: Daily 8 AM UTC
+// Note: Longer retention for trend analysis
+// -----------------------------------------------------------------------------
+
 .create table StartupPerformance (
     DeviceId: string,
     StartTime: datetime,
@@ -153,12 +178,16 @@
     SourceSystem: string
 )
 
-// Keep startup history longer - useful for trend analysis
 .alter table StartupPerformance policy retention 
 ```
 { "SoftDeletePeriod": "30.00:00:00", "Recoverability": "Disabled" }
 ```
 
+
+// -----------------------------------------------------------------------------
+// APP RELIABILITY: Application crash and hang metrics
+// Runbook: export_endpoint_analytics.py | Schedule: Daily 8 AM UTC
+// -----------------------------------------------------------------------------
 
 .create table AppReliability (
     AppName: string,
@@ -187,17 +216,100 @@
 
 
 // -----------------------------------------------------------------------------
-// SYNC STATE: Track what was exported when
+// AUTOPILOT DEVICES: Windows Autopilot device identities
+// Runbook: export_autopilot.py | Schedule: Daily 6 AM UTC
+// -----------------------------------------------------------------------------
+
+.create table AutopilotDevices (
+    AutopilotDeviceId: string,
+    SerialNumber: string,
+    ProductKey: string,
+    Manufacturer: string,
+    Model: string,
+    GroupTag: string,
+    PurchaseOrderIdentifier: string,
+    EnrollmentState: string,
+    EnrollmentStateRaw: int,
+    DeploymentProfileAssignmentStatus: string,
+    DeploymentProfileAssignmentStatusRaw: int,
+    DeploymentProfileAssignedDateTime: datetime,
+    LastContactedDateTime: datetime,
+    AddressableUserName: string,
+    UserPrincipalName: string,
+    ResourceName: string,
+    SkuNumber: string,
+    SystemFamily: string,
+    AzureActiveDirectoryDeviceId: string,
+    AzureAdDeviceId: string,
+    ManagedDeviceId: string,
+    DisplayName: string,
+    DeviceAccountUpn: string,
+    DeviceFriendlyName: string,
+    RemediationState: string,
+    RemediationStateLastModifiedDateTime: datetime,
+    TimeGenerated: datetime,
+    IngestionTime: datetime,
+    SourceSystem: string
+)
+
+.alter table AutopilotDevices policy retention 
+```
+{ "SoftDeletePeriod": "7.00:00:00", "Recoverability": "Disabled" }
+```
+
+.create materialized-view AutopilotDevices_Current on table AutopilotDevices {
+    AutopilotDevices
+    | summarize arg_max(IngestionTime, *) by AutopilotDeviceId
+}
+
+
+// -----------------------------------------------------------------------------
+// AUTOPILOT PROFILES: Deployment profile definitions
+// Runbook: export_autopilot.py | Schedule: Daily 6 AM UTC
+// -----------------------------------------------------------------------------
+
+.create table AutopilotProfiles (
+    ProfileId: string,
+    DisplayName: string,
+    Description: string,
+    CreatedDateTime: datetime,
+    LastModifiedDateTime: datetime,
+    Language: string,
+    DeviceNameTemplate: string,
+    DeviceType: string,
+    EnableWhiteGlove: bool,
+    ExtractHardwareHash: bool,
+    OutOfBoxExperienceSettings: dynamic,
+    ProfileType: string,
+    TimeGenerated: datetime,
+    IngestionTime: datetime,
+    SourceSystem: string
+)
+
+.alter table AutopilotProfiles policy retention 
+```
+{ "SoftDeletePeriod": "7.00:00:00", "Recoverability": "Disabled" }
+```
+
+.create materialized-view AutopilotProfiles_Current on table AutopilotProfiles {
+    AutopilotProfiles
+    | summarize arg_max(IngestionTime, *) by ProfileId
+}
+
+
+// -----------------------------------------------------------------------------
+// SYNC STATE: Export tracking and audit log
+// All runbooks write to this
 // -----------------------------------------------------------------------------
 
 .create table SyncState (
-    ExportType: string,
+    SyncType: string,
     RecordCount: int,
-    StartTime: datetime,
-    EndTime: datetime,
-    DurationSeconds: real,
+    PolicyCount: int,
+    StateCount: int,
     Status: string,
-    ErrorMessage: string,
+    DurationSeconds: real,
+    SyncTime: datetime,
     TimeGenerated: datetime,
     IngestionTime: datetime,
     SourceSystem: string
@@ -205,24 +317,30 @@
 
 
 // =============================================================================
-// FUNCTIONS: Actionable queries for dashboards and alerts
+// FUNCTIONS: Pre-built queries for dashboards and alerts
 // =============================================================================
 
-// Get non-compliant devices with details
+// -----------------------------------------------------------------------------
+// COMPLIANCE FUNCTIONS
+// -----------------------------------------------------------------------------
+
+// Get all non-compliant devices with full details
 .create-or-alter function NonCompliantDevices() {
     DeviceComplianceStates_Current
     | where Status == "noncompliant"
     | join kind=leftouter ManagedDevices_Current on DeviceId
     | project 
         DeviceId,
-        DeviceName = coalesce(DeviceName, DeviceName1),
-        UserPrincipalName = coalesce(UserPrincipalName, UserPrincipalName1),
+        DeviceName,
+        UserPrincipalName,
         UserDisplayName,
         PolicyName,
         FailedSettingCount,
         LastContact,
         OperatingSystem,
         OSVersion,
+        Manufacturer,
+        Model,
         LastSyncDateTime
     | order by FailedSettingCount desc
 }
@@ -231,16 +349,80 @@
 .create-or-alter function ComplianceSummaryByPolicy() {
     DeviceComplianceStates_Current
     | summarize 
-        TotalDevices = count(),
         Compliant = countif(Status == "compliant"),
         NonCompliant = countif(Status == "noncompliant"),
         InGracePeriod = countif(Status == "inGracePeriod"),
         Unknown = countif(Status == "unknown"),
-        NotApplicable = countif(Status == "notApplicable")
+        Total = count()
         by PolicyId, PolicyName
-    | extend ComplianceRate = round(100.0 * Compliant / TotalDevices, 1)
-    | order by NonCompliant desc
+    | extend ComplianceRate = round(100.0 * Compliant / Total, 1)
+    | order by ComplianceRate asc
 }
+
+// Overall compliance rate
+.create-or-alter function ComplianceOverview() {
+    ManagedDevices_Current
+    | summarize 
+        Compliant = countif(ComplianceState == "compliant"),
+        NonCompliant = countif(ComplianceState == "noncompliant"),
+        InGracePeriod = countif(ComplianceState == "inGracePeriod"),
+        Unknown = countif(ComplianceState == "unknown" or isempty(ComplianceState)),
+        Total = count()
+    | extend ComplianceRate = round(100.0 * Compliant / Total, 1)
+}
+
+
+// -----------------------------------------------------------------------------
+// DEVICE INVENTORY FUNCTIONS
+// -----------------------------------------------------------------------------
+
+// Device inventory summary by OS
+.create-or-alter function DevicesByOS() {
+    ManagedDevices_Current
+    | summarize Count = count() by OperatingSystem
+    | order by Count desc
+}
+
+// Device inventory summary by manufacturer/model
+.create-or-alter function DevicesByHardware() {
+    ManagedDevices_Current
+    | summarize Count = count() by Manufacturer, Model
+    | order by Count desc
+}
+
+// Stale devices (not synced in X days)
+.create-or-alter function StaleDevices(staleDays: int = 14) {
+    ManagedDevices_Current
+    | where LastSyncDateTime < ago(staleDays * 1d)
+    | project 
+        DeviceId,
+        DeviceName,
+        UserPrincipalName,
+        LastSyncDateTime,
+        DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime),
+        OperatingSystem,
+        Model
+    | order by DaysSinceSync desc
+}
+
+// Unencrypted devices
+.create-or-alter function UnencryptedDevices() {
+    ManagedDevices_Current
+    | where IsEncrypted == false
+    | project 
+        DeviceId,
+        DeviceName,
+        UserPrincipalName,
+        OperatingSystem,
+        OSVersion,
+        Manufacturer,
+        Model
+}
+
+
+// -----------------------------------------------------------------------------
+// ENDPOINT ANALYTICS FUNCTIONS
+// -----------------------------------------------------------------------------
 
 // Devices with poor health scores
 .create-or-alter function PoorHealthDevices(threshold: real = 50.0) {
@@ -251,133 +433,162 @@
         DeviceId,
         DeviceName,
         UserPrincipalName,
-        Model,
-        HealthStatus,
         EndpointAnalyticsScore,
         StartupPerformanceScore,
         AppReliabilityScore,
-        LastSyncDateTime
+        HealthStatus,
+        OperatingSystem,
+        Model
     | order by EndpointAnalyticsScore asc
 }
 
-// Devices with slow startup times (over 60 seconds)
-.create-or-alter function SlowStartupDevices(thresholdMs: int = 60000) {
+// Slow boot devices
+.create-or-alter function SlowBootDevices(thresholdMs: int = 60000) {
     StartupPerformance
-    | where TotalBootTimeInMs > thresholdMs
+    | where StartTime > ago(7d)
     | summarize 
-        AvgBootTimeMs = avg(TotalBootTimeInMs),
-        MaxBootTimeMs = max(TotalBootTimeInMs),
+        AvgBootTime = avg(TotalBootTimeInMs),
+        MaxBootTime = max(TotalBootTimeInMs),
         BootCount = count()
         by DeviceId
+    | where AvgBootTime > thresholdMs
     | join kind=leftouter ManagedDevices_Current on DeviceId
     | project 
         DeviceId,
         DeviceName,
         UserPrincipalName,
-        AvgBootTimeMs = round(AvgBootTimeMs, 0),
-        MaxBootTimeMs,
+        AvgBootTimeSeconds = round(AvgBootTime / 1000, 1),
+        MaxBootTimeSeconds = round(MaxBootTime / 1000, 1),
         BootCount,
         Model
-    | order by AvgBootTimeMs desc
+    | order by AvgBootTimeSeconds desc
 }
 
-// Apps causing reliability issues
-.create-or-alter function ProblematicApps() {
+// Problematic apps
+.create-or-alter function ProblematicApps(minCrashes: int = 10) {
     AppReliability_Current
-    | where AppCrashCount > 0 or AppHangCount > 0
-    | extend TotalIssues = AppCrashCount + AppHangCount
+    | where AppCrashCount >= minCrashes or AppHangCount >= minCrashes
     | project 
+        AppName,
         AppDisplayName,
         AppPublisher,
         ActiveDeviceCount,
         AppCrashCount,
         AppHangCount,
-        TotalIssues,
-        MeanTimeToFailureInMinutes,
-        AppHealthScore
+        TotalIssues = AppCrashCount + AppHangCount,
+        AppHealthScore,
+        AppHealthStatus
     | order by TotalIssues desc
 }
 
-// Stale devices (not synced in X days)
-.create-or-alter function StaleDevices(daysInactive: int = 14) {
-    ManagedDevices_Current
-    | where LastSyncDateTime < ago(1d * daysInactive)
+
+// -----------------------------------------------------------------------------
+// AUTOPILOT FUNCTIONS
+// -----------------------------------------------------------------------------
+
+// Autopilot devices pending enrollment
+.create-or-alter function AutopilotPendingEnrollment() {
+    AutopilotDevices_Current
+    | where EnrollmentState in ("notContacted", "notRegistered", "pendingReset")
     | project 
-        DeviceId,
-        DeviceName,
-        UserPrincipalName,
-        UserDisplayName,
-        OperatingSystem,
-        LastSyncDateTime,
-        DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)
-    | order by DaysSinceSync desc
+        AutopilotDeviceId,
+        SerialNumber,
+        Manufacturer,
+        Model,
+        GroupTag,
+        EnrollmentState,
+        LastContactedDateTime,
+        DeploymentProfileAssignmentStatus
+    | order by LastContactedDateTime asc
 }
 
-// Device health overview for dashboard
-.create-or-alter function DeviceHealthOverview() {
-    ManagedDevices_Current
+// Autopilot enrollment failures
+.create-or-alter function AutopilotEnrollmentFailures() {
+    AutopilotDevices_Current
+    | where EnrollmentState == "failed" or EnrollmentState == "blocked"
+    | project 
+        AutopilotDeviceId,
+        SerialNumber,
+        Manufacturer,
+        Model,
+        GroupTag,
+        EnrollmentState,
+        RemediationState,
+        LastContactedDateTime
+}
+
+// Autopilot summary by group tag
+.create-or-alter function AutopilotSummaryByGroupTag() {
+    AutopilotDevices_Current
     | summarize 
-        TotalDevices = count(),
-        Compliant = countif(ComplianceState == "compliant"),
-        NonCompliant = countif(ComplianceState == "noncompliant"),
-        WindowsDevices = countif(OperatingSystem has "Windows"),
-        iOSDevices = countif(OperatingSystem has "iOS"),
-        AndroidDevices = countif(OperatingSystem has "Android"),
-        macOSDevices = countif(OperatingSystem has "macOS"),
-        EncryptedDevices = countif(IsEncrypted == true),
-        ActiveLast7Days = countif(LastSyncDateTime > ago(7d)),
-        ActiveLast30Days = countif(LastSyncDateTime > ago(30d))
-    | extend 
-        ComplianceRate = round(100.0 * Compliant / TotalDevices, 1),
-        EncryptionRate = round(100.0 * EncryptedDevices / TotalDevices, 1)
+        Enrolled = countif(EnrollmentState == "enrolled"),
+        Pending = countif(EnrollmentState in ("notContacted", "notRegistered", "pendingReset")),
+        Failed = countif(EnrollmentState == "failed"),
+        Total = count()
+        by GroupTag
+    | extend EnrollmentRate = round(100.0 * Enrolled / Total, 1)
+    | order by Total desc
 }
 
 
-// =============================================================================
-// ALERT QUERIES: For Logic App or other alerting systems
-// =============================================================================
+// -----------------------------------------------------------------------------
+// ALERT FUNCTIONS (for scheduled queries / Logic Apps)
+// -----------------------------------------------------------------------------
 
-// New non-compliant devices in last 6 hours (for alerting)
-.create-or-alter function AlertNewNonCompliant() {
-    DeviceComplianceStates
-    | where IngestionTime > ago(6h)
+// Alert: New non-compliant devices in last N hours
+.create-or-alter function AlertNewNonCompliant(hoursBack: int = 6) {
+    DeviceComplianceStates_Current
     | where Status == "noncompliant"
-    | join kind=anti (
-        DeviceComplianceStates
-        | where IngestionTime between (ago(12h) .. ago(6h))
-        | where Status == "noncompliant"
-    ) on DeviceId, PolicyId
+    | where IngestionTime > ago(hoursBack * 1h)
     | join kind=leftouter ManagedDevices_Current on DeviceId
     | project 
         DeviceId,
         DeviceName,
         UserPrincipalName,
-        UserDisplayName,
         PolicyName,
         FailedSettingCount,
-        DetectedAt = IngestionTime
-    | order by DetectedAt desc
+        DetectedTime = IngestionTime
 }
 
-// Health score dropped significantly
-.create-or-alter function AlertHealthScoreDrop(dropThreshold: real = 20.0) {
-    DeviceScores
-    | where IngestionTime > ago(1d)
-    | summarize arg_max(IngestionTime, *) by DeviceId
-    | join kind=inner (
-        DeviceScores
-        | where IngestionTime between (ago(2d) .. ago(1d))
-        | summarize arg_max(IngestionTime, EndpointAnalyticsScore) by DeviceId
-        | project DeviceId, PreviousScore = EndpointAnalyticsScore
-    ) on DeviceId
-    | extend ScoreDrop = PreviousScore - EndpointAnalyticsScore
-    | where ScoreDrop > dropThreshold
+// Alert: Devices not synced in X days
+.create-or-alter function AlertStaleDevices(staleDays: int = 7) {
+    ManagedDevices_Current
+    | where LastSyncDateTime < ago(staleDays * 1d)
+    | where IngestionTime > ago(1d)  // Only alert on recently seen devices
     | project 
         DeviceId,
         DeviceName,
-        PreviousScore,
+        UserPrincipalName,
+        LastSyncDateTime,
+        DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)
+}
+
+// Alert: Health score drops
+.create-or-alter function AlertHealthScoreDrop(dropThreshold: real = 20.0) {
+    DeviceScores
+    | where IngestionTime > ago(2d)
+    | summarize arg_max(IngestionTime, *), arg_min(IngestionTime, PreviousScore=EndpointAnalyticsScore) by DeviceId
+    | where EndpointAnalyticsScore < PreviousScore - dropThreshold
+    | project 
+        DeviceId,
+        DeviceName,
         CurrentScore = EndpointAnalyticsScore,
-        ScoreDrop,
-        HealthStatus
-    | order by ScoreDrop desc
+        PreviousScore,
+        ScoreDrop = PreviousScore - EndpointAnalyticsScore
+}
+
+// Alert: Autopilot enrollment failures
+.create-or-alter function AlertAutopilotFailures() {
+    AutopilotDevices_Current
+    | where EnrollmentState in ("failed", "blocked")
+    | where IngestionTime > ago(1d)
+    | project 
+        AutopilotDeviceId,
+        SerialNumber,
+        Manufacturer,
+        Model,
+        GroupTag,
+        EnrollmentState,
+        RemediationState,
+        LastContactedDateTime
 }

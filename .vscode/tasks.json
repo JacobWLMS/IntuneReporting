@@ -2,31 +2,13 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"type": "func",
-			"label": "func: host start",
-			"command": "host start",
-			"problemMatcher": "$func-python-watch",
-			"isBackground": true,
-			"dependsOn": "pip install (functions)",
-			"options": {
-				"cwd": "${workspaceFolder}/function-app"
-			}
-		},
-		{
-			"label": "pip install (functions)",
+			"label": "Build Bicep",
 			"type": "shell",
-			"osx": {
-				"command": "${config:azureFunctions.pythonVenv}/bin/python -m pip install -r requirements.txt"
-			},
-			"windows": {
-				"command": "${config:azureFunctions.pythonVenv}\\Scripts\\python -m pip install -r requirements.txt"
-			},
-			"linux": {
-				"command": "${config:azureFunctions.pythonVenv}/bin/python -m pip install -r requirements.txt"
-			},
+			"command": "bicep build deployment/automation-account/main.bicep --outfile deployment/automation-account/azuredeploy.json",
 			"problemMatcher": [],
-			"options": {
-				"cwd": "${workspaceFolder}/function-app"
+			"group": {
+				"kind": "build",
+				"isDefault": true
 			}
 		}
 	]

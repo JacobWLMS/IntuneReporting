@@ -36,12 +36,12 @@ Microsoft Intune portal is great for day-to-day management, but limited for:
 
 ## 📊 What Data Is Collected
 
-| Data | Why It's Useful | Schedule |
-|------|-----------------|----------|
-| **Devices + Compliance States** | "Which devices are non-compliant and why?" | Every 6 hours |
-| **Device Health Scores** | "Which devices have poor performance?" | Daily 8 AM UTC |
-| **Startup Performance** | "Which devices are slow to boot?" | Daily 8 AM UTC |
-| **App Reliability** | "Which apps are crashing?" | Daily 8 AM UTC |
+| Runbook | Data | Schedule |
+|---------|------|----------|
+| **Export-IntuneDevices** | Device inventory (core table all others reference) | Every 4 hours |
+| **Export-IntuneCompliance** | Compliance policies and per-device states | Every 6 hours |
+| **Export-EndpointAnalytics** | Health scores, startup performance, app reliability | Daily 8 AM UTC |
+| **Export-Autopilot** | Autopilot devices and deployment profiles | Daily 6 AM UTC |
 
 ## 🏗️ Architecture
 
@@ -87,6 +87,7 @@ If you provided `graphClientId` and `graphClientSecret` during deployment, your 
 |------------|------|---------|
 | `DeviceManagementManagedDevices.Read.All` | Application | Read devices and compliance |
 | `DeviceManagementConfiguration.Read.All` | Application | Read endpoint analytics |
+| `DeviceManagementServiceConfig.Read.All` | Application | Read Autopilot data |
 
 Grant these in **Azure Portal → Entra ID → App Registrations → Your App → API Permissions → Add Permission → Microsoft Graph → Application Permissions**.
 
@@ -117,15 +118,25 @@ Leave `graphClientId` and `graphClientSecret` empty during deployment, then gran
 
 ```
 ├── runbooks/
-│   ├── export_compliance.py      # Exports devices, compliance policies, states
-│   └── export_endpoint_analytics.py  # Exports health scores, startup perf
+│   ├── export_devices.py             # Device inventory (run first - core table)
+│   ├── export_compliance.py          # Compliance policies and states
+│   ├── export_endpoint_analytics.py  # Health scores, startup perf
+│   └── export_autopilot.py           # Autopilot devices and profiles
 ├── database/
-│   └── Schema-Focused.kql        # ADX schema + views + functions
-├── dashboards/                   # ADX dashboard definitions
+│   └── Schema-Focused.kql            # ADX schema + views + functions
+├── dashboards/                       # ADX dashboard definitions
+│   ├── ComplianceOverview.json
+│   ├── DeviceHealth.json
+│   ├── EndpointAnalyticsDeep.json
+│   └── AutopilotOverview.json
+├── workbooks/                        # Azure Monitor workbook definitions
+│   ├── compliance-overview.workbook
+│   ├── device-health.workbook
+│   └── autopilot-deployment.workbook
 ├── deployment/
 │   └── automation-account/
-│       ├── main.bicep            # Bicep template (source)
-│       └── azuredeploy.json      # ARM template (one-click deploy)
+│       ├── main.bicep                # Bicep template (source)
+│       └── azuredeploy.json          # ARM template (one-click deploy)
 ├── scripts/
 │   └── Grant-GraphPermissions.ps1
 └── README.md
@@ -155,6 +166,17 @@ Import these ADX dashboard definitions:
 | [ComplianceOverview.json](dashboards/ComplianceOverview.json) | Compliance rates, non-compliant devices |
 | [DeviceHealth.json](dashboards/DeviceHealth.json) | Device inventory, stale devices |
 | [EndpointAnalyticsDeep.json](dashboards/EndpointAnalyticsDeep.json) | Startup times, app reliability |
+| [AutopilotOverview.json](dashboards/AutopilotOverview.json) | Autopilot enrollment, profiles, failures |
+
+### Azure Workbooks
+
+For Azure Monitor/Log Analytics, import these workbook templates:
+
+| Workbook | Purpose |
+|----------|---------|
+| [compliance-overview.workbook](workbooks/compliance-overview.workbook) | Compliance monitoring |
+| [device-health.workbook](workbooks/device-health.workbook) | Device health metrics |
+| [autopilot-deployment.workbook](workbooks/autopilot-deployment.workbook) | Autopilot deployment tracking |
 
 ## 🔔 Alerting
 
@@ -166,6 +188,12 @@ AlertNewNonCompliant()
 
 // Devices with health score drop >20 points  
 AlertHealthScoreDrop(20.0)
+
+// Autopilot enrollment failures in last 24 hours
+AlertAutopilotFailures()
+
+// Devices pending enrollment (for proactive tracking)
+AutopilotPendingEnrollment()
 ```
 
 ## 🔧 Handling Duplicates

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Intune Compliance Export Runbook
-Exports compliance policies and per-device compliance states to Log Analytics or Azure Data Explorer
+Intune Devices Export Runbook
+Exports managed device inventory from Microsoft Graph to Log Analytics or Azure Data Explorer
 
-NOTE: Device inventory is handled by export_devices.py - this runbook only exports compliance data.
+This is the core runbook - ManagedDevices is the primary key table that other data references.
 
-Schedule: Every 6 hours
+Schedule: Every 4 hours
 """
 import os
 import sys
@@ -21,7 +21,6 @@ from azure.kusto.data import KustoConnectionStringBuilder
 from azure.kusto.ingest import QueuedIngestClient, IngestionProperties, DataFormat
 from azure.monitor.ingestion import LogsIngestionClient
 from msgraph_beta import GraphServiceClient
-from msgraph_beta.generated.device_management.reports.get_device_status_by_compliace_policy_report.get_device_status_by_compliace_policy_report_post_request_body import GetDeviceStatusByCompliacePolicyReportPostRequestBody
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -31,15 +30,9 @@ logger = logging.getLogger(__name__)
 MAX_RETRIES = 5
 BASE_DELAY = 30
 
-STATUS_MAP = {
-    1: 'unknown', 2: 'compliant', 3: 'inGracePeriod',
-    4: 'noncompliant', 5: 'error', 6: 'conflict', 7: 'notApplicable'
-}
-
 # Log Analytics stream mapping
 LOG_ANALYTICS_STREAMS = {
-    'CompliancePolicies': 'Custom-IntuneCompliancePolicies_CL',
-    'DeviceComplianceStates': 'Custom-IntuneComplianceStates_CL',
+    'ManagedDevices': 'Custom-IntuneDevices_CL',
     'SyncState': 'Custom-IntuneSyncState_CL'
 }
 
@@ -103,90 +96,86 @@ async def retry_with_backoff(func, *args, **kwargs):
     raise Exception(f"Max retries ({MAX_RETRIES}) exceeded")
 
 
-def parse_report_response(response) -> tuple:
-    """Parse Graph Reports API response into list of dicts"""
-    if not response or not response.values:
-        return [], 0
+async def get_managed_devices(graph_client: GraphServiceClient) -> list:
+    """Fetch all managed devices with pagination"""
+    logger.info("Fetching managed devices...")
+    devices = []
     
-    columns = [c.name for c in response.schema] if response.schema else []
-    rows = [dict(zip(columns, row)) for row in response.values]
-    total = response.total_row_count or len(rows)
-    return rows, total
-
-
-async def get_compliance_policies(graph_client: GraphServiceClient) -> list:
-    """Get all compliance policy definitions"""
-    logger.info("Fetching compliance policies...")
-    policies = []
+    # Select key fields for device inventory
+    select_fields = [
+        'id', 'deviceName', 'userPrincipalName', 'userDisplayName',
+        'operatingSystem', 'osVersion', 'complianceState', 'managementState',
+        'enrolledDateTime', 'lastSyncDateTime', 'manufacturer', 'model',
+        'serialNumber', 'imei', 'managementAgent', 'ownerType',
+        'deviceEnrollmentType', 'activationLockBypassCode', 'emailAddress',
+        'azureADRegistered', 'azureADDeviceId', 'deviceRegistrationState',
+        'isEncrypted', 'isSupervised', 'jailBroken', 'autopilotEnrolled',
+        'deviceCategoryDisplayName', 'hardwareInformation',
+        'totalStorageSpaceInBytes', 'freeStorageSpaceInBytes',
+        'physicalMemoryInBytes', 'subscriberCarrier', 'wiFiMacAddress',
+        'ethernetMacAddress'
+    ]
     
     try:
         result = await retry_with_backoff(
-            graph_client.device_management.device_compliance_policies.get
+            graph_client.device_management.managed_devices.get,
+            request_configuration=lambda config: setattr(
+                config.query_parameters, 'select', select_fields
+            ) if hasattr(config, 'query_parameters') else None
         )
         
-        for policy in result.value or []:
-            policies.append({
-                'PolicyId': policy.id,
-                'PolicyName': policy.display_name,
-                'Description': policy.description,
-                'CreatedDateTime': policy.created_date_time.isoformat() if policy.created_date_time else None,
-                'LastModifiedDateTime': policy.last_modified_date_time.isoformat() if policy.last_modified_date_time else None,
-                'PolicyType': type(policy).__name__.replace('CompliancePolicy', ''),
-            })
+        while result:
+            if result.value:
+                for device in result.value:
+                    device_dict = {
+                        'DeviceId': device.id,
+                        'DeviceName': device.device_name,
+                        'UserPrincipalName': device.user_principal_name,
+                        'UserDisplayName': device.user_display_name,
+                        'OperatingSystem': device.operating_system,
+                        'OSVersion': device.os_version,
+                        'ComplianceState': device.compliance_state.value if device.compliance_state else None,
+                        'ManagementState': device.management_state.value if device.management_state else None,
+                        'EnrolledDateTime': device.enrolled_date_time.isoformat() if device.enrolled_date_time else None,
+                        'LastSyncDateTime': device.last_sync_date_time.isoformat() if device.last_sync_date_time else None,
+                        'Manufacturer': device.manufacturer,
+                        'Model': device.model,
+                        'SerialNumber': device.serial_number,
+                        'IMEI': device.imei,
+                        'ManagementAgent': device.management_agent.value if device.management_agent else None,
+                        'OwnerType': device.owner_type.value if device.owner_type else None,
+                        'DeviceEnrollmentType': device.device_enrollment_type.value if device.device_enrollment_type else None,
+                        'EmailAddress': device.email_address,
+                        'AzureADRegistered': device.azure_a_d_registered,
+                        'AzureADDeviceId': device.azure_a_d_device_id,
+                        'DeviceRegistrationState': device.device_registration_state.value if device.device_registration_state else None,
+                        'IsEncrypted': device.is_encrypted,
+                        'IsSupervised': device.is_supervised,
+                        'JailBroken': device.jail_broken,
+                        'AutopilotEnrolled': device.autopilot_enrolled,
+                        'DeviceCategory': device.device_category_display_name,
+                        'TotalStorageGB': round(device.total_storage_space_in_bytes / (1024**3), 2) if device.total_storage_space_in_bytes else None,
+                        'FreeStorageGB': round(device.free_storage_space_in_bytes / (1024**3), 2) if device.free_storage_space_in_bytes else None,
+                        'PhysicalMemoryGB': round(device.physical_memory_in_bytes / (1024**3), 2) if device.physical_memory_in_bytes else None,
+                        'WiFiMacAddress': device.wi_fi_mac_address,
+                        'EthernetMacAddress': device.ethernet_mac_address
+                    }
+                    devices.append(device_dict)
             
+            # Handle pagination
+            if result.odata_next_link:
+                result = await retry_with_backoff(
+                    graph_client.device_management.managed_devices.with_url(result.odata_next_link).get
+                )
+            else:
+                break
+                
     except Exception as e:
-        logger.error(f"Error fetching compliance policies: {e}")
+        logger.error(f"Error fetching managed devices: {e}")
         raise
     
-    logger.info(f"Fetched {len(policies)} compliance policies")
-    return policies
-
-
-async def get_compliance_states(graph_client: GraphServiceClient, policy_id: str, policy_name: str) -> list:
-    """Get per-device compliance states for a specific policy"""
-    states = []
-    skip = 0
-    
-    while True:
-        body = GetDeviceStatusByCompliacePolicyReportPostRequestBody()
-        body.filter = f"(PolicyId eq '{policy_id}')"
-        body.select = []
-        body.skip = skip
-        body.top = 1000
-        body.order_by = []
-        
-        try:
-            response = await retry_with_backoff(
-                graph_client.device_management.reports.get_device_status_by_compliace_policy_report.post,
-                body
-            )
-        except Exception as e:
-            logger.error(f"Error fetching compliance states for policy {policy_name}: {e}")
-            raise
-        
-        rows, total = parse_report_response(response)
-        
-        for row in rows:
-            states.append({
-                'DeviceId': row.get('DeviceId'),
-                'DeviceName': row.get('DeviceName'),
-                'UserId': row.get('UserId'),
-                'UserPrincipalName': row.get('UPN'),
-                'PolicyId': row.get('PolicyId'),
-                'PolicyName': row.get('PolicyName'),
-                'Status': STATUS_MAP.get(row.get('Status'), 'unknown'),
-                'StatusRaw': row.get('Status'),
-                'SettingCount': row.get('SettingCount'),
-                'FailedSettingCount': row.get('FailedSettingCount'),
-                'LastContact': row.get('LastContact'),
-                'InGracePeriodCount': row.get('InGracePeriodCount'),
-            })
-        
-        skip += len(rows)
-        if skip >= total or len(rows) == 0:
-            break
-    
-    return states
+    logger.info(f"Fetched {len(devices)} managed devices")
+    return devices
 
 
 # ============================================================================
@@ -280,9 +269,8 @@ def ingest_to_adx(data: dict):
 
 async def main():
     """Main execution function"""
-    start_time = datetime.now(timezone.utc)
     logger.info("=" * 60)
-    logger.info("Starting Intune Compliance Export")
+    logger.info("Starting Intune Device Export")
     logger.info("=" * 60)
     
     # Get backend setting (Log Analytics is primary)
@@ -292,36 +280,23 @@ async def main():
     # Get Graph client
     graph_client = get_graph_client()
     
-    # Fetch compliance policies
-    policies = await get_compliance_policies(graph_client)
-    policies = add_metadata(policies, 'IntuneComplianceExport')
+    # Fetch device data
+    devices = await get_managed_devices(graph_client)
     
-    # Fetch compliance states for each policy
-    all_states = []
-    for policy in policies:
-        logger.info(f"Fetching compliance states for: {policy['PolicyName']}")
-        states = await get_compliance_states(graph_client, policy['PolicyId'], policy['PolicyName'])
-        all_states.extend(states)
-        logger.info(f"  Found {len(states)} device states")
-    
-    all_states = add_metadata(all_states, 'IntuneComplianceExport')
+    # Add metadata
+    devices = add_metadata(devices, 'IntuneDeviceExport')
     
     # Create sync state record
-    end_time = datetime.now(timezone.utc)
-    duration = (end_time - start_time).total_seconds()
     sync_state = [{
-        'SyncType': 'Compliance',
-        'PolicyCount': len(policies),
-        'StateCount': len(all_states),
+        'SyncType': 'Devices',
+        'RecordCount': len(devices),
         'Status': 'Success',
-        'DurationSeconds': duration,
-        'SyncTime': end_time.isoformat()
+        'SyncTime': datetime.now(timezone.utc).isoformat()
     }]
-    sync_state = add_metadata(sync_state, 'IntuneComplianceExport')
+    sync_state = add_metadata(sync_state, 'IntuneDeviceExport')
     
     data = {
-        'CompliancePolicies': policies,
-        'DeviceComplianceStates': all_states,
+        'ManagedDevices': devices,
         'SyncState': sync_state
     }
     
@@ -332,9 +307,8 @@ async def main():
         ingest_to_adx(data)
     
     logger.info("=" * 60)
-    logger.info("Compliance export completed successfully")
-    logger.info(f"Policies: {len(policies)}, States: {len(all_states)}")
-    logger.info(f"Duration: {duration:.1f}s")
+    logger.info("Device export completed successfully")
+    logger.info(f"Total devices exported: {len(devices)}")
     logger.info("=" * 60)
 
 

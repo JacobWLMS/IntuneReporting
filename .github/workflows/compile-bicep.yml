@@ -34,26 +34,19 @@ jobs:
         
       - name: Compile Bicep templates
         run: |
-          # Compile ADX backend template
-          cd deployment/adx
-          bicep build main.bicep --outfile main.json
-          echo "✅ Compiled deployment/adx/main.bicep -> main.json"
-          
-          # Compile Log Analytics backend template
-          cd ../loganalytics
-          bicep build main.bicep --outfile main.json
-          echo "✅ Compiled deployment/loganalytics/main.bicep -> main.json"
+          cd deployment/automation-account
+          bicep build main.bicep --outfile azuredeploy.json
+          echo "✅ Compiled main.bicep -> azuredeploy.json"
 
-      - name: Verify JSON outputs
+      - name: Verify JSON output
         run: |
-          for file in deployment/adx/main.json deployment/loganalytics/main.json; do
-            if [ -f "$file" ]; then
-              echo "✅ $file exists ($(stat -c%s "$file") bytes)"
-            else
-              echo "❌ $file not found"
-              exit 1
-            fi
-          done
+          file="deployment/automation-account/azuredeploy.json"
+          if [ -f "$file" ]; then
+            echo "✅ $file exists ($(stat -c%s "$file") bytes)"
+          else
+            echo "❌ $file not found"
+            exit 1
+          fi
 
       - name: Commit compiled JSON
         if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
@@ -62,7 +55,7 @@ jobs:
           git config --local user.name "github-actions[bot]"
           
           # Check if there are changes to commit
-          git add deployment/adx/main.json deployment/loganalytics/main.json
+          git add deployment/automation-account/azuredeploy.json
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
