@@ -427,11 +427,11 @@ resource automationAccount 'Microsoft.Automation/automationAccounts@2023-11-01' 
 }
 
 // ============================================================================
-// Python Packages
+// Python Packages (Python 3.10)
 // ============================================================================
 
 @batchSize(1)
-resource corePackages 'Microsoft.Automation/automationAccounts/python3Packages@2023-11-01' = [for pkg in pythonPackages: {
+resource corePackages 'Microsoft.Automation/automationAccounts/python310Packages@2023-11-01' = [for pkg in pythonPackages: {
   parent: automationAccount
   name: pkg.name
   properties: {
@@ -440,7 +440,7 @@ resource corePackages 'Microsoft.Automation/automationAccounts/python3Packages@2
 }]
 
 @batchSize(1)
-resource adxPkgs 'Microsoft.Automation/automationAccounts/python3Packages@2023-11-01' = [for pkg in adxPackages: if (analyticsBackend == 'ADX') {
+resource adxPkgs 'Microsoft.Automation/automationAccounts/python310Packages@2023-11-01' = [for pkg in adxPackages: if (analyticsBackend == 'ADX') {
   parent: automationAccount
   name: pkg.name
   properties: {
@@ -450,7 +450,7 @@ resource adxPkgs 'Microsoft.Automation/automationAccounts/python3Packages@2023-1
 }]
 
 @batchSize(1)
-resource logAnalyticsPkgs 'Microsoft.Automation/automationAccounts/python3Packages@2023-11-01' = [for pkg in logAnalyticsPackages: if (analyticsBackend == 'LogAnalytics') {
+resource logAnalyticsPkgs 'Microsoft.Automation/automationAccounts/python310Packages@2023-11-01' = [for pkg in logAnalyticsPackages: if (analyticsBackend == 'LogAnalytics') {
   parent: automationAccount
   name: pkg.name
   properties: {
@@ -553,7 +553,7 @@ resource runbooks 'Microsoft.Automation/automationAccounts/runbooks@2023-11-01' 
   name: cfg.name
   location: location
   properties: {
-    runbookType: 'Python3'
+    runbookType: 'Python310'
     logProgress: true
     logVerbose: true
     description: cfg.desc
