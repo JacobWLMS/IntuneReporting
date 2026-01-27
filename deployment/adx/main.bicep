@@ -1,9 +1,13 @@
 // ============================================================================
-// Intune Analytics Platform - ADX Backend (Simplified)
+// Intune Analytics Platform - ADX Backend
 // ============================================================================
 // Deploys a Function App that exports Intune data to Azure Data Explorer.
-// Uses app registration (client secret) for authentication.
-// Upload function code manually via Deployment Center after deployment.
+//
+// After deployment:
+// 1. Add app registration credentials in Function App > Configuration:
+//    - AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET
+// 2. Grant Graph API permissions to your app registration
+// 3. Upload function code via Deployment Center
 // ============================================================================
 
 @description('Base name for all resources (max 11 chars)')
@@ -14,36 +18,26 @@ param baseName string
 param location string = resourceGroup().location
 
 @description('Azure Data Explorer cluster URI (e.g., https://mycluster.uksouth.kusto.windows.net)')
-param adxClusterUri string
+param adxClusterUri string = ''
 
 @description('Azure Data Explorer database name')
-param adxDatabaseName string = 'IntuneAnalytics'
-
-@description('App Registration - Tenant ID')
-param tenantId string = subscription().tenantId
-
-@description('App Registration - Client ID')
-param clientId string
-
-@secure()
-@description('App Registration - Client Secret')
-param clientSecret string
+param adxDatabase string = 'IntuneAnalytics'
 
 // ============================================================================
 // Variables
 // ============================================================================
 
-var uniqueSuffix = uniqueString(resourceGroup().id)
-var functionAppName = '${baseName}-func-${uniqueSuffix}'
-var appServicePlanName = '${baseName}-asp-${uniqueSuffix}'
-var storageAccountName = toLower('${take(baseName, 11)}${take(uniqueSuffix, 13)}')
+var suffix = uniqueString(resourceGroup().id)
+var storageName = toLower('${take(baseName, 11)}${take(suffix, 13)}')
+var funcName = '${baseName}-func-${suffix}'
+var planName = '${baseName}-plan-${suffix}'
 
 // ============================================================================
-// Storage Account (required for Flex Consumption timer triggers)
+// Storage Account (required for Function App)
 // ============================================================================
 
-resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
-  name: storageAccountName
+resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: storageName
   location: location
   sku: { name: 'Standard_LRS' }
   kind: 'StorageV2'
@@ -58,53 +52,42 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
 // App Service Plan (Flex Consumption)
 // ============================================================================
 
-resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
-  name: appServicePlanName
+resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
+  name: planName
   location: location
-  sku: {
-    name: 'FC1'
-    tier: 'FlexConsumption'
-  }
+  sku: { name: 'FC1', tier: 'FlexConsumption' }
   kind: 'functionapp'
-  properties: {
-    reserved: true
-  }
+  properties: { reserved: true }
 }
 
 // ============================================================================
 // Function App
 // ============================================================================
 
-resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
-  name: functionAppName
+resource func 'Microsoft.Web/sites@2024-04-01' = {
+  name: funcName
   location: location
   kind: 'functionapp,linux'
   properties: {
-    serverFarmId: appServicePlan.id
+    serverFarmId: plan.id
     httpsOnly: true
     functionAppConfig: {
       scaleAndConcurrency: {
         maximumInstanceCount: 40
         instanceMemoryMB: 2048
       }
-      runtime: {
-        name: 'python'
-        version: '3.11'
-      }
+      runtime: { name: 'python', version: '3.11' }
     }
     siteConfig: {
       appSettings: [
-        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
+        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};AccountKey=${storage.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
         { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'true' }
-        // Analytics backend
         { name: 'ANALYTICS_BACKEND', value: 'ADX' }
         { name: 'ADX_CLUSTER_URI', value: adxClusterUri }
-        { name: 'ADX_DATABASE', value: adxDatabaseName }
-        // App registration credentials
-        { name: 'AZURE_TENANT_ID', value: tenantId }
-        { name: 'AZURE_CLIENT_ID', value: clientId }
-        { name: 'AZURE_CLIENT_SECRET', value: clientSecret }
+        { name: 'ADX_DATABASE', value: adxDatabase }
+        // Add these manually in portal after deployment:
+        // AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET
       ]
     }
   }
@@ -114,14 +97,23 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
 // Outputs
 // ============================================================================
 
-output functionAppName string = functionApp.name
-output functionAppUrl string = 'https://${functionApp.properties.defaultHostName}'
-output deploymentCenterUrl string = 'https://portal.azure.com/#@${tenantId}/resource${functionApp.id}/vstscd'
+output functionAppName string = func.name
+output functionAppUrl string = 'https://${func.properties.defaultHostName}'
+output storageAccountName string = storage.name
 
-output nextSteps string = '''
-1. Grant Graph API permissions to your app registration:
+output postDeploymentSteps string = '''
+After deployment, complete these steps:
+
+1. Add app registration credentials in Function App > Configuration > Application settings:
+   - AZURE_TENANT_ID = your tenant ID
+   - AZURE_CLIENT_ID = your app registration client ID
+   - AZURE_CLIENT_SECRET = your app registration client secret
+
+2. Grant Graph API permissions to your app registration:
    - DeviceManagementManagedDevices.Read.All
    - DeviceManagementConfiguration.Read.All
-2. Grant your app registration "Ingestor" role on the ADX database
-3. Upload function code via Deployment Center (ZIP deploy)
+
+3. Grant your app registration "Ingestor" role on the ADX database
+
+4. Upload function code via Deployment Center (ZIP deploy)
 '''
