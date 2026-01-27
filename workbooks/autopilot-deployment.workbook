@@ -4,9 +4,32 @@
     {
       "type": 1,
       "content": {
-        "json": "# Autopilot Deployment Dashboard\n\nMonitor Autopilot device enrollment status, deployment profile assignments, and identify issues."
+        "json": "# Autopilot Deployment Dashboard\n---\nMonitor Autopilot device enrollment status, deployment profile assignments, and identify issues."
       },
       "name": "header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "time-range",
+            "type": 4,
+            "typeSettings": {
+              "selectableValues": [
+                {"durationMs": 86400000, "displayName": "Last 24 hours"},
+                {"durationMs": 604800000, "displayName": "Last 7 days"},
+                {"durationMs": 2592000000, "displayName": "Last 30 days"}
+              ],
+              "allowCustom": true
+            },
+            "label": "Time Range",
+            "value": {"durationMs": 604800000}
+          }
+        ]
+      },
+      "name": "parameters"
     },
     {
       "type": 3,

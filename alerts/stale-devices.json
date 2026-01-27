@@ -1,0 +1,83 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workspaceResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Full resource ID of Log Analytics workspace (e.g., /subscriptions/.../resourceGroups/.../providers/Microsoft.OperationalInsights/workspaces/...)"
+      }
+    },
+    "actionGroupId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional: Resource ID of Action Group for notifications. Leave empty to create alert without notifications."
+      }
+    },
+    "staleDaysThreshold": {
+      "type": "int",
+      "defaultValue": 14,
+      "metadata": {
+        "description": "Number of days without sync to consider a device stale"
+      }
+    },
+    "deviceCountThreshold": {
+      "type": "int",
+      "defaultValue": 5,
+      "metadata": {
+        "description": "Alert when stale device count exceeds this threshold"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    }
+  },
+  "variables": {
+    "alertName": "Intune - Stale Devices Alert",
+    "alertDescription": "Alerts when devices haven't synced with Intune for an extended period. This may indicate devices that are offline, decommissioned, or experiencing connectivity issues."
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Insights/scheduledQueryRules",
+      "apiVersion": "2023-03-15-preview",
+      "name": "[variables('alertName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "displayName": "[variables('alertName')]",
+        "description": "[variables('alertDescription')]",
+        "severity": 3,
+        "enabled": true,
+        "evaluationFrequency": "P1D",
+        "scopes": ["[parameters('workspaceResourceId')]"],
+        "windowSize": "P1D",
+        "criteria": {
+          "allOf": [
+            {
+              "query": "[concat('let staleDays = ', parameters('staleDaysThreshold'), ';\nIntuneDevices_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| extend DaysSinceSync = datetime_diff(''day'', now(), LastSyncDateTime)\n| where DaysSinceSync > staleDays\n| summarize StaleCount = count()\n| where StaleCount > 0')]",
+              "timeAggregation": "Count",
+              "dimensions": [],
+              "operator": "GreaterThan",
+              "threshold": "[parameters('deviceCountThreshold')]",
+              "failingPeriods": {
+                "numberOfEvaluationPeriods": 1,
+                "minFailingPeriodsToAlert": 1
+              }
+            }
+          ]
+        },
+        "autoMitigate": true,
+        "actions": {
+          "actionGroups": "[if(empty(parameters('actionGroupId')), json('[]'), array(parameters('actionGroupId')))]"
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "alertId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Insights/scheduledQueryRules', variables('alertName'))]"
+    }
+  }
+}

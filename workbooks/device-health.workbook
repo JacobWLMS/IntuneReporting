@@ -4,98 +4,224 @@
     {
       "type": 1,
       "content": {
-        "json": "# 💚 Intune Device Health\n---\nOverview of device health scores, activity, and performance metrics."
+        "json": "# Device Health Dashboard\n---\nMonitor device health scores, sync status, and identify devices needing attention."
       },
       "name": "header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "time-range",
+            "type": 4,
+            "typeSettings": {
+              "selectableValues": [
+                {"durationMs": 3600000, "displayName": "Last hour"},
+                {"durationMs": 86400000, "displayName": "Last 24 hours"},
+                {"durationMs": 604800000, "displayName": "Last 7 days"},
+                {"durationMs": 2592000000, "displayName": "Last 30 days"}
+              ],
+              "allowCustom": true
+            },
+            "label": "Time Range",
+            "value": {"durationMs": 604800000}
+          },
+          {
+            "id": "os-filter",
+            "type": 2,
+            "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| distinct OperatingSystem\n| order by OperatingSystem asc",
+            "typeSettings": {
+              "additionalResourceOptions": ["value::all"],
+              "showDefault": false
+            },
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces",
+            "label": "Operating System",
+            "value": "value::all"
+          }
+        ]
+      },
+      "name": "parameters"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Summary Metrics"
+      },
+      "name": "summary-header"
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| count",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| count",
         "size": 4,
-        "title": "📱 Total Managed Devices",
+        "title": "Total Devices",
         "queryType": 0,
         "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "tiles"
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "blue"}},
+          "showBorder": false
+        }
       },
+      "customWidth": "25",
       "name": "total-devices"
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDeviceScores_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| summarize round(avg(EndpointAnalyticsScore), 1)",
+        "query": "IntuneDeviceScores_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| summarize AvgScore = round(avg(EndpointAnalyticsScore), 1)",
         "size": 4,
-        "title": "💚 Average Health Score",
+        "title": "Avg Health Score",
         "queryType": 0,
         "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "tiles"
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {"columnMatch": "AvgScore", "formatter": 12, "formatOptions": {"palette": "greenRed"}},
+          "showBorder": false
+        }
       },
+      "customWidth": "25",
       "name": "avg-health"
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDeviceScores_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where EndpointAnalyticsScore < 50\n| count",
+        "query": "IntuneDeviceScores_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where EndpointAnalyticsScore < 50\n| count",
         "size": 4,
-        "title": "⚠️ Poor Health Devices (<50)",
+        "title": "Poor Health (<50)",
         "queryType": 0,
         "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "tiles"
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "redGreen"}},
+          "showBorder": false
+        }
       },
+      "customWidth": "25",
       "name": "poor-health"
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\n| where DaysSinceSync > 14\n| count",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\n| where DaysSinceSync > 14\n| count",
         "size": 4,
-        "title": "👻 Stale Devices (>14 days)",
+        "title": "Stale (>14 days)",
         "queryType": 0,
         "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "tiles"
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "redGreen"}},
+          "showBorder": false
+        }
       },
+      "customWidth": "25",
       "name": "stale-count"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Health Score Trends"
+      },
+      "name": "trends-header"
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDeviceScores_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| extend ScoreBucket = case(\n    EndpointAnalyticsScore >= 80, '80-100 Excellent',\n    EndpointAnalyticsScore >= 60, '60-79 Good',\n    EndpointAnalyticsScore >= 40, '40-59 Fair',\n    EndpointAnalyticsScore >= 20, '20-39 Poor',\n    '0-19 Critical')\n| summarize Count=count() by ScoreBucket\n| order by ScoreBucket asc",
+        "query": "IntuneDeviceScores_CL\n| where TimeGenerated {time-range}\n| summarize AvgScore = round(avg(EndpointAnalyticsScore), 1) by bin(TimeGenerated, 1d)\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Average Health Score Over Time",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "linechart",
+        "chartSettings": {
+          "ySettings": {"min": 0, "max": 100}
+        }
+      },
+      "customWidth": "50",
+      "name": "score-trend"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\n| extend SyncBucket = case(\n    DaysSinceSync <= 1, '0-1 days (Active)',\n    DaysSinceSync <= 7, '2-7 days',\n    DaysSinceSync <= 14, '8-14 days',\n    DaysSinceSync <= 30, '15-30 days',\n    '>30 days (Stale)')\n| summarize Count = count() by SyncBucket\n| order by SyncBucket asc",
         "size": 2,
-        "title": "📊 Health Score Distribution",
+        "title": "Device Sync Freshness",
         "queryType": 0,
         "resourceType": "microsoft.operationalinsights/workspaces",
         "visualization": "piechart"
       },
+      "customWidth": "50",
+      "name": "sync-freshness"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Health Score Distribution"
+      },
+      "name": "distribution-header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneDeviceScores_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| extend ScoreBucket = case(\n    EndpointAnalyticsScore >= 80, '80-100 Excellent',\n    EndpointAnalyticsScore >= 60, '60-79 Good',\n    EndpointAnalyticsScore >= 40, '40-59 Fair',\n    EndpointAnalyticsScore >= 20, '20-39 Poor',\n    '0-19 Critical')\n| summarize Count = count() by ScoreBucket\n| order by ScoreBucket asc",
+        "size": 2,
+        "title": "Health Score Distribution",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "piechart"
+      },
+      "customWidth": "50",
       "name": "health-distribution"
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| summarize Count=count() by OperatingSystem\n| order by Count desc",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| summarize Count = count() by OperatingSystem\n| order by Count desc",
         "size": 2,
-        "title": "💻 Devices by OS",
+        "title": "Devices by Operating System",
         "queryType": 0,
         "resourceType": "microsoft.operationalinsights/workspaces",
         "visualization": "piechart"
       },
+      "customWidth": "50",
       "name": "os-distribution"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Devices Needing Attention"
+      },
+      "name": "attention-header"
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDeviceScores_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| join kind=inner (\n    IntuneDevices_CL\n    | summarize arg_max(TimeGenerated, *) by DeviceId\n    | project DeviceId, DeviceName, UserPrincipalName\n) on DeviceId\n| where EndpointAnalyticsScore < 50\n| project DeviceName, UserPrincipalName, EndpointAnalyticsScore, StartupPerformanceScore, AppReliabilityScore, HealthStatus\n| top 15 by EndpointAnalyticsScore asc",
+        "query": "IntuneDeviceScores_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| join kind=inner (\n    IntuneDevices_CL\n    | where TimeGenerated {time-range}\n    | summarize arg_max(TimeGenerated, *) by DeviceId\n    | project DeviceId, DeviceName, UserPrincipalName, OperatingSystem\n) on DeviceId\n| where EndpointAnalyticsScore < 50\n| project DeviceName, UserPrincipalName, OperatingSystem, EndpointAnalyticsScore, StartupPerformanceScore, AppReliabilityScore, HealthStatus\n| order by EndpointAnalyticsScore asc\n| take 20",
         "size": 0,
-        "title": "🔴 Worst Health Devices (Top 15)",
+        "title": "Lowest Health Score Devices",
         "queryType": 0,
         "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "table"
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {"columnMatch": "EndpointAnalyticsScore", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
+            {"columnMatch": "StartupPerformanceScore", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
+            {"columnMatch": "AppReliabilityScore", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}}
+          ],
+          "filter": true
+        }
       },
       "name": "worst-devices"
     },
@@ -103,12 +229,19 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\n| where DaysSinceSync > 14\n| project DeviceName, UserDisplayName, OperatingSystem, DaysSinceSync, LastSyncDateTime\n| top 20 by DaysSinceSync desc",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\n| where DaysSinceSync > 14\n| project DeviceName, UserDisplayName, OperatingSystem, DaysSinceSync, LastSyncDateTime, ComplianceState\n| order by DaysSinceSync desc\n| take 20",
         "size": 0,
-        "title": "👻 Stale Devices List",
+        "title": "Stale Devices (No Sync > 14 Days)",
         "queryType": 0,
         "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "table"
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {"columnMatch": "DaysSinceSync", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 14, "max": 60}},
+            {"columnMatch": "ComplianceState", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "compliant", "representation": "success", "text": "{0}"}, {"operator": "==", "thresholdValue": "noncompliant", "representation": "failed", "text": "{0}"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}}
+          ],
+          "filter": true
+        }
       },
       "name": "stale-devices"
     }

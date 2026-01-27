@@ -57,9 +57,9 @@
 1. **Workbook sourceId not set** - Azure CLI doesn't properly apply --source-id when run from Git Bash (path conversion issue). Workbooks must be accessed via Resource Group view in Portal.
 
 ### Medium
-2. **Workbooks are basic** - Current workbooks have minimal visualizations, need improvement with proper KQL queries
+2. ~~**Workbooks are basic**~~ - **RESOLVED**: Workbooks now have time ranges, trends, filtering, and conditional formatting
 3. ~~No PowerShell deployment script~~ - **RESOLVED**: deploy.ps1 now available
-4. **No alert rules** - No automated alerting for failures or anomalies
+4. ~~**No alert rules**~~ - **RESOLVED**: Sample alert rules in /alerts folder
 
 ### Low
 5. **Dashboard is optional** - Moved to /optional folder, not deployed by default
@@ -71,9 +71,16 @@
 
 ### High Priority
 - [x] **PowerShell deployment script** (deploy.ps1) with same functionality as deploy.sh
-- [ ] **Improved workbooks** with rich KQL queries and visualizations
+- [x] **Improved workbooks** with rich KQL queries and visualizations
+  - Added time range parameters to all workbooks
+  - Added trend line charts showing changes over time
+  - Added conditional formatting (color-coded cells)
+  - Added multi-filter support (OS, compliance, manufacturer)
+  - Added section headers for better organization
 - [ ] **Test documentation** - Formal test cases with expected outcomes
-- [ ] **Sample alert rules** (1-2) for Intune data scenarios (e.g., non-compliant devices, stale sync)
+- [x] **Sample alert rules** (2) for Intune data scenarios
+  - `alerts/noncompliant-devices.json` - Alert when non-compliant devices exceed threshold
+  - `alerts/stale-devices.json` - Alert when devices haven't synced for extended period
 
 ### Medium Priority
 - [ ] Consider **Azure Dashboards** instead of/in addition to Workbooks

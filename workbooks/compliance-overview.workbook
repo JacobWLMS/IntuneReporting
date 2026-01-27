@@ -4,73 +4,229 @@
     {
       "type": 1,
       "content": {
-        "json": "# 🎯 Intune Compliance Overview\n---\nMonitor device compliance status across your Intune environment."
+        "json": "# Compliance Overview\n---\nMonitor device compliance status and identify policy violations across your Intune environment."
       },
       "name": "header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "time-range",
+            "type": 4,
+            "typeSettings": {
+              "selectableValues": [
+                {"durationMs": 86400000, "displayName": "Last 24 hours"},
+                {"durationMs": 604800000, "displayName": "Last 7 days"},
+                {"durationMs": 2592000000, "displayName": "Last 30 days"}
+              ],
+              "allowCustom": true
+            },
+            "label": "Time Range",
+            "value": {"durationMs": 604800000}
+          },
+          {
+            "id": "os-filter",
+            "type": 2,
+            "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| distinct OperatingSystem\n| order by OperatingSystem asc",
+            "typeSettings": {
+              "additionalResourceOptions": ["value::all"],
+              "showDefault": false
+            },
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces",
+            "label": "Operating System",
+            "value": "value::all"
+          }
+        ]
+      },
+      "name": "parameters"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Compliance Summary"
+      },
+      "name": "summary-header"
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneComplianceStates_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId, PolicyId\n| summarize Compliant=countif(Status == 'compliant'), NonCompliant=countif(Status == 'noncompliant'), Total=count()\n| extend ComplianceRate=round(100.0 * Compliant / Total, 1)\n| project strcat(ComplianceRate, '%')",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| summarize \n    Total = count(),\n    Compliant = countif(ComplianceState == 'compliant'),\n    NonCompliant = countif(ComplianceState == 'noncompliant')\n| extend ComplianceRate = round(100.0 * Compliant / Total, 1)\n| project strcat(ComplianceRate, '%')",
         "size": 4,
-        "title": "Overall Compliance Rate",
+        "title": "Compliance Rate",
         "queryType": 0,
         "resourceType": "microsoft.operationalinsights/workspaces",
         "visualization": "tiles",
         "tileSettings": {
-          "showBorder": false,
-          "titleContent": {
-            "columnMatch": "Column1",
-            "formatter": 1
-          }
+          "titleContent": {"columnMatch": "Column1", "formatter": 1},
+          "showBorder": false
         }
       },
+      "customWidth": "25",
       "name": "compliance-rate"
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneComplianceStates_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId, PolicyId\n| summarize Count=count() by Status\n| order by Count desc",
-        "size": 2,
-        "title": "📊 Compliance by Status",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| where ComplianceState == 'compliant'\n| count",
+        "size": 4,
+        "title": "Compliant Devices",
         "queryType": 0,
         "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "piechart"
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "green"}},
+          "showBorder": false
+        }
       },
-      "name": "compliance-status"
+      "customWidth": "25",
+      "name": "compliant-count"
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneComplianceStates_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId, PolicyId\n| where Status == 'noncompliant'\n| summarize NonCompliant=count() by PolicyName\n| top 10 by NonCompliant\n| order by NonCompliant desc",
-        "size": 0,
-        "title": "❌ Top 10 Policies with Non-Compliant Devices",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| where ComplianceState == 'noncompliant'\n| count",
+        "size": 4,
+        "title": "Non-Compliant Devices",
         "queryType": 0,
         "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "barchart"
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "red"}},
+          "showBorder": false
+        }
       },
+      "customWidth": "25",
+      "name": "noncompliant-count"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneCompliancePolicies_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by PolicyId\n| count",
+        "size": 4,
+        "title": "Active Policies",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "blue"}},
+          "showBorder": false
+        }
+      },
+      "customWidth": "25",
+      "name": "policy-count"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Compliance Trends"
+      },
+      "name": "trends-header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| summarize \n    Total = dcount(DeviceId),\n    Compliant = dcountif(DeviceId, ComplianceState == 'compliant')\n    by bin(TimeGenerated, 1d)\n| extend ComplianceRate = round(100.0 * Compliant / Total, 1)\n| project TimeGenerated, ComplianceRate\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Compliance Rate Over Time",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "linechart",
+        "chartSettings": {
+          "ySettings": {"min": 0, "max": 100}
+        }
+      },
+      "customWidth": "50",
+      "name": "compliance-trend"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| summarize Count = count() by ComplianceState\n| order by Count desc",
+        "size": 2,
+        "title": "Compliance Status Distribution",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "piechart"
+      },
+      "customWidth": "50",
+      "name": "compliance-pie"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Policy Analysis"
+      },
+      "name": "policy-header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneComplianceStates_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId, PolicyId\n| where Status == 'noncompliant'\n| summarize NonCompliant = count() by PolicyName\n| order by NonCompliant desc\n| take 10",
+        "size": 0,
+        "title": "Top 10 Policies with Non-Compliant Devices",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "barchart",
+        "chartSettings": {
+          "seriesLabelSettings": [{"seriesName": "NonCompliant", "color": "red"}]
+        }
+      },
+      "customWidth": "50",
       "name": "worst-policies"
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneComplianceStates_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId, PolicyId\n| where Status == 'noncompliant'\n| project DeviceName, UserPrincipalName, PolicyName, FailedSettingCount, TimeGenerated\n| top 20 by TimeGenerated desc",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| summarize \n    Total = count(), \n    Compliant = countif(ComplianceState == 'compliant'),\n    NonCompliant = countif(ComplianceState == 'noncompliant')\n    by OperatingSystem\n| extend Rate = round(100.0 * Compliant / Total, 1)\n| project OperatingSystem, Compliant, NonCompliant, Total, Rate\n| order by Total desc",
         "size": 0,
-        "title": "🔴 Non-Compliant Devices (Recent)",
+        "title": "Compliance by Operating System",
         "queryType": 0,
         "resourceType": "microsoft.operationalinsights/workspaces",
         "visualization": "table",
         "gridSettings": {
-          "sortBy": [
-            {
-              "itemKey": "FailedSettingCount",
-              "sortOrder": 2
-            }
+          "formatters": [
+            {"columnMatch": "Rate", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
+            {"columnMatch": "NonCompliant", "formatter": 8, "formatOptions": {"palette": "red"}}
           ]
+        }
+      },
+      "customWidth": "50",
+      "name": "compliance-by-os"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Non-Compliant Devices"
+      },
+      "name": "noncompliant-header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneComplianceStates_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId, PolicyId\n| where Status == 'noncompliant'\n| join kind=leftouter (\n    IntuneDevices_CL\n    | where TimeGenerated {time-range}\n    | summarize arg_max(TimeGenerated, *) by DeviceId\n    | project DeviceId, OperatingSystem\n) on DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| project DeviceName, UserPrincipalName, PolicyName, FailedSettingCount, OperatingSystem, TimeGenerated\n| order by FailedSettingCount desc, TimeGenerated desc\n| take 50",
+        "size": 0,
+        "title": "Non-Compliant Devices (Top 50)",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {"columnMatch": "FailedSettingCount", "formatter": 8, "formatOptions": {"palette": "red", "min": 0, "max": 10}}
+          ],
+          "filter": true
         }
       },
       "name": "noncompliant-devices"
@@ -79,14 +235,17 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| summarize Total=count(), Compliant=countif(ComplianceState == 'compliant') by OperatingSystem\n| extend Rate=round(100.0 * Compliant / Total, 1)\n| project OperatingSystem, Compliant, Total, Rate\n| order by Total desc",
+        "query": "IntuneCompliancePolicies_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by PolicyId\n| project PolicyName = DisplayName, Description, Platform = Platforms, CreatedDateTime, LastModifiedDateTime\n| order by PolicyName asc",
         "size": 0,
-        "title": "💻 Compliance by Operating System",
+        "title": "All Compliance Policies",
         "queryType": 0,
         "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "table"
+        "visualization": "table",
+        "gridSettings": {
+          "filter": true
+        }
       },
-      "name": "compliance-by-os"
+      "name": "all-policies"
     }
   ],
   "isLocked": false,
