@@ -4,100 +4,33 @@
     {
       "type": 1,
       "content": {
-        "json": "# 🚀 Windows Autopilot Deployment Dashboard\n\nMonitor Autopilot device enrollment status, deployment profile assignments, and identify issues."
+        "json": "# Autopilot Deployment Dashboard\n\nMonitor Autopilot device enrollment status, deployment profile assignments, and identify issues."
       },
       "name": "header"
-    },
-    {
-      "type": 9,
-      "content": {
-        "version": "KqlParameterItem/1.0",
-        "parameters": [
-          {
-            "id": "timeRange",
-            "version": "KqlParameterItem/1.0",
-            "name": "TimeRange",
-            "type": 4,
-            "isRequired": true,
-            "value": {
-              "durationMs": 604800000
-            },
-            "typeSettings": {
-              "selectableValues": [
-                { "durationMs": 86400000 },
-                { "durationMs": 604800000 },
-                { "durationMs": 2592000000 },
-                { "durationMs": 7776000000 }
-              ]
-            },
-            "label": "Time Range"
-          },
-          {
-            "id": "groupTag",
-            "version": "KqlParameterItem/1.0",
-            "name": "GroupTag",
-            "type": 2,
-            "isRequired": false,
-            "multiSelect": true,
-            "quote": "'",
-            "delimiter": ",",
-            "query": "AutopilotDevices_Current\n| distinct GroupTag\n| where isnotempty(GroupTag)\n| order by GroupTag asc",
-            "typeSettings": {
-              "additionalResourceOptions": ["value::all"]
-            },
-            "defaultValue": "value::all",
-            "label": "Group Tag"
-          }
-        ]
-      },
-      "name": "parameters"
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AutopilotDevices_Current\n| where '{GroupTag:lable}' == 'All' or GroupTag in ({GroupTag})\n| summarize \n    Total = count(),\n    Enrolled = countif(EnrollmentState == 'enrolled'),\n    Pending = countif(EnrollmentState in ('unknown', 'notContacted', 'pendingReset')),\n    Failed = countif(EnrollmentState == 'failed'),\n    Blocked = countif(EnrollmentState == 'blocked')\n| extend EnrollmentRate = round(100.0 * Enrolled / Total, 1)",
+        "query": "IntuneAutopilotDevices_CL\n| summarize arg_max(TimeGenerated, *) by AutopilotDeviceId\n| summarize \n    Total = count(),\n    Enrolled = countif(EnrollmentState == 'enrolled'),\n    Pending = countif(EnrollmentState in ('unknown', 'notContacted', 'pendingReset')),\n    Failed = countif(EnrollmentState == 'failed'),\n    Blocked = countif(EnrollmentState == 'blocked')\n| extend EnrollmentRate = round(100.0 * Enrolled / Total, 1)",
         "size": 4,
         "title": "Enrollment Summary",
         "queryType": 0,
-        "visualization": "tiles",
-        "tileSettings": {
-          "titleContent": {
-            "columnMatch": "Column1",
-            "formatter": 1
-          },
-          "leftContent": {
-            "columnMatch": "Column2",
-            "formatter": 12,
-            "formatOptions": {
-              "palette": "auto"
-            }
-          },
-          "showBorder": true
-        }
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "tiles"
       },
-      "customWidth": "100",
       "name": "summary-tiles"
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AutopilotDevices_Current\n| where '{GroupTag:lable}' == 'All' or GroupTag in ({GroupTag})\n| summarize Count = count() by EnrollmentState\n| order by Count desc",
+        "query": "IntuneAutopilotDevices_CL\n| summarize arg_max(TimeGenerated, *) by AutopilotDeviceId\n| summarize Count = count() by EnrollmentState\n| order by Count desc",
         "size": 2,
         "title": "Enrollment Status Distribution",
         "queryType": 0,
-        "visualization": "piechart",
-        "chartSettings": {
-          "seriesLabelSettings": [
-            { "seriesName": "enrolled", "color": "green" },
-            { "seriesName": "failed", "color": "red" },
-            { "seriesName": "blocked", "color": "orange" },
-            { "seriesName": "unknown", "color": "gray" },
-            { "seriesName": "notContacted", "color": "blue" },
-            { "seriesName": "pendingReset", "color": "yellow" }
-          ]
-        }
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "piechart"
       },
       "customWidth": "50",
       "name": "enrollment-pie"
@@ -106,70 +39,39 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AutopilotDevices_Current\n| where '{GroupTag:lable}' == 'All' or GroupTag in ({GroupTag})\n| summarize Count = count() by DeploymentProfileAssignmentStatus\n| order by Count desc",
+        "query": "IntuneAutopilotDevices_CL\n| summarize arg_max(TimeGenerated, *) by AutopilotDeviceId\n| summarize Count = count() by DeploymentProfileAssignmentStatus\n| order by Count desc",
         "size": 2,
         "title": "Profile Assignment Status",
         "queryType": 0,
-        "visualization": "piechart",
-        "chartSettings": {
-          "seriesLabelSettings": [
-            { "seriesName": "assignedInSync", "color": "green" },
-            { "seriesName": "failed", "color": "red" },
-            { "seriesName": "pending", "color": "yellow" },
-            { "seriesName": "notAssigned", "color": "gray" }
-          ]
-        }
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "piechart"
       },
       "customWidth": "50",
       "name": "profile-pie"
     },
     {
-      "type": 1,
-      "content": {
-        "json": "## 📊 Enrollment by Group Tag"
-      },
-      "name": "grouptag-header"
-    },
-    {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AutopilotDevices_Current\n| where '{GroupTag:lable}' == 'All' or GroupTag in ({GroupTag})\n| summarize \n    Total = count(),\n    Enrolled = countif(EnrollmentState == 'enrolled'),\n    Pending = countif(EnrollmentState in ('unknown', 'notContacted', 'pendingReset')),\n    Failed = countif(EnrollmentState == 'failed')\n    by GroupTag = iff(isempty(GroupTag), '(No Tag)', GroupTag)\n| extend EnrollmentRate = round(100.0 * Enrolled / Total, 1)\n| order by Total desc",
+        "query": "IntuneAutopilotDevices_CL\n| summarize arg_max(TimeGenerated, *) by AutopilotDeviceId\n| summarize \n    Total = count(),\n    Enrolled = countif(EnrollmentState == 'enrolled'),\n    Pending = countif(EnrollmentState in ('unknown', 'notContacted', 'pendingReset')),\n    Failed = countif(EnrollmentState == 'failed')\n    by GroupTag = iff(isempty(GroupTag), '(No Tag)', GroupTag)\n| extend EnrollmentRate = round(100.0 * Enrolled / Total, 1)\n| order by Total desc",
         "size": 0,
         "title": "Devices by Group Tag",
         "queryType": 0,
-        "visualization": "table",
-        "gridSettings": {
-          "formatters": [
-            { "columnMatch": "EnrollmentRate", "formatter": 4, "formatOptions": { "palette": "greenRed", "min": 0, "max": 100 } },
-            { "columnMatch": "Failed", "formatter": 8, "formatOptions": { "palette": "redBright" } }
-          ]
-        }
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
       },
       "name": "grouptag-table"
     },
     {
-      "type": 1,
-      "content": {
-        "json": "## ⚠️ Issues & Failures"
-      },
-      "name": "issues-header"
-    },
-    {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AutopilotDevices_Current\n| where '{GroupTag:lable}' == 'All' or GroupTag in ({GroupTag})\n| where EnrollmentState == 'failed' or DeploymentProfileAssignmentStatus == 'failed'\n| project SerialNumber, Manufacturer, Model, GroupTag, EnrollmentState, DeploymentProfileAssignmentStatus, LastContactedDateTime, UserPrincipalName\n| order by LastContactedDateTime desc\n| take 50",
+        "query": "IntuneAutopilotDevices_CL\n| summarize arg_max(TimeGenerated, *) by AutopilotDeviceId\n| where EnrollmentState == 'failed' or DeploymentProfileAssignmentStatus == 'failed'\n| project SerialNumber, Manufacturer, Model, GroupTag, EnrollmentState, DeploymentProfileAssignmentStatus, LastContactedDateTime, UserPrincipalName\n| order by LastContactedDateTime desc\n| take 50",
         "size": 0,
         "title": "Enrollment Failures",
         "queryType": 0,
-        "visualization": "table",
-        "gridSettings": {
-          "formatters": [
-            { "columnMatch": "EnrollmentState", "formatter": 18, "formatOptions": { "thresholdsOptions": "icons", "thresholdsGrid": [{ "operator": "==", "thresholdValue": "failed", "representation": "error", "text": "{0}" }] } },
-            { "columnMatch": "DeploymentProfileAssignmentStatus", "formatter": 18, "formatOptions": { "thresholdsOptions": "icons", "thresholdsGrid": [{ "operator": "==", "thresholdValue": "failed", "representation": "error", "text": "{0}" }] } }
-          ]
-        }
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
       },
       "name": "failures-table"
     },
@@ -177,34 +79,24 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AutopilotDevices_Current\n| where '{GroupTag:lable}' == 'All' or GroupTag in ({GroupTag})\n| where EnrollmentState in ('unknown', 'notContacted', 'pendingReset')\n| project SerialNumber, Manufacturer, Model, GroupTag, EnrollmentState, DeploymentProfileAssignmentStatus, LastContactedDateTime,\n    DaysSinceContact = iff(isnotnull(LastContactedDateTime), datetime_diff('day', now(), LastContactedDateTime), -1)\n| order by DaysSinceContact desc\n| take 50",
+        "query": "IntuneAutopilotDevices_CL\n| summarize arg_max(TimeGenerated, *) by AutopilotDeviceId\n| where EnrollmentState in ('unknown', 'notContacted', 'pendingReset')\n| project SerialNumber, Manufacturer, Model, GroupTag, EnrollmentState, DeploymentProfileAssignmentStatus, LastContactedDateTime,\n    DaysSinceContact = iff(isnotnull(LastContactedDateTime), datetime_diff('day', now(), LastContactedDateTime), -1)\n| order by DaysSinceContact desc\n| take 50",
         "size": 0,
         "title": "Pending Enrollment",
         "queryType": 0,
-        "visualization": "table",
-        "gridSettings": {
-          "formatters": [
-            { "columnMatch": "DaysSinceContact", "formatter": 4, "formatOptions": { "palette": "redGreen", "min": 0, "max": 30 } }
-          ]
-        }
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
       },
       "name": "pending-table"
-    },
-    {
-      "type": 1,
-      "content": {
-        "json": "## 🖥️ Hardware Distribution"
-      },
-      "name": "hardware-header"
     },
     {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AutopilotDevices_Current\n| where '{GroupTag:lable}' == 'All' or GroupTag in ({GroupTag})\n| summarize Count = count() by Manufacturer\n| order by Count desc\n| take 10",
+        "query": "IntuneAutopilotDevices_CL\n| summarize arg_max(TimeGenerated, *) by AutopilotDeviceId\n| summarize Count = count() by Manufacturer\n| order by Count desc\n| take 10",
         "size": 2,
         "title": "Devices by Manufacturer",
         "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
         "visualization": "barchart"
       },
       "customWidth": "50",
@@ -214,84 +106,44 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AutopilotDevices_Current\n| where '{GroupTag:lable}' == 'All' or GroupTag in ({GroupTag})\n| summarize \n    Count = count(),\n    Enrolled = countif(EnrollmentState == 'enrolled'),\n    Failed = countif(EnrollmentState == 'failed')\n    by Manufacturer, Model\n| extend EnrollmentRate = round(100.0 * Enrolled / Count, 1)\n| order by Count desc\n| take 15",
+        "query": "IntuneAutopilotDevices_CL\n| summarize arg_max(TimeGenerated, *) by AutopilotDeviceId\n| summarize \n    Count = count(),\n    Enrolled = countif(EnrollmentState == 'enrolled'),\n    Failed = countif(EnrollmentState == 'failed')\n    by Manufacturer, Model\n| extend EnrollmentRate = round(100.0 * Enrolled / Count, 1)\n| order by Count desc\n| take 15",
         "size": 0,
         "title": "Top Models",
         "queryType": 0,
-        "visualization": "table",
-        "gridSettings": {
-          "formatters": [
-            { "columnMatch": "EnrollmentRate", "formatter": 4, "formatOptions": { "palette": "greenRed", "min": 0, "max": 100 } }
-          ]
-        }
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
       },
       "customWidth": "50",
       "name": "models-table"
     },
     {
-      "type": 1,
-      "content": {
-        "json": "## 📋 Deployment Profiles"
-      },
-      "name": "profiles-header"
-    },
-    {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AutopilotProfiles_Current\n| project DisplayName, Description, DeviceNameTemplate, DeviceType, ProfileType, CreatedDateTime, LastModifiedDateTime\n| order by DisplayName asc",
+        "query": "IntuneAutopilotProfiles_CL\n| summarize arg_max(TimeGenerated, *) by ProfileId\n| project DisplayName, Description, DeviceNameTemplate, ProfileType, CreatedDateTime, LastModifiedDateTime\n| order by DisplayName asc",
         "size": 0,
         "title": "Autopilot Deployment Profiles",
         "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
         "visualization": "table"
       },
       "name": "profiles-table"
     },
     {
-      "type": 1,
-      "content": {
-        "json": "## 🔍 Device Search"
-      },
-      "name": "search-header"
-    },
-    {
-      "type": 9,
-      "content": {
-        "version": "KqlParameterItem/1.0",
-        "parameters": [
-          {
-            "id": "searchTerm",
-            "version": "KqlParameterItem/1.0",
-            "name": "SearchTerm",
-            "type": 1,
-            "isRequired": false,
-            "value": "",
-            "label": "Search (Serial, Model, User)"
-          }
-        ]
-      },
-      "name": "search-params"
-    },
-    {
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AutopilotDevices_Current\n| where '{GroupTag:lable}' == 'All' or GroupTag in ({GroupTag})\n| where isempty('{SearchTerm}') or \n    SerialNumber contains '{SearchTerm}' or \n    Model contains '{SearchTerm}' or \n    UserPrincipalName contains '{SearchTerm}' or\n    GroupTag contains '{SearchTerm}'\n| project SerialNumber, Manufacturer, Model, GroupTag, EnrollmentState, DeploymentProfileAssignmentStatus, UserPrincipalName, LastContactedDateTime, ManagedDeviceId\n| order by SerialNumber asc\n| take 100",
+        "query": "IntuneAutopilotDevices_CL\n| summarize arg_max(TimeGenerated, *) by AutopilotDeviceId\n| project SerialNumber, Manufacturer, Model, GroupTag, EnrollmentState, DeploymentProfileAssignmentStatus, UserPrincipalName, LastContactedDateTime\n| order by SerialNumber asc\n| take 100",
         "size": 0,
-        "title": "Autopilot Devices",
+        "title": "All Autopilot Devices",
         "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
         "visualization": "table",
         "gridSettings": {
-          "formatters": [
-            { "columnMatch": "EnrollmentState", "formatter": 18, "formatOptions": { "thresholdsOptions": "colors", "thresholdsGrid": [
-              { "operator": "==", "thresholdValue": "enrolled", "representation": "green", "text": "{0}" },
-              { "operator": "==", "thresholdValue": "failed", "representation": "red", "text": "{0}" },
-              { "operator": "Default", "representation": "yellow", "text": "{0}" }
-            ]}}
-          ]
+          "filter": true
         }
       },
-      "name": "search-results"
+      "name": "all-devices"
     }
   ],
   "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
