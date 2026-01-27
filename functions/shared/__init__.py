@@ -1,5 +1,12 @@
 """
 Shared utilities for Intune export functions.
+
+This module provides:
+- Authentication (Azure AD / Managed Identity)
+- Microsoft Graph client
+- Data ingestion (Log Analytics / ADX)
+- Retry logic with exponential backoff
+- Configuration validation
 """
 import os
 import json
@@ -7,7 +14,7 @@ import logging
 import asyncio
 from datetime import datetime, timezone
 from io import StringIO
-from functools import wraps
+from typing import List, Dict, Any, Optional
 
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
 from azure.monitor.ingestion import LogsIngestionClient
@@ -18,6 +25,94 @@ logger = logging.getLogger(__name__)
 # Retry configuration
 MAX_RETRIES = 5
 BASE_DELAY = 30  # seconds
+
+
+class ConfigurationError(Exception):
+    """Raised when required configuration is missing or invalid."""
+    pass
+
+
+def validate_config() -> Dict[str, Any]:
+    """
+    Validate configuration and return a summary.
+    Call this on startup to fail fast if misconfigured.
+
+    Returns:
+        Dict with configuration summary
+
+    Raises:
+        ConfigurationError if required config is missing
+    """
+    errors = []
+    warnings = []
+    config = {}
+
+    # Check authentication
+    tenant_id = os.environ.get('AZURE_TENANT_ID')
+    client_id = os.environ.get('AZURE_CLIENT_ID')
+    client_secret = os.environ.get('AZURE_CLIENT_SECRET')
+
+    if all([tenant_id, client_id, client_secret]):
+        config['auth_method'] = 'client_secret'
+        config['tenant_id'] = tenant_id
+        config['client_id'] = client_id
+    elif any([tenant_id, client_id, client_secret]):
+        # Partial config - probably an error
+        missing = []
+        if not tenant_id: missing.append('AZURE_TENANT_ID')
+        if not client_id: missing.append('AZURE_CLIENT_ID')
+        if not client_secret: missing.append('AZURE_CLIENT_SECRET')
+        errors.append(f"Partial auth config - missing: {', '.join(missing)}")
+    else:
+        config['auth_method'] = 'managed_identity'
+        warnings.append("Using managed identity - ensure Function App has required permissions")
+
+    # Check analytics backend
+    backend = os.environ.get('ANALYTICS_BACKEND', 'LogAnalytics').upper()
+    config['backend'] = backend
+
+    if backend == 'LOGANALYTICS':
+        dce = os.environ.get('LOG_ANALYTICS_DCE')
+        dcr_id = os.environ.get('LOG_ANALYTICS_DCR_ID')
+
+        if not dce:
+            errors.append("LOG_ANALYTICS_DCE is required for Log Analytics backend")
+        elif not dce.startswith('https://'):
+            errors.append(f"LOG_ANALYTICS_DCE should be a URL, got: {dce[:50]}...")
+        else:
+            config['dce'] = dce
+
+        if not dcr_id:
+            errors.append("LOG_ANALYTICS_DCR_ID is required for Log Analytics backend")
+        elif not dcr_id.startswith('dcr-'):
+            warnings.append(f"LOG_ANALYTICS_DCR_ID usually starts with 'dcr-', got: {dcr_id[:20]}...")
+        config['dcr_id'] = dcr_id
+
+    elif backend == 'ADX':
+        cluster = os.environ.get('ADX_CLUSTER_URI')
+        database = os.environ.get('ADX_DATABASE', 'IntuneAnalytics')
+
+        if not cluster:
+            errors.append("ADX_CLUSTER_URI is required for ADX backend")
+        elif not cluster.startswith('https://'):
+            errors.append(f"ADX_CLUSTER_URI should be a URL, got: {cluster[:50]}...")
+        else:
+            config['cluster'] = cluster
+            config['database'] = database
+    else:
+        errors.append(f"Unknown ANALYTICS_BACKEND: {backend}. Use 'LogAnalytics' or 'ADX'")
+
+    # Log results
+    if errors:
+        for err in errors:
+            logger.error(f"Config error: {err}")
+        raise ConfigurationError(f"Configuration invalid: {'; '.join(errors)}")
+
+    for warn in warnings:
+        logger.warning(f"Config warning: {warn}")
+
+    logger.info(f"Configuration valid: backend={config['backend']}, auth={config['auth_method']}")
+    return config
 
 
 async def retry_with_backoff(func, *args, **kwargs):
