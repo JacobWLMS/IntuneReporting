@@ -75,10 +75,52 @@ resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/con
 }
 
 // ============================================================================
-// GitHub Release URL for function code
+// Deployment Script: Copy function app code from GitHub to storage
 // ============================================================================
 
-var packageUri = 'https://github.com/JacobWLMS/IntuneReporting/releases/download/latest/released-package.zip'
+resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
+  name: '${baseName}-deploy-code'
+  location: location
+  kind: 'AzureCLI'
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${managedIdentity.id}': {}
+    }
+  }
+  properties: {
+    azCliVersion: '2.52.0'
+    timeout: 'PT10M'
+    retentionInterval: 'PT1H'
+    cleanupPreference: 'OnSuccess'
+    environmentVariables: [
+      { name: 'STORAGE_ACCOUNT', value: storageAccount.name }
+      { name: 'STORAGE_KEY', secureValue: storageAccount.listKeys().keys[0].value }
+      { name: 'CONTAINER_NAME', value: 'deploymentpackage' }
+      { name: 'ZIP_URL', value: 'https://github.com/JacobWLMS/IntuneReporting/releases/download/latest/released-package.zip' }
+    ]
+    scriptContent: '''
+set -e
+echo "Starting deployment script..."
+echo "Downloading from GitHub: $ZIP_URL"
+curl -L -f -o /tmp/released-package.zip "$ZIP_URL"
+echo "Download complete. File size: $(stat -c%s /tmp/released-package.zip) bytes"
+echo "Uploading to storage account: $STORAGE_ACCOUNT"
+az storage blob upload \
+  --account-name "$STORAGE_ACCOUNT" \
+  --account-key "$STORAGE_KEY" \
+  --container-name "$CONTAINER_NAME" \
+  --name "released-package.zip" \
+  --file /tmp/released-package.zip \
+  --overwrite
+echo "Upload complete"
+echo "{\"status\": \"success\", \"blobName\": \"released-package.zip\"}" > $AZ_SCRIPTS_OUTPUT_PATH
+    '''
+  }
+  dependsOn: [
+    deploymentContainer
+  ]
+}
 
 // ============================================================================
 // Log Analytics Workspace
@@ -568,19 +610,9 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
       ]
     }
   }
-}
-
-// ============================================================================
-// One Deploy: Deploy function code directly from GitHub URL
-// ============================================================================
-
-resource functionAppDeploy 'Microsoft.Web/sites/extensions@2022-09-01' = {
-  parent: functionApp
-  name: 'onedeploy'
-  properties: {
-    packageUri: packageUri
-    remoteBuild: false
-  }
+  dependsOn: [
+    deploymentScript
+  ]
 }
 
 // ============================================================================
