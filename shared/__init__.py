@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Optional, Protocol
 from abc import ABC, abstractmethod
 
-from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
+from azure.identity import DefaultAzureCredential, ClientSecretCredential
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder, DataFormat
 from azure.kusto.ingest import QueuedIngestClient, IngestionProperties
 from azure.monitor.ingestion import LogsIngestionClient
@@ -74,8 +74,7 @@ class ADXClient(IngestionClient):
     
     def _get_ingest_client(self) -> QueuedIngestClient:
         if not self._ingest_client:
-            # Use managed identity in Azure, DefaultAzureCredential locally
-            credential = ManagedIdentityCredential() if os.environ.get('WEBSITE_INSTANCE_ID') else DefaultAzureCredential()
+            credential = get_credential()
             ingest_uri = self.config.adx_cluster.replace('https://', 'https://ingest-')
             kcsb = KustoConnectionStringBuilder.with_azure_token_credential(ingest_uri, credential)
             self._ingest_client = QueuedIngestClient(kcsb)
@@ -106,7 +105,7 @@ class LogAnalyticsClient(IngestionClient):
     
     def _get_client(self) -> LogsIngestionClient:
         if not self._client:
-            credential = ManagedIdentityCredential() if os.environ.get('WEBSITE_INSTANCE_ID') else DefaultAzureCredential()
+            credential = get_credential()
             self._client = LogsIngestionClient(endpoint=self.config.log_analytics_dce, credential=credential)
         return self._client
     
@@ -143,9 +142,25 @@ def get_ingestion_client(config: Config) -> IngestionClient:
         return ADXClient(config)
 
 
+def get_credential():
+    """Get Azure credential - supports client secret or managed identity"""
+    # If client secret is configured, use it (for app registration auth)
+    client_id = os.environ.get('AZURE_CLIENT_ID')
+    client_secret = os.environ.get('AZURE_CLIENT_SECRET')
+    tenant_id = os.environ.get('AZURE_TENANT_ID') or os.environ.get('TENANT_ID')
+
+    if client_id and client_secret and tenant_id:
+        logging.info("Using client secret authentication")
+        return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
+
+    # Otherwise use DefaultAzureCredential (managed identity in Azure, Azure CLI locally)
+    logging.info("Using DefaultAzureCredential")
+    return DefaultAzureCredential()
+
+
 def get_graph_client() -> GraphServiceClient:
-    """Get authenticated Graph client using managed identity"""
-    credential = ManagedIdentityCredential() if os.environ.get('WEBSITE_INSTANCE_ID') else DefaultAzureCredential()
+    """Get authenticated Graph client"""
+    credential = get_credential()
     scopes = ['https://graph.microsoft.com/.default']
     return GraphServiceClient(credentials=credential, scopes=scopes)
 

@@ -1,11 +1,12 @@
 // ============================================================================
-// Intune Analytics Platform - ADX Backend
+// Intune Analytics Platform - ADX Backend (Simplified)
 // ============================================================================
-// This template deploys an Azure Function App with connection string auth
-// for deployment storage (simpler setup, no role assignments needed).
+// Deploys a Function App that exports Intune data to Azure Data Explorer.
+// Uses app registration (client secret) for authentication.
+// Upload function code manually via Deployment Center after deployment.
 // ============================================================================
 
-@description('Base name for all resources (max 11 characters, will be appended with unique suffix)')
+@description('Base name for all resources (max 11 chars)')
 @maxLength(11)
 param baseName string
 
@@ -13,108 +14,44 @@ param baseName string
 param location string = resourceGroup().location
 
 @description('Azure Data Explorer cluster URI (e.g., https://mycluster.uksouth.kusto.windows.net)')
-param adxClusterUri string = ''
+param adxClusterUri string
 
 @description('Azure Data Explorer database name')
 param adxDatabaseName string = 'IntuneAnalytics'
+
+@description('App Registration - Tenant ID')
+param tenantId string = subscription().tenantId
+
+@description('App Registration - Client ID')
+param clientId string
+
+@secure()
+@description('App Registration - Client Secret')
+param clientSecret string
 
 // ============================================================================
 // Variables
 // ============================================================================
 
 var uniqueSuffix = uniqueString(resourceGroup().id)
-var storageAccountName = toLower('${take(baseName, 11)}${take(uniqueSuffix, 13)}')
 var functionAppName = '${baseName}-func-${uniqueSuffix}'
 var appServicePlanName = '${baseName}-asp-${uniqueSuffix}'
-var managedIdentityName = '${baseName}-mi-${uniqueSuffix}'
+var storageAccountName = toLower('${take(baseName, 11)}${take(uniqueSuffix, 13)}')
 
 // ============================================================================
-// User-Assigned Managed Identity (for Graph API access)
-// ============================================================================
-
-resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: managedIdentityName
-  location: location
-}
-
-// ============================================================================
-// Storage Account
+// Storage Account (required for Flex Consumption timer triggers)
 // ============================================================================
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageAccountName
   location: location
-  sku: {
-    name: 'Standard_LRS'
-  }
+  sku: { name: 'Standard_LRS' }
   kind: 'StorageV2'
   properties: {
     supportsHttpsTrafficOnly: true
     minimumTlsVersion: 'TLS1_2'
     allowBlobPublicAccess: false
-    defaultToOAuthAuthentication: true
   }
-}
-
-resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
-  parent: storageAccount
-  name: 'default'
-}
-
-resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
-  parent: blobService
-  name: 'deploymentpackage'
-  properties: {
-    publicAccess: 'None'
-  }
-}
-
-// ============================================================================
-// Deployment Script: Copy function app code from GitHub to storage
-// ============================================================================
-
-resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
-  name: '${baseName}-deploy-code'
-  location: location
-  kind: 'AzureCLI'
-  identity: {
-    type: 'UserAssigned'
-    userAssignedIdentities: {
-      '${managedIdentity.id}': {}
-    }
-  }
-  properties: {
-    azCliVersion: '2.52.0'
-    timeout: 'PT10M'
-    retentionInterval: 'PT1H'
-    cleanupPreference: 'OnSuccess'
-    environmentVariables: [
-      { name: 'STORAGE_ACCOUNT', value: storageAccount.name }
-      { name: 'STORAGE_KEY', secureValue: storageAccount.listKeys().keys[0].value }
-      { name: 'CONTAINER_NAME', value: 'deploymentpackage' }
-      { name: 'ZIP_URL', value: 'https://github.com/JacobWLMS/IntuneReporting/releases/download/latest/released-package.zip' }
-    ]
-    scriptContent: '''
-set -e
-echo "Starting deployment script..."
-echo "Downloading from GitHub: $ZIP_URL"
-curl -L -f -o /tmp/released-package.zip "$ZIP_URL"
-echo "Download complete. File size: $(stat -c%s /tmp/released-package.zip) bytes"
-echo "Uploading to storage account: $STORAGE_ACCOUNT"
-az storage blob upload \
-  --account-name "$STORAGE_ACCOUNT" \
-  --account-key "$STORAGE_KEY" \
-  --container-name "$CONTAINER_NAME" \
-  --name "released-package.zip" \
-  --file /tmp/released-package.zip \
-  --overwrite
-echo "Upload complete"
-echo "{\"status\": \"success\", \"blobName\": \"released-package.zip\"}" > $AZ_SCRIPTS_OUTPUT_PATH
-    '''
-  }
-  dependsOn: [
-    deploymentContainer
-  ]
 }
 
 // ============================================================================
@@ -142,28 +79,12 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   name: functionAppName
   location: location
   kind: 'functionapp,linux'
-  identity: {
-    type: 'UserAssigned'
-    userAssignedIdentities: {
-      '${managedIdentity.id}': {}
-    }
-  }
   properties: {
     serverFarmId: appServicePlan.id
     httpsOnly: true
     functionAppConfig: {
-      deployment: {
-        storage: {
-          type: 'blobContainer'
-          value: '${storageAccount.properties.primaryEndpoints.blob}deploymentpackage'
-          authentication: {
-            type: 'StorageAccountConnectionString'
-            storageAccountConnectionStringName: 'DEPLOYMENT_STORAGE_CONNECTION_STRING'
-          }
-        }
-      }
       scaleAndConcurrency: {
-        maximumInstanceCount: 100
+        maximumInstanceCount: 40
         instanceMemoryMB: 2048
       }
       runtime: {
@@ -173,53 +94,20 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
     }
     siteConfig: {
       appSettings: [
-        // Deployment storage connection string
-        {
-          name: 'DEPLOYMENT_STORAGE_CONNECTION_STRING'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
-        }
-        // AzureWebJobsStorage connection string
-        {
-          name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
-        }
-        // Function runtime settings
-        {
-          name: 'FUNCTIONS_EXTENSION_VERSION'
-          value: '~4'
-        }
-        {
-          name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
-          value: 'true'
-        }
-        // Analytics backend configuration
-        {
-          name: 'ANALYTICS_BACKEND'
-          value: 'ADX'
-        }
-        {
-          name: 'ADX_CLUSTER_URI'
-          value: adxClusterUri
-        }
-        {
-          name: 'ADX_DATABASE'
-          value: adxDatabaseName
-        }
-        {
-          name: 'TENANT_ID'
-          value: subscription().tenantId
-        }
-        // Managed Identity client ID for Graph API calls
-        {
-          name: 'AZURE_CLIENT_ID'
-          value: managedIdentity.properties.clientId
-        }
+        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
+        { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
+        { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'true' }
+        // Analytics backend
+        { name: 'ANALYTICS_BACKEND', value: 'ADX' }
+        { name: 'ADX_CLUSTER_URI', value: adxClusterUri }
+        { name: 'ADX_DATABASE', value: adxDatabaseName }
+        // App registration credentials
+        { name: 'AZURE_TENANT_ID', value: tenantId }
+        { name: 'AZURE_CLIENT_ID', value: clientId }
+        { name: 'AZURE_CLIENT_SECRET', value: clientSecret }
       ]
     }
   }
-  dependsOn: [
-    deploymentScript
-  ]
 }
 
 // ============================================================================
@@ -228,9 +116,12 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
 
 output functionAppName string = functionApp.name
 output functionAppUrl string = 'https://${functionApp.properties.defaultHostName}'
-output managedIdentityObjectId string = managedIdentity.properties.principalId
-output managedIdentityClientId string = managedIdentity.properties.clientId
-output storageAccountName string = storageAccount.name
+output deploymentCenterUrl string = 'https://portal.azure.com/#@${tenantId}/resource${functionApp.id}/vstscd'
 
-output nextStep string = 'IMPORTANT: Run scripts/Grant-GraphPermissions.ps1 to grant Microsoft Graph API permissions to the Managed Identity.'
-output grantPermissionsCommand string = '.\\scripts\\Grant-GraphPermissions.ps1 -ManagedIdentityObjectId "${managedIdentity.properties.principalId}"'
+output nextSteps string = '''
+1. Grant Graph API permissions to your app registration:
+   - DeviceManagementManagedDevices.Read.All
+   - DeviceManagementConfiguration.Read.All
+2. Grant your app registration "Ingestor" role on the ADX database
+3. Upload function code via Deployment Center (ZIP deploy)
+'''
