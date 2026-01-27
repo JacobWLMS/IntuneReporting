@@ -44,7 +44,7 @@ def get_automation_variable(name: str, default: str = '') -> str:
         return value
     
     try:
-        import automationassets
+        import automationassets  # type: ignore  # Only available in Azure Automation runtime
         return automationassets.get_automation_variable(name) or default
     except ImportError:
         return default

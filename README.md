@@ -4,14 +4,16 @@ Export Microsoft Intune data to Azure for compliance monitoring, endpoint analyt
 
 ## 🚀 One-Click Deploy
 
-Choose your analytics backend:
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FJacobWLMS%2FIntuneReporting%2Fmain%2Fdeployment%2Fautomation-account%2Fazuredeploy.json)
 
-| Backend | Deploy | Cost | Best For |
-|---------|--------|------|----------|
-| **Azure Data Explorer** | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FJacobWLMS%2FIntuneReporting%2Fmain%2Fdeployment%2Fautomation-account%2Fazuredeploy.json) | Free tier | Powerful KQL, materialized views, time-series |
-| **Log Analytics** | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FJacobWLMS%2FIntuneReporting%2Fmain%2Fdeployment%2Fautomation-account%2Fazuredeploy.json) | Pay-per-GB | Simpler setup, Azure Monitor integration |
+> ☝️ This single deployment creates **everything you need** - just select your backend and go!
 
-> 💡 Both buttons deploy the same Automation Account - just select your preferred backend during deployment.
+### What Gets Deployed
+
+| Backend | Created Resources |
+|---------|-------------------|
+| **Log Analytics** | Workspace + DCE + DCR (with all table schemas) + Automation Account + Role assignments |
+| **ADX** | Optional free-tier cluster + Database + Automation Account + Role assignments |
 
 ### Which Backend Should I Choose?
 
@@ -20,11 +22,11 @@ Choose your analytics backend:
 | **Cost** | Free dev tier (1 cluster/subscription) | ~$2.76/GB ingested |
 | **Query Language** | KQL (full power) | KQL (subset) |
 | **Materialized Views** | ✅ Yes | ❌ No |
-| **Custom Functions** | ✅ Yes | ✅ Yes |
 | **Azure Monitor Alerts** | Via export | ✅ Native |
 | **Sentinel Integration** | Via export | ✅ Native |
+| **Setup Complexity** | Run schema script | ✅ Fully automated |
 
-**Recommendation**: Start with **ADX** for the free tier and powerful analytics.
+**Recommendation**: Start with **Log Analytics** for easiest setup, or **ADX** for powerful analytics.
 
 ## 🎯 Why This Exists
 
@@ -40,78 +42,74 @@ Microsoft Intune portal is great for day-to-day management, but limited for:
 |---------|------|----------|
 | **Export-IntuneDevices** | Device inventory (core table all others reference) | Every 4 hours |
 | **Export-IntuneCompliance** | Compliance policies and per-device states | Every 6 hours |
-| **Export-EndpointAnalytics** | Health scores, startup performance, app reliability | Daily 8 AM UTC |
-| **Export-Autopilot** | Autopilot devices and deployment profiles | Daily 6 AM UTC |
+| **Export-EndpointAnalytics** | Health scores, startup performance, app reliability | Daily |
+| **Export-Autopilot** | Autopilot devices and deployment profiles | Daily |
 
 ## 🏗️ Architecture
 
 ```
 ┌──────────────────┐     ┌────────────────────┐     ┌──────────────────┐
-│   Microsoft      │     │  Azure Automation  │     │   Azure Data     │
-│   Graph API      │────▶│  Python 3.10       │────▶│   Explorer       │
-│   (Intune Data)  │     │  Runbooks          │     │   (Free Tier)    │
+│   Microsoft      │     │  Azure Automation  │     │   Log Analytics  │
+│   Graph API      │────▶│  Python 3.10       │────▶│   Workspace      │
+│   (Intune Data)  │     │  Runbooks          │     │   (or ADX)       │
 └──────────────────┘     └────────────────────┘     └──────────────────┘
-                                  │                          │
-                                  │                          ▼
-                                  │                 ┌──────────────────┐
-                                  │                 │   KQL Queries    │
-                                  └────────────────▶│   + Dashboards   │
-                                  (or Log Analytics)│   + Alerts       │
-                                                    └──────────────────┘
+        │                         │                          │
+        │                         ▼                          ▼
+        │               ┌────────────────────┐     ┌──────────────────┐
+        │               │  DCE + DCR         │     │  Azure Workbooks │
+        │               │  (auto-created)    │     │  + Alerts        │
+        └──────────────▶└────────────────────┘     └──────────────────┘
 ```
 
-**Cost**: ~$0/month (Automation Account basic tier + ADX Dev/Free tier)
+**Cost**: ~$0/month with free tiers
 
 ## 🚀 Quick Start
 
 ### 1. Deploy (One-Click)
 
 1. Click the **Deploy to Azure** button above
-2. Fill in parameters:
+2. Fill in required parameters:
    - **baseName**: Short prefix for resources (max 11 chars)
-   - **analyticsBackend**: Choose `ADX` or `LogAnalytics`
-   - **graphClientId/Secret**: Your App Registration credentials (for testing)
-   - **adxClusterUri** or **logAnalytics*** settings: Your backend details
-3. Click **Review + create** → **Create**
-4. ⏳ Wait 5-10 minutes
+   - **analyticsBackend**: Choose `LogAnalytics` or `ADX`
+3. Optional parameters:
+   - **graphClientId/Secret**: App Registration credentials (leave empty to use Managed Identity)
+   - **createAdxCluster**: Set to `true` to create a free-tier ADX cluster
+   - **logAnalyticsRetentionDays**: Data retention (default 90 days)
+4. Click **Review + create** → **Create**
+5. ⏳ Wait 5-10 minutes
 
 ### 2. Grant Graph API Permissions
 
-The runbooks need Microsoft Graph permissions to read Intune data.
+The Automation Account's **Managed Identity** needs Microsoft Graph permissions.
 
-**Option A: Use App Registration (Recommended for Testing)**
-
-If you provided `graphClientId` and `graphClientSecret` during deployment, your App Registration needs these API permissions:
-
-| Permission | Type | Purpose |
-|------------|------|---------|
-| `DeviceManagementManagedDevices.Read.All` | Application | Read devices and compliance |
-| `DeviceManagementConfiguration.Read.All` | Application | Read endpoint analytics |
-| `DeviceManagementServiceConfig.Read.All` | Application | Read Autopilot data |
-
-Grant these in **Azure Portal → Entra ID → App Registrations → Your App → API Permissions → Add Permission → Microsoft Graph → Application Permissions**.
-
-**Option B: Use Managed Identity**
-
-Leave `graphClientId` and `graphClientSecret` empty during deployment, then grant the Automation Account's managed identity Graph permissions:
+Run the provided script (requires Azure AD admin rights):
 
 ```powershell
-# Get the managed identity object ID from deployment outputs
-.\scripts\Grant-GraphPermissions.ps1 -ManagedIdentityObjectId "<paste-object-id>"
+# Get the managed identity object ID from deployment outputs, then run:
+./scripts/Grant-GraphPermissions.ps1 -ManagedIdentityObjectId "<managedIdentityPrincipalId>"
 ```
 
-### 3. Grant Backend Permissions
+This grants:
+| Permission | Purpose |
+|------------|---------|
+| `DeviceManagementManagedDevices.Read.All` | Read devices and compliance |
+| `DeviceManagementConfiguration.Read.All` | Read endpoint analytics |
+| `DeviceManagementServiceConfig.Read.All` | Read Autopilot data |
 
-**For ADX Backend:**
-- Grant the App Registration or Managed Identity **Database Ingestor** role on your ADX database
+> **Alternative**: Use an App Registration by providing `graphClientId` and `graphClientSecret` during deployment.
 
-**For Log Analytics Backend:**
-- Grant the App Registration or Managed Identity **Monitoring Metrics Publisher** role on your DCR
+### 3. Backend Permissions (Auto-Configured!)
+
+**Log Analytics**: ✅ Monitoring Metrics Publisher role is automatically assigned to the Managed Identity on the DCR.
+
+**ADX (new cluster)**: ✅ Database Ingestor role is automatically assigned. Just run `database/Schema-Focused.kql` to create tables.
+
+**ADX (existing cluster)**: Manually grant Database Ingestor role to the Managed Identity.
 
 ### 4. Test the Runbooks
 
 1. Azure Portal → **Automation Account** → **Runbooks**
-2. Select `Export-IntuneCompliance` → **Start**
+2. Select `Export-IntuneDevices` → **Start**
 3. Monitor the job output for success/errors
 
 ## 📁 Project Structure
