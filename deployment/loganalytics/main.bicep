@@ -47,7 +47,7 @@ resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-
 }
 
 // ============================================================================
-// Storage Account (with shared key access disabled)
+// Storage Account (with shared key access disabled for security)
 // ============================================================================
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
