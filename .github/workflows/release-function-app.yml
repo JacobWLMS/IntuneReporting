@@ -1,0 +1,64 @@
+name: Release Function App
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'fn_*/**'
+      - 'shared/**'
+      - 'requirements.txt'
+      - 'host.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create function app zip
+        run: |
+          # Create zip with function app files
+          zip -r function-app.zip \
+            fn_*/ \
+            shared/ \
+            requirements.txt \
+            host.json \
+            -x "**/__pycache__/*" \
+            -x "**/*.pyc"
+          
+          echo "📦 Created function-app.zip ($(stat -c%s function-app.zip) bytes)"
+          unzip -l function-app.zip | head -30
+
+      - name: Delete existing release
+        run: |
+          # Delete the existing 'latest' release if it exists
+          gh release delete latest --yes || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create new release
+        run: |
+          gh release create latest \
+            --title "Latest Function App Release" \
+            --notes "Auto-generated release containing the function app deployment package.
+          
+          **Download:** \`function-app.zip\`
+          
+          **Commit:** ${{ github.sha }}
+          **Updated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" \
+            --latest \
+            function-app.zip
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify release
+        run: |
+          echo "✅ Release published successfully"
+          echo "📥 Download URL: https://github.com/${{ github.repository }}/releases/latest/download/function-app.zip"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
