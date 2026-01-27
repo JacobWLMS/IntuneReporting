@@ -20,8 +20,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Bicep CLI
-        uses: azure/setup-bicep@v0.3.0
+      - name: Install Bicep CLI
+        run: |
+          curl -Lo bicep https://github.com/Azure/bicep/releases/latest/download/bicep-linux-x64
+          chmod +x ./bicep
+          sudo mv ./bicep /usr/local/bin/bicep
+          bicep --version
         
       - name: Compile Bicep templates
         run: |
@@ -39,7 +43,7 @@ jobs:
         run: |
           for file in deployment/adx/main.json deployment/loganalytics/main.json; do
             if [ -f "$file" ]; then
-              echo "✅ $file exists ($(stat -c%s "$file" 2>/dev/null || stat -f%z "$file") bytes)"
+              echo "✅ $file exists ($(stat -c%s "$file") bytes)"
             else
               echo "❌ $file not found"
               exit 1
@@ -53,10 +57,11 @@ jobs:
           git config --local user.name "github-actions[bot]"
           
           # Check if there are changes to commit
-          if git diff --quiet deployment/**/*.json; then
+          git add deployment/adx/main.json deployment/loganalytics/main.json
+          if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git add deployment/**/*.json
             git commit -m "🔧 Auto-compile Bicep to ARM JSON [skip ci]"
             git push
           fi
+
