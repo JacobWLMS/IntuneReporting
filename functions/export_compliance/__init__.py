@@ -6,7 +6,7 @@ import logging
 import asyncio
 import azure.functions as func
 
-from shared import get_graph_client, add_metadata, DataIngester
+from shared import get_graph_client, add_metadata, DataIngester, retry_with_backoff
 from msgraph_beta.generated.device_management.reports.get_device_status_by_compliace_policy_report.get_device_status_by_compliace_policy_report_post_request_body import GetDeviceStatusByCompliacePolicyReportPostRequestBody
 
 logger = logging.getLogger(__name__)
@@ -19,8 +19,11 @@ STATUS_MAP = {
 
 async def get_compliance_policies(graph_client) -> list:
     """Get all compliance policy definitions."""
+    logger.info("Fetching compliance policies...")
     policies = []
-    result = await graph_client.device_management.device_compliance_policies.get()
+    result = await retry_with_backoff(
+        graph_client.device_management.device_compliance_policies.get
+    )
 
     for policy in result.value or []:
         policies.append({
@@ -32,6 +35,7 @@ async def get_compliance_policies(graph_client) -> list:
             'PolicyType': type(policy).__name__.replace('CompliancePolicy', ''),
         })
 
+    logger.info(f"Fetched {len(policies)} compliance policies")
     return policies
 
 
@@ -58,7 +62,10 @@ async def get_compliance_states(graph_client, policy_id: str, policy_name: str) 
         body.top = 1000
         body.order_by = []
 
-        response = await graph_client.device_management.reports.get_device_status_by_compliace_policy_report.post(body)
+        response = await retry_with_backoff(
+            graph_client.device_management.reports.get_device_status_by_compliace_policy_report.post,
+            body
+        )
         rows, total = parse_report_response(response)
 
         for row in rows:

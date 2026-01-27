@@ -6,29 +6,20 @@ import logging
 import asyncio
 import azure.functions as func
 
-from shared import get_graph_client, add_metadata, DataIngester
+from shared import get_graph_client, add_metadata, DataIngester, retry_with_backoff
 
 logger = logging.getLogger(__name__)
 
 
 async def get_managed_devices(graph_client) -> list:
     """Fetch all managed devices with pagination."""
+    logger.info("Fetching managed devices...")
     devices = []
 
-    select_fields = [
-        'id', 'deviceName', 'userPrincipalName', 'userDisplayName',
-        'operatingSystem', 'osVersion', 'complianceState', 'managementState',
-        'enrolledDateTime', 'lastSyncDateTime', 'manufacturer', 'model',
-        'serialNumber', 'imei', 'managementAgent', 'ownerType',
-        'deviceEnrollmentType', 'emailAddress', 'azureADRegistered',
-        'azureADDeviceId', 'deviceRegistrationState', 'isEncrypted',
-        'isSupervised', 'jailBroken', 'autopilotEnrolled',
-        'deviceCategoryDisplayName', 'totalStorageSpaceInBytes',
-        'freeStorageSpaceInBytes', 'physicalMemoryInBytes',
-        'wiFiMacAddress', 'ethernetMacAddress'
-    ]
-
-    result = await graph_client.device_management.managed_devices.get()
+    # Initial request with retry
+    result = await retry_with_backoff(
+        graph_client.device_management.managed_devices.get
+    )
 
     while result:
         for device in result.value or []:
@@ -66,11 +57,15 @@ async def get_managed_devices(graph_client) -> list:
                 'EthernetMacAddress': device.ethernet_mac_address,
             })
 
+        # Handle pagination with retry
         if result.odata_next_link:
-            result = await graph_client.device_management.managed_devices.with_url(result.odata_next_link).get()
+            result = await retry_with_backoff(
+                graph_client.device_management.managed_devices.with_url(result.odata_next_link).get
+            )
         else:
             break
 
+    logger.info(f"Fetched {len(devices)} devices")
     return devices
 
 

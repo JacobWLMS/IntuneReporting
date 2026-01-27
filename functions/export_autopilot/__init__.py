@@ -7,7 +7,7 @@ import logging
 import asyncio
 import azure.functions as func
 
-from shared import get_graph_client, add_metadata, DataIngester
+from shared import get_graph_client, add_metadata, DataIngester, retry_with_backoff
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +24,12 @@ ASSIGNMENT_STATUS_MAP = {
 
 async def get_autopilot_devices(graph_client) -> list:
     """Get Windows Autopilot device identities."""
+    logger.info("Fetching Autopilot devices...")
     devices = []
-    result = await graph_client.device_management.windows_autopilot_device_identities.get()
+
+    result = await retry_with_backoff(
+        graph_client.device_management.windows_autopilot_device_identities.get
+    )
 
     while result:
         for d in result.value or []:
@@ -57,17 +61,24 @@ async def get_autopilot_devices(graph_client) -> list:
             })
 
         if result.odata_next_link:
-            result = await graph_client.device_management.windows_autopilot_device_identities.with_url(result.odata_next_link).get()
+            result = await retry_with_backoff(
+                graph_client.device_management.windows_autopilot_device_identities.with_url(result.odata_next_link).get
+            )
         else:
             break
 
+    logger.info(f"Fetched {len(devices)} Autopilot devices")
     return devices
 
 
 async def get_autopilot_profiles(graph_client) -> list:
     """Get Autopilot deployment profiles."""
+    logger.info("Fetching Autopilot profiles...")
     profiles = []
-    result = await graph_client.device_management.windows_autopilot_deployment_profiles.get()
+
+    result = await retry_with_backoff(
+        graph_client.device_management.windows_autopilot_deployment_profiles.get
+    )
 
     for p in result.value or []:
         oobe = None
@@ -96,6 +107,7 @@ async def get_autopilot_profiles(graph_client) -> list:
             'ProfileType': type(p).__name__.replace('WindowsAutopilotDeploymentProfile', ''),
         })
 
+    logger.info(f"Fetched {len(profiles)} Autopilot profiles")
     return profiles
 
 

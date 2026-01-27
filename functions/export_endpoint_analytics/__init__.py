@@ -6,15 +6,19 @@ import logging
 import asyncio
 import azure.functions as func
 
-from shared import get_graph_client, add_metadata, DataIngester
+from shared import get_graph_client, add_metadata, DataIngester, retry_with_backoff
 
 logger = logging.getLogger(__name__)
 
 
 async def get_device_scores(graph_client) -> list:
     """Get device health scores."""
+    logger.info("Fetching device health scores...")
     scores = []
-    result = await graph_client.device_management.user_experience_analytics_device_scores.get()
+
+    result = await retry_with_backoff(
+        graph_client.device_management.user_experience_analytics_device_scores.get
+    )
 
     while result:
         for d in result.value or []:
@@ -33,17 +37,24 @@ async def get_device_scores(graph_client) -> list:
             })
 
         if result.odata_next_link:
-            result = await graph_client.device_management.user_experience_analytics_device_scores.with_url(result.odata_next_link).get()
+            result = await retry_with_backoff(
+                graph_client.device_management.user_experience_analytics_device_scores.with_url(result.odata_next_link).get
+            )
         else:
             break
 
+    logger.info(f"Fetched {len(scores)} device scores")
     return scores
 
 
 async def get_startup_performance(graph_client) -> list:
     """Get device startup performance metrics."""
+    logger.info("Fetching startup performance data...")
     records = []
-    result = await graph_client.device_management.user_experience_analytics_device_startup_history.get()
+
+    result = await retry_with_backoff(
+        graph_client.device_management.user_experience_analytics_device_startup_history.get
+    )
 
     while result:
         for s in result.value or []:
@@ -64,19 +75,25 @@ async def get_startup_performance(graph_client) -> list:
             })
 
         if result.odata_next_link:
-            result = await graph_client.device_management.user_experience_analytics_device_startup_history.with_url(result.odata_next_link).get()
+            result = await retry_with_backoff(
+                graph_client.device_management.user_experience_analytics_device_startup_history.with_url(result.odata_next_link).get
+            )
         else:
             break
 
+    logger.info(f"Fetched {len(records)} startup performance records")
     return records
 
 
 async def get_app_reliability(graph_client) -> list:
     """Get app reliability data."""
+    logger.info("Fetching app reliability data...")
     records = []
 
     try:
-        result = await graph_client.device_management.user_experience_analytics_app_health_application_performance.get()
+        result = await retry_with_backoff(
+            graph_client.device_management.user_experience_analytics_app_health_application_performance.get
+        )
 
         while result:
             for a in result.value or []:
@@ -93,12 +110,15 @@ async def get_app_reliability(graph_client) -> list:
                 })
 
             if result.odata_next_link:
-                result = await graph_client.device_management.user_experience_analytics_app_health_application_performance.with_url(result.odata_next_link).get()
+                result = await retry_with_backoff(
+                    graph_client.device_management.user_experience_analytics_app_health_application_performance.with_url(result.odata_next_link).get
+                )
             else:
                 break
     except Exception as e:
         logger.warning(f"Could not fetch app reliability data: {e}")
 
+    logger.info(f"Fetched {len(records)} app reliability records")
     return records
 
 

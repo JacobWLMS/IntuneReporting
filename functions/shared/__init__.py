@@ -4,14 +4,56 @@ Shared utilities for Intune export functions.
 import os
 import json
 import logging
+import asyncio
 from datetime import datetime, timezone
 from io import StringIO
+from functools import wraps
 
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
 from azure.monitor.ingestion import LogsIngestionClient
 from msgraph_beta import GraphServiceClient
 
 logger = logging.getLogger(__name__)
+
+# Retry configuration
+MAX_RETRIES = 5
+BASE_DELAY = 30  # seconds
+
+
+async def retry_with_backoff(func, *args, **kwargs):
+    """
+    Execute async function with exponential backoff for rate limiting.
+    Handles Graph API 429 (Too Many Requests) responses.
+    """
+    last_exception = None
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            last_exception = e
+            error_str = str(e).lower()
+
+            # Check for rate limiting (429) or throttling
+            if '429' in str(e) or 'throttl' in error_str or 'too many requests' in error_str:
+                delay = BASE_DELAY * (2 ** attempt)
+                logger.warning(
+                    f"Rate limited, waiting {delay}s (attempt {attempt + 1}/{MAX_RETRIES})"
+                )
+                await asyncio.sleep(delay)
+            # Check for transient errors worth retrying
+            elif any(err in error_str for err in ['timeout', 'connection', '503', '504']):
+                delay = BASE_DELAY * (2 ** attempt)
+                logger.warning(
+                    f"Transient error, retrying in {delay}s (attempt {attempt + 1}/{MAX_RETRIES}): {e}"
+                )
+                await asyncio.sleep(delay)
+            else:
+                # Non-retryable error, raise immediately
+                raise
+
+    # All retries exhausted
+    raise Exception(f"Max retries ({MAX_RETRIES}) exceeded. Last error: {last_exception}")
 
 
 def get_env(name: str, default: str = '') -> str:
