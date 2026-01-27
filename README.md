@@ -90,17 +90,17 @@ az group create --name rg-intune-analytics --location uksouth
 # For ADX backend:
 az deployment group create \
   --resource-group rg-intune-analytics \
-  --template-file deployment/deploy-adx.json \
-  --parameters baseName=intune-analytics
+  --template-file deployment/adx/main.json \
+  --parameters baseName=intune
 
 # For Log Analytics backend:
 az deployment group create \
   --resource-group rg-intune-analytics \
-  --template-file deployment/deploy-loganalytics.json \
-  --parameters baseName=intune-analytics
+  --template-file deployment/loganalytics/main.json \
+  --parameters baseName=intune
 ```
 
-> ✅ **Automatically deployed**: Storage, Function App, database (ADX or Log Analytics), schema, and function code from GitHub
+> ✅ **Automatically deployed**: Storage, Function App, and function code from GitHub releases
 
 ### 2. Grant Graph API Permissions (Required Post-Deployment Step)
 

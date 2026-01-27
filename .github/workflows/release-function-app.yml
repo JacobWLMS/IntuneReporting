@@ -3,11 +3,6 @@ name: Release Function App
 on:
   push:
     branches: [main]
-    paths:
-      - 'fn_*/**'
-      - 'shared/**'
-      - 'requirements.txt'
-      - 'host.json'
   workflow_dispatch:
 
 permissions:
@@ -60,6 +55,6 @@ jobs:
       - name: Verify release
         run: |
           echo "✅ Release published successfully"
-          echo "📥 Download URL: https://github.com/${{ github.repository }}/releases/latest/download/function-app.zip"
+          echo "📥 Download URL: https://github.com/${{ github.repository }}/releases/download/latest/released-package.zip"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

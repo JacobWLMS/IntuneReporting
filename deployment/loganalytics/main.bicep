@@ -75,6 +75,46 @@ resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/con
 }
 
 // ============================================================================
+// Deployment Script: Copy function app code from GitHub to storage
+// ============================================================================
+
+resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
+  name: '${baseName}-deploy-code'
+  location: location
+  kind: 'AzureCLI'
+  properties: {
+    azCliVersion: '2.52.0'
+    timeout: 'PT10M'
+    retentionInterval: 'PT1H'
+    cleanupPreference: 'OnSuccess'
+    environmentVariables: [
+      { name: 'STORAGE_ACCOUNT', value: storageAccount.name }
+      { name: 'STORAGE_KEY', value: storageAccount.listKeys().keys[0].value }
+      { name: 'CONTAINER_NAME', value: 'deploymentpackage' }
+      { name: 'ZIP_URL', value: 'https://github.com/JacobWLMS/IntuneReporting/releases/download/latest/released-package.zip' }
+    ]
+    scriptContent: '''
+      # Download from GitHub
+      curl -L -o /tmp/released-package.zip "$ZIP_URL"
+      
+      # Upload to storage using account key
+      az storage blob upload \
+        --account-name "$STORAGE_ACCOUNT" \
+        --account-key "$STORAGE_KEY" \
+        --container-name "$CONTAINER_NAME" \
+        --name "released-package.zip" \
+        --file /tmp/released-package.zip \
+        --overwrite
+      
+      echo "✅ Function code deployed to storage"
+    '''
+  }
+  dependsOn: [
+    deploymentContainer
+  ]
+}
+
+// ============================================================================
 // Log Analytics Workspace
 // ============================================================================
 
@@ -562,19 +602,9 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
       ]
     }
   }
-}
-
-// ============================================================================
-// One Deploy: Deploy function code from GitHub release
-// ============================================================================
-
-resource oneDeploy 'Microsoft.Web/sites/extensions@2024-04-01' = {
-  parent: functionApp
-  name: 'onedeploy'
-  properties: {
-    packageUri: 'https://github.com/JacobWLMS/IntuneReporting/releases/download/latest/released-package.zip'
-    type: 'zip'
-  }
+  dependsOn: [
+    deploymentScript
+  ]
 }
 
 // ============================================================================
@@ -605,5 +635,5 @@ output logAnalyticsWorkspaceId string = workspace.properties.customerId
 output logAnalyticsWorkspaceName string = workspace.name
 output dataCollectionEndpoint string = dataCollectionEndpoint.properties.logsIngestion.endpoint
 
-output nextStep string = 'IMPORTANT: Run scripts/Grant-GraphPermissions.ps1 to grant Microsoft Graph API permissions to the Managed Identity. This requires the Application Administrator role in Entra ID.'
+output nextStep string = 'IMPORTANT: Run scripts/Grant-GraphPermissions.ps1 to grant Microsoft Graph API permissions to the Managed Identity.'
 output grantPermissionsCommand string = '.\\scripts\\Grant-GraphPermissions.ps1 -ManagedIdentityObjectId "${managedIdentity.properties.principalId}"'
