@@ -1,0 +1,610 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.40.2.10011",
+      "templateHash": "3819883192572734356"
+    }
+  },
+  "parameters": {
+    "baseName": {
+      "type": "string",
+      "maxLength": 11,
+      "metadata": {
+        "description": "Base name for all resources (max 11 characters)"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources"
+      }
+    },
+    "analyticsBackend": {
+      "type": "string",
+      "defaultValue": "ADX",
+      "allowedValues": [
+        "ADX",
+        "LogAnalytics"
+      ],
+      "metadata": {
+        "description": "Analytics backend: ADX or LogAnalytics"
+      }
+    },
+    "tenantId": {
+      "type": "string",
+      "defaultValue": "[subscription().tenantId]",
+      "metadata": {
+        "description": "Azure AD Tenant ID"
+      }
+    },
+    "graphClientId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "App Registration Client ID for Microsoft Graph API"
+      }
+    },
+    "graphClientSecret": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "App Registration Client Secret for Microsoft Graph API"
+      }
+    },
+    "adxClusterUri": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Azure Data Explorer cluster URI (e.g., https://mycluster.region.kusto.windows.net)"
+      }
+    },
+    "adxDatabaseName": {
+      "type": "string",
+      "defaultValue": "IntuneAnalytics",
+      "metadata": {
+        "description": "Azure Data Explorer database name"
+      }
+    },
+    "logAnalyticsDce": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Log Analytics Data Collection Endpoint"
+      }
+    },
+    "logAnalyticsDcrId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Log Analytics Data Collection Rule ID"
+      }
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Log Analytics Workspace ID"
+      }
+    },
+    "scheduleStartTime": {
+      "type": "string",
+      "defaultValue": "[utcNow('yyyy-MM-ddTHH:mm:ssZ')]",
+      "metadata": {
+        "description": "Start time for schedules (defaults to 1 hour from now)"
+      }
+    }
+  },
+  "variables": {
+    "uniqueSuffix": "[uniqueString(resourceGroup().id)]",
+    "automationAccountName": "[format('{0}-auto-{1}', parameters('baseName'), variables('uniqueSuffix'))]",
+    "runbookBaseUrl": "https://raw.githubusercontent.com/JacobWLMS/IntuneReporting/main/runbooks",
+    "complianceRunbookUrl": "[format('{0}/export_compliance.py', variables('runbookBaseUrl'))]",
+    "analyticsRunbookUrl": "[format('{0}/export_endpoint_analytics.py', variables('runbookBaseUrl'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Automation/automationAccounts",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('automationAccountName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "sku": {
+          "name": "Basic"
+        },
+        "publicNetworkAccess": true
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'azure_identity')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/30/10/5dbf755b368d10a28d55f1c99cb110549c2e5528ebe4380a8dd900fee93c/azure_identity-1.19.0-py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'msal')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/11/5e/5ebc968c4299df19d6b5d493d96d80b98b4a26f5e66d36adfe20e4c3d78a/msal-1.31.1-py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'msal_extensions')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/2d/38/ad49ef4c150fef8f651dc40852bd94c871736f7d37851d23b0a83c708a2b/msal_extensions-1.2.0-py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'msal')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'azure_core')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/07/b7/76b7e144aa53bd206bf1ce59bc627b5a3d9112669bacb026ca7014ca55d0/azure_core-1.32.0-py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'msgraph_core')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/30/4e/3e2fb8c6e89bd86fc4e5bf18f5bc5bfd9c09f7deb7f42eb93479f0a6326d/msgraph_core-1.2.0-py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'azure_identity')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'microsoft_kiota_abstractions')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/16/b9/eb1dd22c2019b2b536e00536d744b59c0f72c2ae538b9fbfddcc39abe66a/microsoft_kiota_abstractions-1.7.1-py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'microsoft_kiota_authentication_azure')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/d9/6e/53893f3a4d0d0abb4fef32efb38a1b6caab6bf8f1df3d9ac397c2f8e9a09/microsoft_kiota_authentication_azure-1.7.0-py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'azure_identity')]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'microsoft_kiota_abstractions')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'microsoft_kiota_http')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/53/42/85e8c56cc2ab08e0d0fe73fd16d69c73c0f8bf6fc2db5d30d87e4db22e33/microsoft_kiota_http-1.7.0-py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'microsoft_kiota_abstractions')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'microsoft_kiota_serialization_json')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/9b/96/d94c35e1a6a5a22d6f12de9e4ecf7b1e8e16d6ef2d8e7a7c95aef01dc3ac/microsoft_kiota_serialization_json-1.7.0-py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'microsoft_kiota_abstractions')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'microsoft_kiota_serialization_text')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/36/72/07f1f7e14a5c5f6db9ec3d0d6e36c5c67de9de91b7c27db74edbbba0e1e3/microsoft_kiota_serialization_text-1.7.0-py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'microsoft_kiota_abstractions')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'microsoft_kiota_serialization_form')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/66/fa/d9a5e78cafc1c35bab8ea8f10abcf5c4de53e5c01d50ce40ab1fabc1a0cb/microsoft_kiota_serialization_form-0.1.0-py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'microsoft_kiota_abstractions')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'microsoft_kiota_serialization_multipart')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/a8/ca/93e4e1a8cab3c3cf8f82dd3b1b0e16c73b1c4e26f6d68af24e94ad97f9c6/microsoft_kiota_serialization_multipart-0.1.0-py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'microsoft_kiota_abstractions')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'msgraph_beta_sdk')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/51/b0/95f7e4fd4f60e8c99d5ce4a2ff9eb2cfeb46f27db0be6c4a98f81e290db1/msgraph_beta_sdk-1.14.0-py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'microsoft_kiota_abstractions')]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'microsoft_kiota_authentication_azure')]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'microsoft_kiota_http')]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'microsoft_kiota_serialization_json')]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'microsoft_kiota_serialization_form')]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'microsoft_kiota_serialization_multipart')]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'microsoft_kiota_serialization_text')]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'msgraph_core')]"
+      ]
+    },
+    {
+      "condition": "[equals(parameters('analyticsBackend'), 'ADX')]",
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'azure_kusto_data')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/25/c5/0ee2d87ac83c73cf64c5f5e5e58f61697f1a41dca0b6eb6eabdc438e4cd5/azure_kusto_data-4.6.1-py2.py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'azure_core')]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'azure_identity')]"
+      ]
+    },
+    {
+      "condition": "[equals(parameters('analyticsBackend'), 'ADX')]",
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'azure_kusto_ingest')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/b1/7f/c83a7d1e9cf6c22d97c3fb9a52d0f55d52e0e9b23a56c3d37cff0e0c3a54/azure_kusto_ingest-4.6.1-py2.py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'azure_kusto_data')]"
+      ]
+    },
+    {
+      "condition": "[equals(parameters('analyticsBackend'), 'LogAnalytics')]",
+      "type": "Microsoft.Automation/automationAccounts/python3Packages",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'azure_monitor_ingestion')]",
+      "properties": {
+        "contentLink": {
+          "uri": "https://files.pythonhosted.org/packages/b0/a0/c5e14cc42f78f2c36c4c19ef6a74e0e2d82c8e4c10acfbaa2f2f0b6a4d0a/azure_monitor_ingestion-1.0.4-py3-none-any.whl"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'azure_core')]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'azure_identity')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'AZURE_TENANT_ID')]",
+      "properties": {
+        "value": "[format('\"{0}\"', parameters('tenantId'))]",
+        "isEncrypted": false,
+        "description": "Azure AD Tenant ID"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'AZURE_CLIENT_ID')]",
+      "properties": {
+        "value": "[format('\"{0}\"', parameters('graphClientId'))]",
+        "isEncrypted": false,
+        "description": "App Registration Client ID for Microsoft Graph"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'AZURE_CLIENT_SECRET')]",
+      "properties": {
+        "value": "[format('\"{0}\"', parameters('graphClientSecret'))]",
+        "isEncrypted": true,
+        "description": "App Registration Client Secret for Microsoft Graph"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'ANALYTICS_BACKEND')]",
+      "properties": {
+        "value": "[format('\"{0}\"', parameters('analyticsBackend'))]",
+        "isEncrypted": false,
+        "description": "Analytics backend: ADX or LogAnalytics"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "condition": "[equals(parameters('analyticsBackend'), 'ADX')]",
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'ADX_CLUSTER_URI')]",
+      "properties": {
+        "value": "[format('\"{0}\"', parameters('adxClusterUri'))]",
+        "isEncrypted": false,
+        "description": "Azure Data Explorer cluster URI"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "condition": "[equals(parameters('analyticsBackend'), 'ADX')]",
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'ADX_DATABASE')]",
+      "properties": {
+        "value": "[format('\"{0}\"', parameters('adxDatabaseName'))]",
+        "isEncrypted": false,
+        "description": "Azure Data Explorer database name"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "condition": "[equals(parameters('analyticsBackend'), 'LogAnalytics')]",
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'LOG_ANALYTICS_DCE')]",
+      "properties": {
+        "value": "[format('\"{0}\"', parameters('logAnalyticsDce'))]",
+        "isEncrypted": false,
+        "description": "Log Analytics Data Collection Endpoint"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "condition": "[equals(parameters('analyticsBackend'), 'LogAnalytics')]",
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'LOG_ANALYTICS_DCR_ID')]",
+      "properties": {
+        "value": "[format('\"{0}\"', parameters('logAnalyticsDcrId'))]",
+        "isEncrypted": false,
+        "description": "Log Analytics Data Collection Rule ID"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "condition": "[equals(parameters('analyticsBackend'), 'LogAnalytics')]",
+      "type": "Microsoft.Automation/automationAccounts/variables",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'LOG_ANALYTICS_WORKSPACE_ID')]",
+      "properties": {
+        "value": "[format('\"{0}\"', parameters('logAnalyticsWorkspaceId'))]",
+        "isEncrypted": false,
+        "description": "Log Analytics Workspace ID"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runbooks",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'Export-IntuneCompliance')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "runbookType": "Python3",
+        "logProgress": true,
+        "logVerbose": true,
+        "description": "Exports Intune device compliance data to analytics backend",
+        "publishContentLink": {
+          "uri": "[variables('complianceRunbookUrl')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'msgraph_beta_sdk')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/runbooks",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'Export-EndpointAnalytics')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "runbookType": "Python3",
+        "logProgress": true,
+        "logVerbose": true,
+        "description": "Exports Endpoint Analytics data to analytics backend",
+        "publishContentLink": {
+          "uri": "[variables('analyticsRunbookUrl')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/python3Packages', variables('automationAccountName'), 'msgraph_beta_sdk')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/schedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'ComplianceExport-Every6Hours')]",
+      "properties": {
+        "frequency": "Hour",
+        "interval": 6,
+        "startTime": "[parameters('scheduleStartTime')]",
+        "timeZone": "UTC",
+        "description": "Runs compliance export every 6 hours"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/schedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), 'AnalyticsExport-Daily8AM')]",
+      "properties": {
+        "frequency": "Day",
+        "interval": 1,
+        "startTime": "2026-01-28T08:00:00Z",
+        "timeZone": "UTC",
+        "description": "Runs endpoint analytics export daily at 8 AM UTC"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/jobSchedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), guid(resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName')), 'Export-IntuneCompliance', 'ComplianceExport-Every6Hours'))]",
+      "properties": {
+        "runbook": {
+          "name": "Export-IntuneCompliance"
+        },
+        "schedule": {
+          "name": "ComplianceExport-Every6Hours"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', variables('automationAccountName'), 'Export-IntuneCompliance')]",
+        "[resourceId('Microsoft.Automation/automationAccounts/schedules', variables('automationAccountName'), 'ComplianceExport-Every6Hours')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts/jobSchedules",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('automationAccountName'), guid(resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName')), 'Export-EndpointAnalytics', 'AnalyticsExport-Daily8AM'))]",
+      "properties": {
+        "runbook": {
+          "name": "Export-EndpointAnalytics"
+        },
+        "schedule": {
+          "name": "AnalyticsExport-Daily8AM"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
+        "[resourceId('Microsoft.Automation/automationAccounts/runbooks', variables('automationAccountName'), 'Export-EndpointAnalytics')]",
+        "[resourceId('Microsoft.Automation/automationAccounts/schedules', variables('automationAccountName'), 'AnalyticsExport-Daily8AM')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "automationAccountName": {
+      "type": "string",
+      "value": "[variables('automationAccountName')]"
+    },
+    "automationAccountId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
+    },
+    "managedIdentityPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName')), '2023-11-01', 'full').identity.principalId]"
+    },
+    "managedIdentityTenantId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName')), '2023-11-01', 'full').identity.tenantId]"
+    },
+    "nextSteps": {
+      "type": "string",
+      "value": "NEXT STEPS:\r\n1. Grant Graph API permissions to either:\r\n   a) Your App Registration (if using client credentials), OR\r\n   b) The Automation Account's managed identity\r\n   \r\n   Required permissions:\r\n     - DeviceManagementManagedDevices.Read.All\r\n     - DeviceManagementConfiguration.Read.All\r\n\r\n2. If using ADX backend:\r\n   - Create your ADX cluster and database if not already done\r\n   - Run the Schema-Focused.kql script to create tables and views\r\n   - Grant 'Database Ingestor' role to your App Registration or Managed Identity\r\n\r\n3. If using Log Analytics backend:\r\n   - Create Data Collection Endpoint (DCE) and Data Collection Rule (DCR)\r\n   - Grant 'Monitoring Metrics Publisher' role to your App Registration or Managed Identity\r\n\r\n4. Test the runbooks manually:\r\n   - Go to Automation Account > Runbooks > Export-IntuneCompliance > Start\r\n\r\n5. Monitor the scheduled runs in the Jobs tab\r\n"
+    },
+    "grantGraphPermissionsCommand": {
+      "type": "string",
+      "value": "[format('.\\scripts\\Grant-GraphPermissions.ps1 -ManagedIdentityObjectId \"{0}\"', reference(resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName')), '2023-11-01', 'full').identity.principalId)]"
+    }
+  }
+}

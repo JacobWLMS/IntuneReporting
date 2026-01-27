@@ -27,6 +27,7 @@
     IsEncrypted: bool,
     IsSupervised: bool,
     AzureADDeviceId: string,
+    TimeGenerated: datetime,
     IngestionTime: datetime,
     SourceSystem: string
 )
@@ -55,6 +56,7 @@
     CreatedDateTime: datetime,
     LastModifiedDateTime: datetime,
     PolicyType: string,
+    TimeGenerated: datetime,
     IngestionTime: datetime,
     SourceSystem: string
 )
@@ -83,6 +85,7 @@
     FailedSettingCount: int,
     LastContact: datetime,
     InGracePeriodCount: int,
+    TimeGenerated: datetime,
     IngestionTime: datetime,
     SourceSystem: string
 )
@@ -115,6 +118,7 @@
     WorkFromAnywhereScore: real,
     MeanResourceSpikeTimeScore: real,
     BatteryHealthScore: real,
+    TimeGenerated: datetime,
     IngestionTime: datetime,
     SourceSystem: string
 )
@@ -144,6 +148,7 @@
     OperatingSystemVersion: string,
     RestartCategory: string,
     RestartFaultBucket: string,
+    TimeGenerated: datetime,
     IngestionTime: datetime,
     SourceSystem: string
 )
@@ -165,6 +170,7 @@
     MeanTimeToFailureInMinutes: int,
     AppHealthScore: real,
     AppHealthStatus: string,
+    TimeGenerated: datetime,
     IngestionTime: datetime,
     SourceSystem: string
 )
@@ -192,6 +198,7 @@
     DurationSeconds: real,
     Status: string,
     ErrorMessage: string,
+    TimeGenerated: datetime,
     IngestionTime: datetime,
     SourceSystem: string
 )
