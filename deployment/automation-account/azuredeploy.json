@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "13740296896340396366"
+      "templateHash": "12902407423349663643"
     }
   },
   "parameters": {
@@ -1128,7 +1128,7 @@
     },
     "nextSteps": {
       "type": "string",
-      "value": "DEPLOYMENT COMPLETE! Next steps:\r\n\r\n1. Install Python packages (REQUIRED):\r\n   Run: ./scripts/Setup-RuntimeEnvironment.ps1 -AutomationAccountName \"<name>\" -ResourceGroupName \"<rg>\" -AnalyticsBackend \"<backend>\"\r\n   This creates a Runtime Environment and installs packages from PyPI.\r\n\r\n2. Grant Microsoft Graph API permissions to the Managed Identity:\r\n   Run: ./scripts/Grant-GraphPermissions.ps1 -ManagedIdentityObjectId \"<managedIdentityPrincipalId>\"\r\n   \r\n   Required permissions:\r\n   - DeviceManagementManagedDevices.Read.All\r\n   - DeviceManagementConfiguration.Read.All  \r\n   - DeviceManagementServiceConfig.Read.All\r\n\r\n3. If using ADX with existing cluster, grant Database Ingestor role and run Schema-Focused.kql\r\n\r\n4. Test: Automation Account > Runbooks > Export-IntuneDevices > Start\r\n"
+      "value": "DEPLOYMENT COMPLETE! Next steps:\n\n1. Install Python packages (REQUIRED):\n   Run: ./scripts/Setup-RuntimeEnvironment.ps1 -AutomationAccountName \"<name>\" -ResourceGroupName \"<rg>\" -AnalyticsBackend \"<backend>\"\n   This creates a Runtime Environment and installs packages from PyPI.\n\n2. Grant Microsoft Graph API permissions to the Managed Identity:\n   Run: ./scripts/Grant-GraphPermissions.ps1 -ManagedIdentityObjectId \"<managedIdentityPrincipalId>\"\n   \n   Required permissions:\n   - DeviceManagementManagedDevices.Read.All\n   - DeviceManagementConfiguration.Read.All  \n   - DeviceManagementServiceConfig.Read.All\n\n3. If using ADX with existing cluster, grant Database Ingestor role and run Schema-Focused.kql\n\n4. Test: Automation Account > Runbooks > Export-IntuneDevices > Start\n"
     }
   }
 }
