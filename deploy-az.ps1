@@ -1,18 +1,21 @@
 <#
 .SYNOPSIS
-    Intune Reporting - Production Deployment Script (Pure Az PowerShell)
+    Intune Reporting - Production Deployment Script (Az PowerShell Modules)
 
 .DESCRIPTION
-    Deploys all Azure resources for Intune Reporting using ONLY Az PowerShell modules:
-    - Resource Group
-    - Log Analytics Workspace with custom tables (30-day retention)
-    - Data Collection Endpoint & Rule
-    - Function App (Flex Consumption - scales to zero)
-    - App Registration for Microsoft Graph access
-    - Azure Monitor Workbooks for visualization
+    Deploys all Azure resources for Intune Reporting using Az PowerShell modules:
+    - Resource Group (New-AzResourceGroup)
+    - Storage Account (New-AzStorageAccount)
+    - Log Analytics Workspace with custom tables (New-AzOperationalInsightsWorkspace)
+    - Data Collection Endpoint & Rule (New-AzDataCollectionEndpoint, New-AzDataCollectionRule)
+    - Function App (Flex Consumption only - via REST API or az CLI)
+    - App Registration (New-AzADApplication, New-AzADServicePrincipal)
+    - Azure Monitor Workbooks (New-AzApplicationInsightsWorkbook)
 
-    This script requires Az PowerShell modules. For environments without Az modules,
-    use deploy.ps1 which supports az CLI fallback.
+    NOTE: Function App uses Flex Consumption plan only. Linux Consumption (Y1) is
+    deprecated and retiring September 2028. Az PowerShell modules do not yet support
+    Flex Consumption, so az CLI is used as fallback. See:
+    https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-how-to
 
 .PARAMETER Name
     Naming prefix for resources (e.g., 'contoso-intune')
@@ -30,11 +33,20 @@
     .\deploy-az.ps1 -Name "contoso-intune" -Location "westeurope"
 
 .NOTES
-    Requires: Az PowerShell modules (Az.Accounts, Az.Resources, Az.Storage,
-              Az.OperationalInsights, Az.Functions), Azure Functions Core Tools
+    Requires:
+    - Az PowerShell modules: Az.Accounts, Az.Resources, Az.Storage,
+      Az.OperationalInsights, Az.Functions, Az.Monitor, Az.ApplicationInsights
+    - Azure CLI (for Flex Consumption Function App fallback)
+    - Azure Functions Core Tools
 
     Install Az modules: Install-Module -Name Az -Scope CurrentUser -Force
+    Install Azure CLI: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
     Login: Connect-AzAccount
+
+.LINK
+    https://learn.microsoft.com/en-us/powershell/azure/install-azure-powershell
+    https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-how-to
+    https://learn.microsoft.com/en-us/powershell/module/az.monitor/new-azdatacollectionrule
 #>
 
 [CmdletBinding()]
@@ -43,7 +55,7 @@ param(
     [string]$Name,
 
     [Parameter(Mandatory = $false)]
-    [string]$Location = "eastus",
+    [string]$Location = "uksouth",
 
     [Parameter(Mandatory = $false)]
     [string]$ResourceGroup,
@@ -91,9 +103,24 @@ function Invoke-AzureRestMethod {
     param(
         [string]$Uri,
         [string]$Method = "GET",
-        [object]$Body = $null
+        [object]$Body = $null,
+        [switch]$IgnoreError
     )
-    $token = Get-AzureToken
+
+    # Get fresh token using Az module
+    # Reference: https://learn.microsoft.com/en-us/powershell/module/az.accounts/get-azaccesstoken
+    try {
+        $tokenResponse = Get-AzAccessToken -ResourceUrl "https://management.azure.com" -AsSecureString
+        # Convert SecureString to plain text for use with REST API
+        $token = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
+            [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($tokenResponse.Token)
+        )
+    } catch {
+        # Fallback to older syntax if -AsSecureString not supported
+        $tokenResponse = Get-AzAccessToken -ResourceUrl "https://management.azure.com"
+        $token = $tokenResponse.Token
+    }
+
     $headers = @{
         "Authorization" = "Bearer $token"
         "Content-Type" = "application/json"
@@ -103,13 +130,21 @@ function Invoke-AzureRestMethod {
         Uri = $Uri
         Method = $Method
         Headers = $headers
+        ErrorAction = "Stop"
     }
 
     if ($Body) {
         $params.Body = if ($Body -is [string]) { $Body } else { $Body | ConvertTo-Json -Depth 20 }
     }
 
-    return Invoke-RestMethod @params
+    try {
+        return Invoke-RestMethod @params
+    } catch {
+        if ($IgnoreError) {
+            return $null
+        }
+        throw
+    }
 }
 #endregion
 
@@ -118,7 +153,8 @@ function Test-Prerequisites {
     Write-Log "Checking prerequisites" -Level STEP
 
     # Check required Az modules
-    $requiredModules = @("Az.Accounts", "Az.Resources", "Az.Storage", "Az.OperationalInsights", "Az.Functions")
+    # Reference: https://learn.microsoft.com/en-us/powershell/azure/install-azure-powershell
+    $requiredModules = @("Az.Accounts", "Az.Resources", "Az.Storage", "Az.OperationalInsights", "Az.Functions", "Az.Monitor", "Az.ApplicationInsights")
     $missingModules = @()
 
     foreach ($module in $requiredModules) {
@@ -128,20 +164,23 @@ function Test-Prerequisites {
     }
 
     if ($missingModules.Count -gt 0) {
-        Write-Log "Missing Az modules: $($missingModules -join ', ')" -Level ERROR
+        Write-Log "Missing required Az modules: $($missingModules -join ', ')" -Level ERROR
         Write-Host "Install with: Install-Module -Name Az -Scope CurrentUser -Force"
         Write-Host ""
         Write-Host "Or use deploy.ps1 which supports az CLI fallback"
         exit 1
     }
-    Write-Log "Az PowerShell modules installed" -Level SUCCESS
+    Write-Log "All required Az PowerShell modules installed" -Level SUCCESS
 
-    # Import modules
+    # Import all required modules
+    # Reference: https://learn.microsoft.com/en-us/powershell/azure/install-azure-powershell
     Import-Module Az.Accounts -ErrorAction Stop
     Import-Module Az.Resources -ErrorAction Stop
     Import-Module Az.Storage -ErrorAction Stop
     Import-Module Az.OperationalInsights -ErrorAction Stop
     Import-Module Az.Functions -ErrorAction Stop
+    Import-Module Az.Monitor -ErrorAction Stop
+    Import-Module Az.ApplicationInsights -ErrorAction Stop
 
     # Check func core tools
     try {
@@ -236,6 +275,7 @@ function Get-Configuration {
 function New-ResourceGroup {
     Write-Log "Creating Resource Group" -Level STEP
 
+    # Reference: https://learn.microsoft.com/en-us/powershell/module/az.resources/new-azresourcegroup
     $existing = Get-AzResourceGroup -Name $script:ResourceGroupName -ErrorAction SilentlyContinue
     if ($existing) {
         Write-Log "Resource group $($script:ResourceGroupName) already exists" -Level WARN
@@ -248,11 +288,17 @@ function New-ResourceGroup {
 function New-StorageAccount {
     Write-Log "Creating Storage Account" -Level STEP
 
+    # Reference: https://learn.microsoft.com/en-us/powershell/module/az.storage/new-azstorageaccount
     $existing = Get-AzStorageAccount -ResourceGroupName $script:ResourceGroupName -Name $script:StorageAccountName -ErrorAction SilentlyContinue
     if ($existing) {
         Write-Log "Storage account $($script:StorageAccountName) already exists" -Level WARN
     } else {
-        New-AzStorageAccount -ResourceGroupName $script:ResourceGroupName -Name $script:StorageAccountName -Location $Location -SkuName Standard_LRS -Kind StorageV2 | Out-Null
+        New-AzStorageAccount `
+            -ResourceGroupName $script:ResourceGroupName `
+            -Name $script:StorageAccountName `
+            -Location $Location `
+            -SkuName Standard_LRS `
+            -Kind StorageV2 | Out-Null
         Write-Log "Created storage account: $($script:StorageAccountName)" -Level SUCCESS
     }
 }
@@ -260,13 +306,18 @@ function New-StorageAccount {
 function New-LogAnalyticsWorkspace {
     Write-Log "Creating Log Analytics Workspace" -Level STEP
 
+    # Reference: https://learn.microsoft.com/en-us/powershell/module/az.operationalinsights/new-azoperationalinsightsworkspace
     $existing = Get-AzOperationalInsightsWorkspace -ResourceGroupName $script:ResourceGroupName -Name $script:LogAnalyticsName -ErrorAction SilentlyContinue
     if ($existing) {
         Write-Log "Log Analytics workspace $($script:LogAnalyticsName) already exists" -Level WARN
         $script:WorkspaceResourceId = $existing.ResourceId
         $script:WorkspaceCustomerId = $existing.CustomerId
     } else {
-        $workspace = New-AzOperationalInsightsWorkspace -ResourceGroupName $script:ResourceGroupName -Name $script:LogAnalyticsName -Location $Location -RetentionInDays 30
+        $workspace = New-AzOperationalInsightsWorkspace `
+            -ResourceGroupName $script:ResourceGroupName `
+            -Name $script:LogAnalyticsName `
+            -Location $Location `
+            -RetentionInDays 30
         Write-Log "Created Log Analytics workspace: $($script:LogAnalyticsName)" -Level SUCCESS
         $script:WorkspaceResourceId = $workspace.ResourceId
         $script:WorkspaceCustomerId = $workspace.CustomerId
@@ -323,34 +374,54 @@ function New-CustomTables {
 function New-DataCollectionEndpoint {
     Write-Log "Creating Data Collection Endpoint" -Level STEP
 
-    $script:DceResourceId = "/subscriptions/$($script:SubscriptionId)/resourceGroups/$($script:ResourceGroupName)/providers/Microsoft.Insights/dataCollectionEndpoints/$($script:DceName)"
-    $uri = "https://management.azure.com$($script:DceResourceId)?api-version=2022-06-01"
-
-    $dceBody = @{
-        location = $Location
-        properties = @{
-            networkAcls = @{
-                publicNetworkAccess = "Enabled"
-            }
-        }
-    }
-
-    try {
-        $dce = Invoke-AzureRestMethod -Uri $uri -Method Put -Body $dceBody
+    # Reference: https://learn.microsoft.com/en-us/powershell/module/az.monitor/new-azdatacollectionendpoint
+    $existing = Get-AzDataCollectionEndpoint -ResourceGroupName $script:ResourceGroupName -Name $script:DceName -ErrorAction SilentlyContinue
+    if ($existing) {
+        Write-Log "DCE $($script:DceName) already exists" -Level WARN
+        $script:DceResourceId = $existing.Id
+        # Az module property is LogIngestionEndpoint (singular), not LogsIngestionEndpoint
+        $script:DceEndpoint = $existing.LogIngestionEndpoint
+    } else {
+        $dce = New-AzDataCollectionEndpoint `
+            -ResourceGroupName $script:ResourceGroupName `
+            -Name $script:DceName `
+            -Location $Location `
+            -NetworkAclsPublicNetworkAccess "Enabled"
         Write-Log "Created DCE: $($script:DceName)" -Level SUCCESS
-    } catch {
-        Write-Log "DCE may already exist, fetching..." -Level WARN
-        $dce = Invoke-AzureRestMethod -Uri $uri -Method Get
+        $script:DceResourceId = $dce.Id
+        # Az module property is LogIngestionEndpoint (singular), not LogsIngestionEndpoint
+        $script:DceEndpoint = $dce.LogIngestionEndpoint
     }
 
-    $script:DceEndpoint = $dce.properties.logsIngestion.endpoint
+    # If LogIngestionEndpoint is empty, re-fetch using Get-AzDataCollectionEndpoint
+    if (-not $script:DceEndpoint) {
+        Write-Log "Fetching DCE endpoint..." -Level INFO
+        Start-Sleep -Seconds 3  # Brief wait for Azure to propagate
+        $dceRefresh = Get-AzDataCollectionEndpoint -ResourceGroupName $script:ResourceGroupName -Name $script:DceName
+        $script:DceEndpoint = $dceRefresh.LogIngestionEndpoint
+    }
+
+    if (-not $script:DceEndpoint) {
+        Write-Log "Could not retrieve DCE endpoint - this may indicate a configuration issue" -Level ERROR
+        exit 1
+    }
+
     Write-Log "DCE Endpoint: $($script:DceEndpoint)" -Level INFO
 }
 
 function New-DataCollectionRule {
     Write-Log "Creating Data Collection Rule" -Level STEP
 
-    $streams = @(
+    $existing = Get-AzDataCollectionRule -ResourceGroupName $script:ResourceGroupName -Name $script:DcrName -ErrorAction SilentlyContinue
+    if ($existing) {
+        Write-Log "DCR $($script:DcrName) already exists" -Level WARN
+        $script:DcrResourceId = $existing.Id
+        $script:DcrImmutableId = $existing.ImmutableId
+        Write-Log "DCR ID: $($script:DcrImmutableId)" -Level INFO
+        return
+    }
+
+    $tableNames = @(
         "IntuneDevices_CL",
         "IntuneCompliancePolicies_CL",
         "IntuneComplianceStates_CL",
@@ -362,11 +433,10 @@ function New-DataCollectionRule {
         "IntuneSyncState_CL"
     )
 
+    # Build stream declarations for JSON (per Microsoft documentation)
     $streamDeclarations = @{}
-    $dataFlows = @()
-
-    foreach ($stream in $streams) {
-        $streamName = "Custom-$stream"
+    foreach ($table in $tableNames) {
+        $streamName = "Custom-$table"
         $streamDeclarations[$streamName] = @{
             columns = @(
                 @{name="TimeGenerated"; type="datetime"}
@@ -374,15 +444,23 @@ function New-DataCollectionRule {
                 @{name="SourceSystem"; type="string"}
             )
         }
+    }
+
+    # Build data flows for JSON (per Microsoft documentation)
+    $dataFlows = @()
+    foreach ($table in $tableNames) {
+        $streamName = "Custom-$table"
         $dataFlows += @{
             streams = @($streamName)
             destinations = @("logAnalyticsWorkspace")
-            transformKql = "source"
             outputStream = $streamName
+            transformKql = "source"
         }
     }
 
-    $dcrBody = @{
+    # Build complete DCR JSON structure matching ARM template format
+    # Reference: https://learn.microsoft.com/en-us/powershell/module/az.monitor/new-azdatacollectionrule
+    $dcrJson = @{
         location = $Location
         properties = @{
             dataCollectionEndpointId = $script:DceResourceId
@@ -399,42 +477,72 @@ function New-DataCollectionRule {
         }
     }
 
-    $script:DcrResourceId = "/subscriptions/$($script:SubscriptionId)/resourceGroups/$($script:ResourceGroupName)/providers/Microsoft.Insights/dataCollectionRules/$($script:DcrName)"
-    $uri = "https://management.azure.com$($script:DcrResourceId)?api-version=2022-06-01"
+    # Write to temp file with UTF8 encoding (no BOM for JSON compatibility)
+    $tempJsonPath = Join-Path $env:TEMP "dcr-$($script:DcrName).json"
+    $jsonContent = $dcrJson | ConvertTo-Json -Depth 10
+    [System.IO.File]::WriteAllText($tempJsonPath, $jsonContent, [System.Text.UTF8Encoding]::new($false))
+
+    Write-Log "DCR configuration written to: $tempJsonPath" -Level INFO
 
     try {
-        $dcr = Invoke-AzureRestMethod -Uri $uri -Method Put -Body $dcrBody
+        # Create DCR using -JsonFilePath parameter (recommended by Microsoft for complex configurations)
+        # Reference: https://learn.microsoft.com/en-us/powershell/module/az.monitor/new-azdatacollectionrule
+        $dcr = New-AzDataCollectionRule -Name $script:DcrName -ResourceGroupName $script:ResourceGroupName -JsonFilePath $tempJsonPath
+
+        $script:DcrResourceId = $dcr.Id
+        $script:DcrImmutableId = $dcr.ImmutableId
+
+        if ($script:DcrImmutableId) {
+            Write-Log "Created DCR: $($script:DcrName) (ID: $($script:DcrImmutableId))" -Level SUCCESS
+        } else {
+            Write-Log "DCR created but ImmutableId not returned, fetching..." -Level WARN
+            Start-Sleep -Seconds 3
+            $dcrFetched = Get-AzDataCollectionRule -ResourceGroupName $script:ResourceGroupName -Name $script:DcrName
+            $script:DcrImmutableId = $dcrFetched.ImmutableId
+            $script:DcrResourceId = $dcrFetched.Id
+            Write-Log "DCR ID: $($script:DcrImmutableId)" -Level SUCCESS
+        }
     } catch {
-        Write-Log "DCR may already exist, fetching..." -Level WARN
-        $dcr = Invoke-AzureRestMethod -Uri $uri -Method Get
-    }
+        $errorMessage = $_.Exception.Message
+        Write-Log "Failed to create DCR: $errorMessage" -Level ERROR
+        Write-Log "DCR JSON saved at: $tempJsonPath (for debugging)" -Level INFO
 
-    $script:DcrImmutableId = $dcr.properties.immutableId
-
-    if ($script:DcrImmutableId) {
-        Write-Log "Created DCR: $($script:DcrName) (ID: $($script:DcrImmutableId))" -Level SUCCESS
-    } else {
-        Write-Log "Failed to create DCR" -Level ERROR
+        # Show JSON content for debugging
+        Write-Host "DCR JSON content:" -ForegroundColor Yellow
+        Get-Content $tempJsonPath | Write-Host
         exit 1
+    } finally {
+        # Clean up temp file on success
+        if ($script:DcrImmutableId -and (Test-Path $tempJsonPath)) {
+            Remove-Item $tempJsonPath -Force
+        }
     }
 }
 
 function New-FunctionApp {
     Write-Log "Creating Function App" -Level STEP
 
-    # Check if exists
+    # Check if exists using Az module cmdlet
     $existing = Get-AzFunctionApp -ResourceGroupName $script:ResourceGroupName -Name $script:FunctionAppName -ErrorAction SilentlyContinue
     if ($existing) {
         Write-Log "Function App $($script:FunctionAppName) already exists" -Level WARN
         return
     }
 
-    # Try Flex Consumption via REST API (not yet in Az module)
-    $flexUri = "https://management.azure.com/subscriptions/$($script:SubscriptionId)/resourceGroups/$($script:ResourceGroupName)/providers/Microsoft.Web/sites/$($script:FunctionAppName)?api-version=2023-12-01"
-
-    $storageAccount = Get-AzStorageAccount -ResourceGroupName $script:ResourceGroupName -Name $script:StorageAccountName
-    $storageKey = (Get-AzStorageAccountKey -ResourceGroupName $script:ResourceGroupName -Name $script:StorageAccountName)[0].Value
+    # Get storage account key using Az module
+    # Reference: https://learn.microsoft.com/en-us/powershell/module/az.storage/get-azstorageaccountkey
+    $storageKeys = Get-AzStorageAccountKey -ResourceGroupName $script:ResourceGroupName -Name $script:StorageAccountName
+    $storageKey = $storageKeys[0].Value
     $storageConnectionString = "DefaultEndpointsProtocol=https;AccountName=$($script:StorageAccountName);AccountKey=$storageKey;EndpointSuffix=core.windows.net"
+
+    # NOTE: Flex Consumption is NOT supported by New-AzFunctionApp cmdlet as of 2026
+    # Reference: https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-how-to
+    # The documentation only shows Azure CLI, Portal, VS Code, and Maven for Flex Consumption creation.
+    # We must use ARM/REST API for Flex Consumption until Az module adds support.
+
+    # Try Flex Consumption via REST API (ARM template equivalent)
+    Write-Log "Attempting Flex Consumption plan (via ARM API)..." -Level INFO
+    $flexUri = "https://management.azure.com/subscriptions/$($script:SubscriptionId)/resourceGroups/$($script:ResourceGroupName)/providers/Microsoft.Web/sites/$($script:FunctionAppName)?api-version=2023-12-01"
 
     $flexBody = @{
         location = $Location
@@ -458,21 +566,38 @@ function New-FunctionApp {
     }
 
     try {
-        $result = Invoke-AzureRestMethod -Uri $flexUri -Method Put -Body $flexBody
+        Invoke-AzureRestMethod -Uri $flexUri -Method Put -Body $flexBody | Out-Null
         Write-Log "Created Function App (Flex Consumption): $($script:FunctionAppName)" -Level SUCCESS
         return
     } catch {
-        Write-Log "Flex Consumption not available, using Consumption plan" -Level WARN
+        Write-Log "REST API method not available, using az CLI..." -Level INFO
     }
 
-    # Fallback to standard Consumption plan via Az module
-    New-AzFunctionApp -ResourceGroupName $script:ResourceGroupName -Name $script:FunctionAppName -StorageAccountName $script:StorageAccountName -Location $Location -Runtime Python -RuntimeVersion 3.11 -FunctionsVersion 4 -OSType Linux | Out-Null
-    Write-Log "Created Function App (Consumption): $($script:FunctionAppName)" -Level SUCCESS
+    # Use az CLI for Flex Consumption (Az PowerShell modules don't support it yet)
+    # Reference: https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-how-to
+    $cliOutput = & az functionapp create `
+        --resource-group $script:ResourceGroupName `
+        --flexconsumption-location $Location `
+        --runtime python `
+        --runtime-version 3.11 `
+        --name $script:FunctionAppName `
+        --storage-account $script:StorageAccountName `
+        --output none 2>&1
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Log "Created Function App (Flex Consumption): $($script:FunctionAppName)" -Level SUCCESS
+        return
+    }
+
+    Write-Log "Failed to create Function App" -Level ERROR
+    Write-Log "CLI output: $cliOutput" -Level ERROR
+    exit 1
 }
 
 function New-AppRegistration {
     Write-Log "Creating App Registration" -Level STEP
 
+    # Reference: https://learn.microsoft.com/en-us/powershell/module/az.resources/new-azadapplication
     $existingApp = Get-AzADApplication -DisplayName $script:AppRegistrationName -ErrorAction SilentlyContinue
 
     if ($existingApp) {
@@ -483,11 +608,13 @@ function New-AppRegistration {
         $script:AppClientId = $app.AppId
 
         # Create service principal
+        # Reference: https://learn.microsoft.com/en-us/powershell/module/az.resources/new-azadserviceprincipal
         New-AzADServicePrincipal -ApplicationId $script:AppClientId | Out-Null
         Write-Log "Created App Registration: $($script:AppRegistrationName)" -Level SUCCESS
     }
 
     # Create new secret (2 years)
+    # Reference: https://learn.microsoft.com/en-us/powershell/module/az.resources/new-azadappcredential
     $endDate = (Get-Date).AddYears(2)
     $secret = New-AzADAppCredential -ApplicationId $script:AppClientId -EndDate $endDate
     $script:AppClientSecret = $secret.SecretText
@@ -498,17 +625,24 @@ function New-AppRegistration {
 function Grant-DcrPermissions {
     Write-Log "Granting DCR Permissions" -Level STEP
 
+    # Reference: https://learn.microsoft.com/en-us/powershell/module/az.resources/get-azadserviceprincipal
     $sp = Get-AzADServicePrincipal -ApplicationId $script:AppClientId -ErrorAction SilentlyContinue
     if (-not $sp) {
         Write-Log "Could not find service principal, skipping DCR permission" -Level WARN
         return
     }
 
-    # Monitoring Metrics Publisher role
+    # Monitoring Metrics Publisher role (required for DCR data ingestion)
+    # Reference: https://learn.microsoft.com/en-us/azure/azure-monitor/logs/logs-ingestion-api-overview
     $roleDefId = "3913510d-42f4-4e42-8a64-420c390055eb"
 
     try {
-        New-AzRoleAssignment -ObjectId $sp.Id -RoleDefinitionId $roleDefId -Scope $script:DcrResourceId -ErrorAction SilentlyContinue | Out-Null
+        # Reference: https://learn.microsoft.com/en-us/powershell/module/az.resources/new-azroleassignment
+        New-AzRoleAssignment `
+            -ObjectId $sp.Id `
+            -RoleDefinitionId $roleDefId `
+            -Scope $script:DcrResourceId `
+            -ErrorAction SilentlyContinue | Out-Null
         Write-Log "Granted Monitoring Metrics Publisher role on DCR" -Level SUCCESS
     } catch {
         Write-Log "DCR permission may already exist" -Level WARN
@@ -518,6 +652,7 @@ function Grant-DcrPermissions {
 function Set-FunctionAppConfiguration {
     Write-Log "Configuring Function App" -Level STEP
 
+    # Reference: https://learn.microsoft.com/en-us/powershell/module/az.functions/update-azfunctionappsetting
     $settings = @{
         "AZURE_TENANT_ID" = $script:TenantId
         "AZURE_CLIENT_ID" = $script:AppClientId
@@ -527,7 +662,10 @@ function Set-FunctionAppConfiguration {
         "LOG_ANALYTICS_DCR_ID" = $script:DcrImmutableId
     }
 
-    Update-AzFunctionAppSetting -ResourceGroupName $script:ResourceGroupName -Name $script:FunctionAppName -AppSetting $settings | Out-Null
+    Update-AzFunctionAppSetting `
+        -ResourceGroupName $script:ResourceGroupName `
+        -Name $script:FunctionAppName `
+        -AppSetting $settings | Out-Null
 
     Write-Log "Function App configured" -Level SUCCESS
 }
@@ -592,23 +730,27 @@ function Deploy-Workbooks {
 
         $serializedData = Get-Content $workbookPath -Raw
 
-        $workbookBody = @{
-            location = $Location
-            kind = "shared"
-            properties = @{
-                displayName = $displayName
-                category = "workbook"
-                sourceId = $script:WorkspaceResourceId
-                serializedData = $serializedData
-            }
-        }
-
-        $uri = "https://management.azure.com/subscriptions/$($script:SubscriptionId)/resourceGroups/$($script:ResourceGroupName)/providers/Microsoft.Insights/workbooks/$($workbookUuid)?api-version=2022-04-01"
-
+        # Deploy using Az.ApplicationInsights cmdlet
+        # Reference: https://learn.microsoft.com/en-us/powershell/module/az.applicationinsights/new-azapplicationinsightsworkbook
         try {
-            Invoke-AzureRestMethod -Uri $uri -Method Put -Body $workbookBody | Out-Null
+            $existingWorkbook = Get-AzApplicationInsightsWorkbook -ResourceGroupName $script:ResourceGroupName -Name $workbookUuid -ErrorAction SilentlyContinue
+            if ($existingWorkbook) {
+                Write-Log "Workbook already exists: $displayName" -Level WARN
+                continue
+            }
+
+            New-AzApplicationInsightsWorkbook `
+                -ResourceGroupName $script:ResourceGroupName `
+                -Name $workbookUuid `
+                -Location $Location `
+                -DisplayName $displayName `
+                -Category "workbook" `
+                -SourceId $script:WorkspaceResourceId `
+                -SerializedData $serializedData | Out-Null
+
+            Write-Log "Deployed: $displayName" -Level SUCCESS
         } catch {
-            Write-Log "Workbook may already exist: $displayName" -Level WARN
+            Write-Log "Failed to deploy workbook: $displayName - $_" -Level ERROR
         }
     }
 

@@ -21,7 +21,7 @@ set -e
 # Configuration
 #######################################
 RESOURCE_GROUP=""
-LOCATION="eastus"
+LOCATION="uksouth"
 NAME_PREFIX=""
 SKIP_CONFIRMATION=false
 

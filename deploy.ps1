@@ -45,7 +45,7 @@ param(
     [string]$Name,
 
     [Parameter(Mandatory = $false)]
-    [string]$Location = "eastus",
+    [string]$Location = "uksouth",
 
     [Parameter(Mandatory = $false)]
     [string]$ResourceGroup,
