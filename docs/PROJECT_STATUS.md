@@ -2,8 +2,8 @@
 
 ## Current State
 **Date:** 2026-01-27
-**Status:** Working prototype - needs polish
-**Deployment Scripts:** Both Bash (deploy.sh) and PowerShell (deploy.ps1) available
+**Status:** Working prototype - deployment scripts tested
+**Deployment Scripts:** Both Bash (deploy.sh) and PowerShell (deploy.ps1) tested and working
 
 ---
 
@@ -90,12 +90,19 @@
 
 ## Test Environment Details
 
-### rg-intune-test2 (Fresh Deployment Test)
+### rg-intune-test2 (Bash Script Test - deploy.sh)
 - **Subscription:** Azure for Students
 - **Location:** eastus
 - **Function App:** https://intune-test2-func.azurewebsites.net
 - **Log Analytics Workspace ID:** 8b8c5d88-6165-4fb5-bbc4-597dfe1670e1
 - **App Registration Client ID:** 38695d44-0df2-4909-8535-73cdce40a2f9
+
+### rg-intune-ps-test (PowerShell Script Test - deploy.ps1)
+- **Subscription:** Azure for Students
+- **Location:** eastus
+- **Result:** All resources created successfully
+- **Notes:** Script uses Az modules when available, falls back to Azure CLI
+- **Health Check:** Passed (config, auth, graph_api, log_analytics all OK)
 
 ### Test Endpoints
 ```
@@ -126,8 +133,8 @@ These must be granted manually after deployment:
 
 ## Next Steps
 
-1. Create PowerShell deployment script
+1. ~~Create PowerShell deployment script~~ - **DONE** (deploy.ps1 tested and working)
 2. Improve workbooks with proper visualizations
-3. Add sample alert rules
+3. Add sample alert rules for Intune data
 4. Create formal test documentation
-5. Commit current state to git
+5. ~~Commit current state to git~~ - **DONE**

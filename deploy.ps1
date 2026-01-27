@@ -11,6 +11,10 @@
     - App Registration for Microsoft Graph access
     - Azure Monitor Workbooks for visualization
 
+    Supports two modes:
+    - Az PowerShell module (preferred, if installed)
+    - Azure CLI fallback (if Az module not available)
+
 .PARAMETER Name
     Naming prefix for resources (e.g., 'contoso-intune')
 
@@ -28,6 +32,11 @@
 
 .EXAMPLE
     .\deploy.ps1 -Name "test-intune" -SkipConfirmation
+
+.NOTES
+    Requires: Azure CLI OR Az PowerShell module, Azure Functions Core Tools
+    Install Az module: Install-Module -Name Az -Scope CurrentUser -Force
+    Install Azure CLI: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
 #>
 
 [CmdletBinding()]
@@ -45,7 +54,11 @@ param(
     [switch]$SkipConfirmation
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"  # Don't stop on az CLI stderr output
+$ProgressPreference = "SilentlyContinue"
+
+# Track which Azure tooling mode we're using
+$script:UseAzModule = $false
 
 #region Helper Functions
 function Write-Log {
@@ -73,25 +86,72 @@ function Write-Log {
         Write-Host "$prefix $Message" -ForegroundColor $color
     }
 }
+
+function Invoke-AzCli {
+    param([string]$Command, [switch]$ReturnJson)
+    $result = Invoke-Expression "az $Command 2>&1"
+    if ($LASTEXITCODE -ne 0) {
+        # Filter out "not found" errors which are expected when checking existence
+        $errorText = $result | Out-String
+        if ($errorText -notmatch "could not be found|does not exist|was not found") {
+            throw "Azure CLI error: $errorText"
+        }
+        return $null
+    }
+    if ($ReturnJson -and $result) {
+        return $result | ConvertFrom-Json
+    }
+    return $result
+}
+
+function Get-AzureAccessToken {
+    if ($script:UseAzModule) {
+        return (Get-AzAccessToken -ResourceUrl "https://management.azure.com").Token
+    } else {
+        $tokenResult = Invoke-AzCli "account get-access-token --resource https://management.azure.com" -ReturnJson
+        return $tokenResult.accessToken
+    }
+}
 #endregion
 
 #region Prerequisites Check
 function Test-Prerequisites {
     Write-Log "Checking prerequisites" -Level STEP
 
-    # Check az cli
+    # Check for Az module first (preferred)
+    $hasAzModule = Get-Module -ListAvailable -Name Az.Accounts
+
+    # Check for Azure CLI as fallback
+    $hasAzCli = $false
     try {
-        $null = az version 2>$null
-        Write-Log "Azure CLI installed" -Level SUCCESS
-    } catch {
-        Write-Log "Azure CLI (az) is not installed" -Level ERROR
-        Write-Host "Install from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+        $null = & az --version 2>$null
+        if ($LASTEXITCODE -eq 0) { $hasAzCli = $true }
+    } catch { }
+
+    if ($hasAzModule) {
+        $script:UseAzModule = $true
+        Write-Log "Using Az PowerShell module" -Level SUCCESS
+
+        # Import Az modules
+        Import-Module Az.Accounts -ErrorAction SilentlyContinue
+        Import-Module Az.Resources -ErrorAction SilentlyContinue
+        Import-Module Az.Storage -ErrorAction SilentlyContinue
+        Import-Module Az.OperationalInsights -ErrorAction SilentlyContinue
+        Import-Module Az.Functions -ErrorAction SilentlyContinue
+    } elseif ($hasAzCli) {
+        $script:UseAzModule = $false
+        Write-Log "Az module not found, using Azure CLI fallback" -Level WARN
+    } else {
+        Write-Log "Neither Az PowerShell module nor Azure CLI is installed" -Level ERROR
+        Write-Host "Install one of:"
+        Write-Host "  Az module:  Install-Module -Name Az -Scope CurrentUser -Force"
+        Write-Host "  Azure CLI:  https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
         exit 1
     }
 
     # Check func core tools
     try {
-        $null = func --version 2>$null
+        $null = & func --version 2>$null
         Write-Log "Functions Core Tools installed" -Level SUCCESS
     } catch {
         Write-Log "Azure Functions Core Tools (func) is not installed" -Level ERROR
@@ -100,17 +160,28 @@ function Test-Prerequisites {
     }
 
     # Check logged in
-    $accountJson = az account show 2>$null
-    if (-not $accountJson) {
-        Write-Log "Not logged in to Azure CLI" -Level ERROR
-        Write-Host "Run: az login"
-        exit 1
+    if ($script:UseAzModule) {
+        $context = Get-AzContext -ErrorAction SilentlyContinue
+        if (-not $context) {
+            Write-Log "Not logged in to Azure" -Level ERROR
+            Write-Host "Run: Connect-AzAccount"
+            exit 1
+        }
+        $script:SubscriptionName = $context.Subscription.Name
+        $script:SubscriptionId = $context.Subscription.Id
+        $script:TenantId = $context.Tenant.Id
+    } else {
+        $account = Invoke-AzCli "account show" -ReturnJson
+        if (-not $account) {
+            Write-Log "Not logged in to Azure" -Level ERROR
+            Write-Host "Run: az login"
+            exit 1
+        }
+        $script:SubscriptionName = $account.name
+        $script:SubscriptionId = $account.id
+        $script:TenantId = $account.tenantId
     }
 
-    $account = $accountJson | ConvertFrom-Json
-    $script:SubscriptionName = $account.name
-    $script:SubscriptionId = $account.id
-    $script:TenantId = $account.tenantId
     Write-Log "Logged in to: $($script:SubscriptionName)" -Level SUCCESS
 }
 #endregion
@@ -183,55 +254,75 @@ function Get-Configuration {
 function New-ResourceGroup {
     Write-Log "Creating Resource Group" -Level STEP
 
-    $existing = az group show --name $script:ResourceGroupName 2>$null
-    if ($existing) {
-        Write-Log "Resource group $($script:ResourceGroupName) already exists" -Level WARN
+    if ($script:UseAzModule) {
+        $existing = Get-AzResourceGroup -Name $script:ResourceGroupName -ErrorAction SilentlyContinue
+        if ($existing) {
+            Write-Log "Resource group $($script:ResourceGroupName) already exists" -Level WARN
+        } else {
+            New-AzResourceGroup -Name $script:ResourceGroupName -Location $Location | Out-Null
+            Write-Log "Created resource group: $($script:ResourceGroupName)" -Level SUCCESS
+        }
     } else {
-        az group create --name $script:ResourceGroupName --location $Location --output none
-        Write-Log "Created resource group: $($script:ResourceGroupName)" -Level SUCCESS
+        $existing = Invoke-AzCli "group show --name $($script:ResourceGroupName)" -ReturnJson
+        if ($existing) {
+            Write-Log "Resource group $($script:ResourceGroupName) already exists" -Level WARN
+        } else {
+            Invoke-AzCli "group create --name $($script:ResourceGroupName) --location $Location --output none"
+            Write-Log "Created resource group: $($script:ResourceGroupName)" -Level SUCCESS
+        }
     }
 }
 
 function New-StorageAccount {
     Write-Log "Creating Storage Account" -Level STEP
 
-    $existing = az storage account show --name $script:StorageAccountName --resource-group $script:ResourceGroupName 2>$null
-    if ($existing) {
-        Write-Log "Storage account $($script:StorageAccountName) already exists" -Level WARN
+    if ($script:UseAzModule) {
+        $existing = Get-AzStorageAccount -ResourceGroupName $script:ResourceGroupName -Name $script:StorageAccountName -ErrorAction SilentlyContinue
+        if ($existing) {
+            Write-Log "Storage account $($script:StorageAccountName) already exists" -Level WARN
+        } else {
+            New-AzStorageAccount -ResourceGroupName $script:ResourceGroupName -Name $script:StorageAccountName -Location $Location -SkuName Standard_LRS | Out-Null
+            Write-Log "Created storage account: $($script:StorageAccountName)" -Level SUCCESS
+        }
     } else {
-        az storage account create `
-            --name $script:StorageAccountName `
-            --resource-group $script:ResourceGroupName `
-            --location $Location `
-            --sku Standard_LRS `
-            --output none
-        Write-Log "Created storage account: $($script:StorageAccountName)" -Level SUCCESS
+        $existing = Invoke-AzCli "storage account show --resource-group $($script:ResourceGroupName) --name $($script:StorageAccountName)" -ReturnJson
+        if ($existing) {
+            Write-Log "Storage account $($script:StorageAccountName) already exists" -Level WARN
+        } else {
+            Invoke-AzCli "storage account create --resource-group $($script:ResourceGroupName) --name $($script:StorageAccountName) --location $Location --sku Standard_LRS --output none"
+            Write-Log "Created storage account: $($script:StorageAccountName)" -Level SUCCESS
+        }
     }
 }
 
 function New-LogAnalyticsWorkspace {
     Write-Log "Creating Log Analytics Workspace" -Level STEP
 
-    $existing = az monitor log-analytics workspace show --resource-group $script:ResourceGroupName --workspace-name $script:LogAnalyticsName 2>$null
-    if ($existing) {
-        Write-Log "Log Analytics workspace $($script:LogAnalyticsName) already exists" -Level WARN
+    if ($script:UseAzModule) {
+        $existing = Get-AzOperationalInsightsWorkspace -ResourceGroupName $script:ResourceGroupName -Name $script:LogAnalyticsName -ErrorAction SilentlyContinue
+        if ($existing) {
+            Write-Log "Log Analytics workspace $($script:LogAnalyticsName) already exists" -Level WARN
+            $script:WorkspaceResourceId = $existing.ResourceId
+            $script:WorkspaceCustomerId = $existing.CustomerId
+        } else {
+            $workspace = New-AzOperationalInsightsWorkspace -ResourceGroupName $script:ResourceGroupName -Name $script:LogAnalyticsName -Location $Location -RetentionInDays 30
+            Write-Log "Created Log Analytics workspace: $($script:LogAnalyticsName)" -Level SUCCESS
+            $script:WorkspaceResourceId = $workspace.ResourceId
+            $script:WorkspaceCustomerId = $workspace.CustomerId
+        }
     } else {
-        az monitor log-analytics workspace create `
-            --resource-group $script:ResourceGroupName `
-            --workspace-name $script:LogAnalyticsName `
-            --location $Location `
-            --retention-time 30 `
-            --output none
-        Write-Log "Created Log Analytics workspace: $($script:LogAnalyticsName)" -Level SUCCESS
+        $existing = Invoke-AzCli "monitor log-analytics workspace show --resource-group $($script:ResourceGroupName) --workspace-name $($script:LogAnalyticsName)" -ReturnJson
+        if ($existing) {
+            Write-Log "Log Analytics workspace $($script:LogAnalyticsName) already exists" -Level WARN
+            $script:WorkspaceResourceId = $existing.id
+            $script:WorkspaceCustomerId = $existing.customerId
+        } else {
+            $workspace = Invoke-AzCli "monitor log-analytics workspace create --resource-group $($script:ResourceGroupName) --workspace-name $($script:LogAnalyticsName) --location $Location --retention-time 30" -ReturnJson
+            Write-Log "Created Log Analytics workspace: $($script:LogAnalyticsName)" -Level SUCCESS
+            $script:WorkspaceResourceId = $workspace.id
+            $script:WorkspaceCustomerId = $workspace.customerId
+        }
     }
-
-    $workspaceJson = az monitor log-analytics workspace show `
-        --resource-group $script:ResourceGroupName `
-        --workspace-name $script:LogAnalyticsName 2>$null
-
-    $workspace = $workspaceJson | ConvertFrom-Json
-    $script:WorkspaceResourceId = $workspace.id
-    $script:WorkspaceCustomerId = $workspace.customerId
 
     Write-Log "Workspace ID: $($script:WorkspaceCustomerId)" -Level INFO
 }
@@ -250,6 +341,9 @@ function New-CustomTables {
         "IntuneAutopilotProfiles_CL",
         "IntuneSyncState_CL"
     )
+
+    $token = Get-AzureAccessToken
+    $headers = @{ "Authorization" = "Bearer $token"; "Content-Type" = "application/json" }
 
     foreach ($tableName in $tableNames) {
         Write-Log "Creating table: $tableName" -Level INFO
@@ -272,7 +366,7 @@ function New-CustomTables {
         $uri = "https://management.azure.com$($script:WorkspaceResourceId)/tables/$($tableName)?api-version=2022-10-01"
 
         try {
-            az rest --method PUT --uri $uri --body $tableBody --output none 2>$null
+            Invoke-RestMethod -Uri $uri -Method Put -Headers $headers -Body $tableBody | Out-Null
         } catch {
             Write-Log "Table $tableName may already exist" -Level WARN
         }
@@ -284,32 +378,38 @@ function New-CustomTables {
 function New-DataCollectionEndpoint {
     Write-Log "Creating Data Collection Endpoint" -Level STEP
 
-    $existing = az monitor data-collection endpoint show --resource-group $script:ResourceGroupName --name $script:DceName 2>$null
-    if ($existing) {
-        Write-Log "DCE $($script:DceName) already exists" -Level WARN
-    } else {
-        az monitor data-collection endpoint create `
-            --resource-group $script:ResourceGroupName `
-            --name $script:DceName `
-            --location $Location `
-            --public-network-access Enabled `
-            --output none
+    $token = Get-AzureAccessToken
+    $headers = @{ "Authorization" = "Bearer $token"; "Content-Type" = "application/json" }
+
+    $script:DceResourceId = "/subscriptions/$($script:SubscriptionId)/resourceGroups/$($script:ResourceGroupName)/providers/Microsoft.Insights/dataCollectionEndpoints/$($script:DceName)"
+    $uri = "https://management.azure.com$($script:DceResourceId)?api-version=2022-06-01"
+
+    $dceBody = @{
+        location = $Location
+        properties = @{
+            networkAcls = @{
+                publicNetworkAccess = "Enabled"
+            }
+        }
+    } | ConvertTo-Json -Depth 5
+
+    try {
+        $dce = Invoke-RestMethod -Uri $uri -Method Put -Headers $headers -Body $dceBody
         Write-Log "Created DCE: $($script:DceName)" -Level SUCCESS
+    } catch {
+        Write-Log "DCE may already exist, fetching..." -Level WARN
+        $dce = Invoke-RestMethod -Uri $uri -Method Get -Headers $headers
     }
 
-    $dceJson = az monitor data-collection endpoint show `
-        --resource-group $script:ResourceGroupName `
-        --name $script:DceName 2>$null
-
-    $dce = $dceJson | ConvertFrom-Json
-    $script:DceEndpoint = $dce.logsIngestion.endpoint
-    $script:DceResourceId = $dce.id
-
+    $script:DceEndpoint = $dce.properties.logsIngestion.endpoint
     Write-Log "DCE Endpoint: $($script:DceEndpoint)" -Level INFO
 }
 
 function New-DataCollectionRule {
     Write-Log "Creating Data Collection Rule" -Level STEP
+
+    $token = Get-AzureAccessToken
+    $headers = @{ "Authorization" = "Bearer $token"; "Content-Type" = "application/json" }
 
     $streams = @(
         "IntuneDevices_CL",
@@ -364,13 +464,12 @@ function New-DataCollectionRule {
     $uri = "https://management.azure.com$($script:DcrResourceId)?api-version=2022-06-01"
 
     try {
-        az rest --method PUT --uri $uri --body $dcrBody --output none 2>$null
+        $dcr = Invoke-RestMethod -Uri $uri -Method Put -Headers $headers -Body $dcrBody
     } catch {
-        Write-Log "DCR may already exist" -Level WARN
+        Write-Log "DCR may already exist, fetching..." -Level WARN
+        $dcr = Invoke-RestMethod -Uri $uri -Method Get -Headers $headers
     }
 
-    $dcrJson = az rest --method GET --uri $uri 2>$null
-    $dcr = $dcrJson | ConvertFrom-Json
     $script:DcrImmutableId = $dcr.properties.immutableId
 
     if ($script:DcrImmutableId) {
@@ -384,22 +483,16 @@ function New-DataCollectionRule {
 function New-FunctionApp {
     Write-Log "Creating Function App" -Level STEP
 
-    $existing = az functionapp show --resource-group $script:ResourceGroupName --name $script:FunctionAppName 2>$null
+    # Check if exists (using az CLI as it's needed for Flex Consumption anyway)
+    $existing = Invoke-AzCli "functionapp show --resource-group $($script:ResourceGroupName) --name $($script:FunctionAppName)" -ReturnJson
     if ($existing) {
         Write-Log "Function App $($script:FunctionAppName) already exists" -Level WARN
         return
     }
 
-    # Try Flex Consumption first
+    # Create using az CLI (Az module doesn't support Flex Consumption yet)
     try {
-        az functionapp create `
-            --resource-group $script:ResourceGroupName `
-            --flexconsumption-location $Location `
-            --runtime python `
-            --runtime-version 3.11 `
-            --name $script:FunctionAppName `
-            --storage-account $script:StorageAccountName `
-            --output none 2>$null
+        $null = Invoke-Expression "az functionapp create --resource-group $($script:ResourceGroupName) --flexconsumption-location $Location --runtime python --runtime-version 3.11 --name $($script:FunctionAppName) --storage-account $($script:StorageAccountName) --output none 2>&1"
 
         if ($LASTEXITCODE -eq 0) {
             Write-Log "Created Function App (Flex Consumption): $($script:FunctionAppName)" -Level SUCCESS
@@ -408,40 +501,51 @@ function New-FunctionApp {
     } catch { }
 
     Write-Log "Flex Consumption not available, using legacy Consumption plan" -Level WARN
-    az functionapp create `
-        --resource-group $script:ResourceGroupName `
-        --consumption-plan-location $Location `
-        --runtime python `
-        --runtime-version 3.11 `
-        --functions-version 4 `
-        --name $script:FunctionAppName `
-        --storage-account $script:StorageAccountName `
-        --os-type Linux `
-        --output none
+    Invoke-AzCli "functionapp create --resource-group $($script:ResourceGroupName) --consumption-plan-location $Location --runtime python --runtime-version 3.11 --functions-version 4 --name $($script:FunctionAppName) --storage-account $($script:StorageAccountName) --os-type Linux --output none"
     Write-Log "Created Function App (Consumption): $($script:FunctionAppName)" -Level SUCCESS
 }
 
 function New-AppRegistration {
     Write-Log "Creating App Registration" -Level STEP
 
-    $existingApp = az ad app list --display-name $script:AppRegistrationName --query "[0].appId" -o tsv 2>$null
+    if ($script:UseAzModule) {
+        $existingApp = Get-AzADApplication -DisplayName $script:AppRegistrationName -ErrorAction SilentlyContinue
 
-    if ($existingApp) {
-        Write-Log "App Registration already exists: $existingApp" -Level WARN
-        $script:AppClientId = $existingApp
+        if ($existingApp) {
+            Write-Log "App Registration already exists" -Level WARN
+            $script:AppClientId = $existingApp.AppId
+        } else {
+            $app = New-AzADApplication -DisplayName $script:AppRegistrationName
+            $script:AppClientId = $app.AppId
+
+            # Create service principal
+            New-AzADServicePrincipal -ApplicationId $script:AppClientId | Out-Null
+            Write-Log "Created App Registration: $($script:AppRegistrationName)" -Level SUCCESS
+        }
+
+        # Create new secret
+        $secret = New-AzADAppCredential -ApplicationId $script:AppClientId -EndDate (Get-Date).AddYears(2)
+        $script:AppClientSecret = $secret.SecretText
     } else {
-        $script:AppClientId = az ad app create --display-name $script:AppRegistrationName --query appId -o tsv
-        az ad sp create --id $script:AppClientId --output none 2>$null
-        Write-Log "Created App Registration: $($script:AppRegistrationName)" -Level SUCCESS
+        $existingApp = Invoke-AzCli "ad app list --display-name `"$($script:AppRegistrationName)`" --query `"[0]`"" -ReturnJson
+
+        if ($existingApp) {
+            Write-Log "App Registration already exists" -Level WARN
+            $script:AppClientId = $existingApp.appId
+        } else {
+            $app = Invoke-AzCli "ad app create --display-name `"$($script:AppRegistrationName)`"" -ReturnJson
+            $script:AppClientId = $app.appId
+
+            # Create service principal
+            Invoke-AzCli "ad sp create --id $($script:AppClientId) --output none"
+            Write-Log "Created App Registration: $($script:AppRegistrationName)" -Level SUCCESS
+        }
+
+        # Create new secret (2 years) - use direct az command to avoid stderr mixing
+        $endDate = (Get-Date).AddYears(2).ToString("yyyy-MM-dd")
+        $secretOutput = & az ad app credential reset --id $script:AppClientId --end-date $endDate --query password --output tsv 2>$null
+        $script:AppClientSecret = $secretOutput.Trim()
     }
-
-    $credentialJson = az ad app credential reset `
-        --id $script:AppClientId `
-        --display-name "intune-reporting-secret" `
-        --years 2 2>$null
-
-    $credential = $credentialJson | ConvertFrom-Json
-    $script:AppClientSecret = $credential.password
 
     Write-Log "Client ID: $($script:AppClientId)" -Level INFO
 }
@@ -449,48 +553,59 @@ function New-AppRegistration {
 function Grant-DcrPermissions {
     Write-Log "Granting DCR Permissions" -Level STEP
 
-    $spObjectId = az ad sp list --filter "appId eq '$($script:AppClientId)'" --query "[0].id" -o tsv 2>$null
+    # Monitoring Metrics Publisher role
+    $roleDefId = "3913510d-42f4-4e42-8a64-420c390055eb"
 
-    if (-not $spObjectId) {
-        Write-Log "Could not find service principal, skipping DCR permission" -Level WARN
-        return
-    }
-
-    $roleDefId = "/subscriptions/$($script:SubscriptionId)/providers/Microsoft.Authorization/roleDefinitions/3913510d-42f4-4e42-8a64-420c390055eb"
-    $assignmentId = [guid]::NewGuid().ToString()
-
-    $assignmentBody = @{
-        properties = @{
-            roleDefinitionId = $roleDefId
-            principalId = $spObjectId
-            principalType = "ServicePrincipal"
+    if ($script:UseAzModule) {
+        $sp = Get-AzADServicePrincipal -ApplicationId $script:AppClientId -ErrorAction SilentlyContinue
+        if (-not $sp) {
+            Write-Log "Could not find service principal, skipping DCR permission" -Level WARN
+            return
         }
-    } | ConvertTo-Json
 
-    $uri = "https://management.azure.com$($script:DcrResourceId)/providers/Microsoft.Authorization/roleAssignments/$($assignmentId)?api-version=2022-04-01"
+        try {
+            New-AzRoleAssignment -ObjectId $sp.Id -RoleDefinitionId $roleDefId -Scope $script:DcrResourceId -ErrorAction SilentlyContinue | Out-Null
+            Write-Log "Granted Monitoring Metrics Publisher role on DCR" -Level SUCCESS
+        } catch {
+            Write-Log "DCR permission may already exist" -Level WARN
+        }
+    } else {
+        $sp = Invoke-AzCli "ad sp show --id $($script:AppClientId)" -ReturnJson
+        if (-not $sp) {
+            Write-Log "Could not find service principal, skipping DCR permission" -Level WARN
+            return
+        }
 
-    try {
-        az rest --method PUT --uri $uri --body $assignmentBody --output none 2>$null
-        Write-Log "Granted Monitoring Metrics Publisher role on DCR" -Level SUCCESS
-    } catch {
-        Write-Log "DCR permission may already exist" -Level WARN
+        try {
+            Invoke-AzCli "role assignment create --assignee-object-id $($sp.id) --role `"$roleDefId`" --scope `"$($script:DcrResourceId)`" --assignee-principal-type ServicePrincipal --output none"
+            Write-Log "Granted Monitoring Metrics Publisher role on DCR" -Level SUCCESS
+        } catch {
+            Write-Log "DCR permission may already exist" -Level WARN
+        }
     }
 }
 
 function Set-FunctionAppConfiguration {
     Write-Log "Configuring Function App" -Level STEP
 
-    az functionapp config appsettings set `
-        --resource-group $script:ResourceGroupName `
-        --name $script:FunctionAppName `
-        --settings `
-            "AZURE_TENANT_ID=$($script:TenantId)" `
-            "AZURE_CLIENT_ID=$($script:AppClientId)" `
-            "AZURE_CLIENT_SECRET=$($script:AppClientSecret)" `
-            "ANALYTICS_BACKEND=LogAnalytics" `
-            "LOG_ANALYTICS_DCE=$($script:DceEndpoint)" `
-            "LOG_ANALYTICS_DCR_ID=$($script:DcrImmutableId)" `
-        --output none
+    $settings = @{
+        "AZURE_TENANT_ID" = $script:TenantId
+        "AZURE_CLIENT_ID" = $script:AppClientId
+        "AZURE_CLIENT_SECRET" = $script:AppClientSecret
+        "ANALYTICS_BACKEND" = "LogAnalytics"
+        "LOG_ANALYTICS_DCE" = $script:DceEndpoint
+        "LOG_ANALYTICS_DCR_ID" = $script:DcrImmutableId
+    }
+
+    if ($script:UseAzModule) {
+        Update-AzFunctionAppSetting -ResourceGroupName $script:ResourceGroupName -Name $script:FunctionAppName -AppSetting $settings | Out-Null
+    } else {
+        # Set each setting individually to avoid quoting issues
+        foreach ($key in $settings.Keys) {
+            $value = $settings[$key]
+            $null = Invoke-Expression "az functionapp config appsettings set --resource-group `"$($script:ResourceGroupName)`" --name `"$($script:FunctionAppName)`" --settings `"$key=$value`" --output none 2>&1"
+        }
+    }
 
     Write-Log "Function App configured" -Level SUCCESS
 }
@@ -509,7 +624,7 @@ function Publish-FunctionCode {
 
     Push-Location $functionsDir
     try {
-        func azure functionapp publish $script:FunctionAppName --python
+        & func azure functionapp publish $script:FunctionAppName --python
         Write-Log "Function code deployed" -Level SUCCESS
     } finally {
         Pop-Location
@@ -528,7 +643,8 @@ function Deploy-Workbooks {
         return
     }
 
-    az extension add --name application-insights --yes 2>$null
+    $token = Get-AzureAccessToken
+    $headers = @{ "Authorization" = "Bearer $token"; "Content-Type" = "application/json" }
 
     $workbooks = @{
         "device-inventory.workbook" = "Intune Device Inventory"
@@ -546,25 +662,32 @@ function Deploy-Workbooks {
             continue
         }
 
-        $hashBytes = [System.Security.Cryptography.MD5]::Create().ComputeHash(
-            [System.Text.Encoding]::UTF8.GetBytes("$($script:NamePrefix)-$file")
-        )
-        $guid = [guid]::new($hashBytes[0..15])
-        $workbookUuid = $guid.ToString()
+        # Generate deterministic GUID from name prefix and file
+        $md5 = [System.Security.Cryptography.MD5]::Create()
+        $hashBytes = $md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("$($script:NamePrefix)-$file"))
+        $hexString = [BitConverter]::ToString($hashBytes) -replace '-', ''
+        $workbookUuid = $hexString.Substring(0,8) + "-" + $hexString.Substring(8,4) + "-" + $hexString.Substring(12,4) + "-" + $hexString.Substring(16,4) + "-" + $hexString.Substring(20,12)
+        $workbookUuid = $workbookUuid.ToLower()
 
         Write-Log "Deploying: $displayName" -Level INFO
 
+        $serializedData = Get-Content $workbookPath -Raw
+
+        $workbookBody = @{
+            location = $Location
+            kind = "shared"
+            properties = @{
+                displayName = $displayName
+                category = "workbook"
+                sourceId = $script:WorkspaceResourceId
+                serializedData = $serializedData
+            }
+        } | ConvertTo-Json -Depth 5
+
+        $uri = "https://management.azure.com/subscriptions/$($script:SubscriptionId)/resourceGroups/$($script:ResourceGroupName)/providers/Microsoft.Insights/workbooks/$($workbookUuid)?api-version=2022-04-01"
+
         try {
-            az monitor app-insights workbook create `
-                --resource-group $script:ResourceGroupName `
-                --name $workbookUuid `
-                --display-name $displayName `
-                --kind shared `
-                --category workbook `
-                --location $Location `
-                --source-id $script:WorkspaceResourceId `
-                --serialized-data "@$workbookPath" `
-                --output none 2>$null
+            Invoke-RestMethod -Uri $uri -Method Put -Headers $headers -Body $workbookBody | Out-Null
         } catch {
             Write-Log "Workbook may already exist: $displayName" -Level WARN
         }
