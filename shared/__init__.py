@@ -7,12 +7,13 @@ import logging
 import asyncio
 from datetime import datetime, timezone
 from dataclasses import dataclass
-from typing import Optional, Protocol
+from typing import Optional
 from abc import ABC, abstractmethod
+from io import StringIO
 
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
-from azure.kusto.data import KustoClient, KustoConnectionStringBuilder, DataFormat
-from azure.kusto.ingest import QueuedIngestClient, IngestionProperties
+from azure.kusto.data import KustoConnectionStringBuilder
+from azure.kusto.ingest import QueuedIngestClient, IngestionProperties, DataFormat
 from azure.monitor.ingestion import LogsIngestionClient
 from msgraph_beta import GraphServiceClient
 
@@ -35,10 +36,6 @@ class Config:
     log_analytics_dcr_id: str = os.environ.get('LOG_ANALYTICS_DCR_ID', '')  # Data Collection Rule ID
     log_analytics_workspace_id: str = os.environ.get('LOG_ANALYTICS_WORKSPACE_ID', '')
     
-    tenant_id: str = os.environ.get('TENANT_ID', '')
-    dry_run: bool = False
-    output_path: str = ''
-
     @classmethod
     def from_env(cls) -> 'Config':
         return cls()
@@ -90,8 +87,6 @@ class ADXClient(IngestionClient):
         
         # Convert to JSONL for ingestion
         jsonl = '\n'.join(json.dumps(row, default=str) for row in data)
-        
-        from io import StringIO
         client.ingest_from_stream(StringIO(jsonl), props)
         return len(data)
 

@@ -13,8 +13,8 @@ import azure.functions as func
 from datetime import datetime, timezone
 
 from shared import (
-    Config, ADXClient, get_graph_client, add_metadata, 
-    parse_report_response, retry_with_backoff, MAX_RETRIES, BASE_DELAY
+    Config, get_ingestion_client, get_graph_client, add_metadata,
+    parse_report_response, retry_with_backoff
 )
 from msgraph_beta.generated.device_management.reports.get_device_status_by_compliace_policy_report.get_device_status_by_compliace_policy_report_post_request_body import GetDeviceStatusByCompliacePolicyReportPostRequestBody
 
@@ -125,7 +125,7 @@ async def run_export():
     """Main export logic"""
     config = Config.from_env()
     graph = get_graph_client()
-    adx = ADXClient(config)
+    client = get_ingestion_client(config)
     
     results = {}
     
@@ -133,14 +133,14 @@ async def run_export():
     logging.info("Fetching managed devices...")
     devices = await get_managed_devices(graph)
     devices = add_metadata(devices, 'GraphAPI')
-    results['devices'] = adx.ingest('ManagedDevices', devices)
+    results['devices'] = client.ingest('ManagedDevices', devices)
     logging.info(f"Ingested {results['devices']} devices")
     
     # 2. Export compliance policies (metadata)
     logging.info("Fetching compliance policies...")
     policies = await get_compliance_policies(graph)
     policies = add_metadata(policies, 'GraphAPI')
-    results['policies'] = adx.ingest('CompliancePolicies', policies)
+    results['policies'] = client.ingest('CompliancePolicies', policies)
     logging.info(f"Ingested {results['policies']} policies")
     
     # 3. Export compliance states per policy (THE ACTIONABLE DATA)
@@ -153,7 +153,7 @@ async def run_export():
         all_states.extend(states)
     
     all_states = add_metadata(all_states, 'GraphAPI')
-    results['states'] = adx.ingest('DeviceComplianceStates', all_states)
+    results['states'] = client.ingest('DeviceComplianceStates', all_states)
     logging.info(f"Ingested {results['states']} compliance states")
     
     return results

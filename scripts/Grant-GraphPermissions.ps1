@@ -1,42 +1,53 @@
 <#
 .SYNOPSIS
-    Grants Microsoft Graph API permissions to the Intune Analytics Function App managed identity.
+    Grants Microsoft Graph API permissions to a service principal (app registration or managed identity).
 
 .DESCRIPTION
-    This script must be run by a user with one of the following roles:
+    This script grants the required Graph API permissions for reading Intune data.
+    Works with both app registrations and managed identities.
+
+    Must be run by a user with one of the following Entra ID roles:
     - Global Administrator
-    - Application Administrator  
+    - Application Administrator
     - Cloud Application Administrator
 
-    Run this AFTER deploying the ARM template.
-
-.PARAMETER FunctionAppName
-    The name of the deployed Function App (shown in deployment outputs)
-
-.PARAMETER ResourceGroupName
-    The resource group containing the Function App
+.PARAMETER ServicePrincipalObjectId
+    The Object ID of the service principal (app registration) or managed identity.
+    For app registrations: Find this in Entra ID > App registrations > Your app > Overview > "Object ID" (not Application ID)
+    For managed identities: The Principal ID from the managed identity resource.
 
 .EXAMPLE
-    .\Grant-GraphPermissions.ps1 -FunctionAppName "intune-analytics-fn-abc123" -ResourceGroupName "rg-intune-analytics"
+    # For app registration:
+    .\Grant-GraphPermissions.ps1 -ServicePrincipalObjectId "12345678-1234-1234-1234-123456789012"
 
 .EXAMPLE
-    # Or use the managed identity Object ID directly:
-    .\Grant-GraphPermissions.ps1 -ManagedIdentityObjectId "12345678-1234-1234-1234-123456789012"
+    # For function app with managed identity:
+    .\Grant-GraphPermissions.ps1 -FunctionAppName "intune-func-abc123" -ResourceGroupName "rg-intune"
 #>
 
 [CmdletBinding()]
 param(
+    [Parameter(Mandatory = $false)]
+    [string]$ServicePrincipalObjectId,
+
     [Parameter(Mandatory = $false)]
     [string]$FunctionAppName,
 
     [Parameter(Mandatory = $false)]
     [string]$ResourceGroupName,
 
+    # Legacy parameter alias for backwards compatibility
     [Parameter(Mandatory = $false)]
-    [string]$ManagedIdentityObjectId
+    [Alias("ManagedIdentityObjectId")]
+    [string]$ObjectId
 )
 
 $ErrorActionPreference = "Stop"
+
+# Handle legacy parameter
+if ($ObjectId -and -not $ServicePrincipalObjectId) {
+    $ServicePrincipalObjectId = $ObjectId
+}
 
 # Microsoft Graph App ID (constant)
 $GraphAppId = "00000003-0000-0000-c000-000000000000"
@@ -49,7 +60,7 @@ $RequiredPermissions = @(
         Description = "Read Intune device information"
     },
     @{
-        Name = "DeviceManagementConfiguration.Read.All"  
+        Name = "DeviceManagementConfiguration.Read.All"
         Id = "dc377aa6-52d8-4e23-b271-2a7ae6b159e6"
         Description = "Read Intune compliance policies"
     }
@@ -78,25 +89,27 @@ Write-Host "Connected as: $($context.Account.Id)" -ForegroundColor Green
 Write-Host "Tenant: $($context.Tenant.Id)" -ForegroundColor Green
 Write-Host ""
 
-# Get the managed identity Object ID
-if (-not $ManagedIdentityObjectId) {
+# Get the service principal Object ID
+if (-not $ServicePrincipalObjectId) {
     if (-not $FunctionAppName -or -not $ResourceGroupName) {
-        Write-Error "Please provide either -ManagedIdentityObjectId OR both -FunctionAppName and -ResourceGroupName"
+        Write-Error "Please provide -ServicePrincipalObjectId OR both -FunctionAppName and -ResourceGroupName"
         exit 1
     }
 
-    Write-Host "Getting Function App managed identity..." -ForegroundColor Yellow
+    Write-Host "Getting Function App identity..." -ForegroundColor Yellow
     $functionApp = Get-AzWebApp -Name $FunctionAppName -ResourceGroupName $ResourceGroupName
-    
-    if (-not $functionApp.Identity.PrincipalId) {
-        Write-Error "Function App '$FunctionAppName' does not have a system-assigned managed identity enabled"
+
+    if ($functionApp.Identity.PrincipalId) {
+        $ServicePrincipalObjectId = $functionApp.Identity.PrincipalId
+    } elseif ($functionApp.Identity.UserAssignedIdentities) {
+        $ServicePrincipalObjectId = ($functionApp.Identity.UserAssignedIdentities.Values | Select-Object -First 1).PrincipalId
+    } else {
+        Write-Error "Function App '$FunctionAppName' does not have a managed identity"
         exit 1
     }
-    
-    $ManagedIdentityObjectId = $functionApp.Identity.PrincipalId
 }
 
-Write-Host "Managed Identity Object ID: $ManagedIdentityObjectId" -ForegroundColor Cyan
+Write-Host "Service Principal Object ID: $ServicePrincipalObjectId" -ForegroundColor Cyan
 Write-Host ""
 
 # Get Microsoft Graph service principal
@@ -104,7 +117,7 @@ Write-Host "Getting Microsoft Graph service principal..." -ForegroundColor Yello
 $graphSp = Get-AzADServicePrincipal -ApplicationId $GraphAppId
 
 if (-not $graphSp) {
-    Write-Error "Could not find Microsoft Graph service principal. This should not happen."
+    Write-Error "Could not find Microsoft Graph service principal."
     exit 1
 }
 
@@ -122,24 +135,24 @@ $errorCount = 0
 foreach ($permission in $RequiredPermissions) {
     Write-Host "  $($permission.Name)" -ForegroundColor White -NoNewline
     Write-Host " - $($permission.Description)" -ForegroundColor Gray
-    
+
     try {
         New-AzADServicePrincipalAppRoleAssignment `
-            -ServicePrincipalId $ManagedIdentityObjectId `
+            -ServicePrincipalId $ServicePrincipalObjectId `
             -ResourceId $graphSp.Id `
             -AppRoleId $permission.Id `
             -ErrorAction Stop | Out-Null
-        
-        Write-Host "    ✓ Granted" -ForegroundColor Green
+
+        Write-Host "    + Granted" -ForegroundColor Green
         $successCount++
     }
     catch {
         if ($_.Exception.Message -like "*already exists*" -or $_.Exception.Message -like "*Permission being assigned already exists*") {
-            Write-Host "    ○ Already assigned" -ForegroundColor DarkGray
+            Write-Host "    = Already assigned" -ForegroundColor DarkGray
             $skipCount++
         }
         else {
-            Write-Host "    ✗ Failed: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "    x Failed: $($_.Exception.Message)" -ForegroundColor Red
             $errorCount++
         }
     }
@@ -155,13 +168,12 @@ Write-Host "  Failed:   $errorCount" -ForegroundColor $(if ($errorCount -gt 0) {
 Write-Host ""
 
 if ($errorCount -eq 0) {
-    Write-Host "✓ Permissions configured successfully!" -ForegroundColor Green
+    Write-Host "Permissions configured successfully!" -ForegroundColor Green
     Write-Host ""
-    Write-Host "The Function App can now access Microsoft Graph to read Intune data." -ForegroundColor Gray
-    Write-Host "Data collection will begin on the next timer trigger (every 6 hours)." -ForegroundColor Gray
+    Write-Host "The app can now access Microsoft Graph to read Intune data." -ForegroundColor Gray
 }
 else {
-    Write-Host "✗ Some permissions could not be granted." -ForegroundColor Red
+    Write-Host "Some permissions could not be granted." -ForegroundColor Red
     Write-Host ""
     Write-Host "Ensure you have one of these Entra ID roles:" -ForegroundColor Yellow
     Write-Host "  - Global Administrator" -ForegroundColor White

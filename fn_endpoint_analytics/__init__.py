@@ -12,7 +12,7 @@ import asyncio
 import azure.functions as func
 from datetime import datetime, timezone
 
-from shared import Config, ADXClient, get_graph_client, add_metadata
+from shared import Config, get_ingestion_client, get_graph_client, add_metadata
 
 
 async def get_device_scores(graph) -> list[dict]:
@@ -110,7 +110,7 @@ async def run_export():
     """Main export logic"""
     config = Config.from_env()
     graph = get_graph_client()
-    adx = ADXClient(config)
+    client = get_ingestion_client(config)
     
     results = {}
     
@@ -118,21 +118,21 @@ async def run_export():
     logging.info("Fetching device health scores...")
     scores = await get_device_scores(graph)
     scores = add_metadata(scores, 'EndpointAnalytics')
-    results['scores'] = adx.ingest('DeviceScores', scores)
+    results['scores'] = client.ingest('DeviceScores', scores)
     logging.info(f"Ingested {results['scores']} device scores")
     
     # 2. Startup performance history
     logging.info("Fetching startup performance...")
     startup = await get_startup_performance(graph)
     startup = add_metadata(startup, 'EndpointAnalytics')
-    results['startup'] = adx.ingest('StartupPerformance', startup)
+    results['startup'] = client.ingest('StartupPerformance', startup)
     logging.info(f"Ingested {results['startup']} startup records")
     
     # 3. App reliability (which apps are causing issues)
     logging.info("Fetching app reliability...")
     apps = await get_app_reliability(graph)
     apps = add_metadata(apps, 'EndpointAnalytics')
-    results['apps'] = adx.ingest('AppReliability', apps)
+    results['apps'] = client.ingest('AppReliability', apps)
     logging.info(f"Ingested {results['apps']} app reliability records")
     
     return results
