@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "6303216826276029858"
+      "templateHash": "13740296896340396366"
     }
   },
   "parameters": {
@@ -100,6 +100,7 @@
     "dceName": "[format('{0}-dce-{1}', parameters('baseName'), variables('uniqueSuffix'))]",
     "dcrName": "[format('{0}-dcr-{1}', parameters('baseName'), variables('uniqueSuffix'))]",
     "adxClusterName": "[format('{0}adx{1}', parameters('baseName'), variables('uniqueSuffix'))]",
+    "runtimeEnvironmentName": "IntuneExport-Python310",
     "runbookBaseUrl": "https://raw.githubusercontent.com/JacobWLMS/IntuneReporting/main/runbooks",
     "runbookConfigs": [
       {
@@ -129,76 +130,6 @@
         "desc": "Exports Autopilot devices and profiles",
         "freq": "Day",
         "interval": 1
-      }
-    ],
-    "pythonPackages": [
-      {
-        "name": "azure_core",
-        "uri": "https://files.pythonhosted.org/packages/fc/d8/b8fcba9464f02b121f39de2db2bf57f0b216fe11d014513d666e8634380d/azure_core-1.38.0-py3-none-any.whl"
-      },
-      {
-        "name": "msal",
-        "uri": "https://files.pythonhosted.org/packages/c2/dc/18d48843499e278538890dc709e9ee3dea8375f8be8e82682851df1b48b5/msal-1.34.0-py3-none-any.whl"
-      },
-      {
-        "name": "msal_extensions",
-        "uri": "https://files.pythonhosted.org/packages/5e/75/bd9b7bb966668920f06b200e84454c8f3566b102183bc55c5473d96cb2b9/msal_extensions-1.3.1-py3-none-any.whl"
-      },
-      {
-        "name": "azure_identity",
-        "uri": "https://files.pythonhosted.org/packages/83/7b/5652771e24fff12da9dde4c20ecf4682e606b104f26419d139758cc935a6/azure_identity-1.25.1-py3-none-any.whl"
-      },
-      {
-        "name": "microsoft_kiota_abstractions",
-        "uri": "https://files.pythonhosted.org/packages/3d/03/9a6678f2ab11d9feaa7739eab1e3cf4d38f9abc46a47f48f32083bf2f1c7/microsoft_kiota_abstractions-1.9.8-py3-none-any.whl"
-      },
-      {
-        "name": "microsoft_kiota_http",
-        "uri": "https://files.pythonhosted.org/packages/a3/b9/f42d80428d9486657b333be4206c793404fffbb452dfb6cb7c7659f6a9bf/microsoft_kiota_http-1.9.8-py3-none-any.whl"
-      },
-      {
-        "name": "microsoft_kiota_serialization_json",
-        "uri": "https://files.pythonhosted.org/packages/99/f3/5805a337c2485e74598f96a102e116691b4844ccf5fe1f6ef3bf4fd06331/microsoft_kiota_serialization_json-1.9.8-py3-none-any.whl"
-      },
-      {
-        "name": "microsoft_kiota_serialization_text",
-        "uri": "https://files.pythonhosted.org/packages/6f/e5/bd382327e7ddaaa091f1f323d760408213136f41940d074b2ffffd9a1127/microsoft_kiota_serialization_text-1.9.8-py3-none-any.whl"
-      },
-      {
-        "name": "microsoft_kiota_serialization_form",
-        "uri": "https://files.pythonhosted.org/packages/33/f8/7fc118a80d222dfb05530cfda94c0e776c1bfb9e6504a27e4ffb20fba425/microsoft_kiota_serialization_form-1.9.8-py3-none-any.whl"
-      },
-      {
-        "name": "microsoft_kiota_serialization_multipart",
-        "uri": "https://files.pythonhosted.org/packages/fd/69/11760cc57a57b38a32844b23e63b69f5adf1fedb20b894f46eb4fd7016a8/microsoft_kiota_serialization_multipart-1.9.8-py3-none-any.whl"
-      },
-      {
-        "name": "microsoft_kiota_authentication_azure",
-        "uri": "https://files.pythonhosted.org/packages/3d/6f/62167e5f1a941f5fd12476da43f13a8aac16f634481e317bdba31381da84/microsoft_kiota_authentication_azure-1.9.8-py3-none-any.whl"
-      },
-      {
-        "name": "msgraph_core",
-        "uri": "https://files.pythonhosted.org/packages/cf/4d/01432f60727ae452787014cad0d5bc9e035c6e11a670f12c23f7fc926d90/msgraph_core-1.3.8-py3-none-any.whl"
-      },
-      {
-        "name": "msgraph_beta_sdk",
-        "uri": "https://files.pythonhosted.org/packages/eb/2d/879007876f7e04dd0aa03d496dbb69a09fcc2d308f5f9133f237b8ffcc98/msgraph_beta_sdk-1.55.0-py3-none-any.whl"
-      }
-    ],
-    "adxPackages": [
-      {
-        "name": "azure_kusto_data",
-        "uri": "https://files.pythonhosted.org/packages/7e/35/919cc35773a28950c5d2df9e07260eebb43d9a993aea9b28d2921fc7dfd2/azure_kusto_data-6.0.1-py3-none-any.whl"
-      },
-      {
-        "name": "azure_kusto_ingest",
-        "uri": "https://files.pythonhosted.org/packages/26/8b/6a098c5b4c6a1bac6a6924e92496bbae9262f31a10c7067a8002327d4493/azure_kusto_ingest-6.0.1-py3-none-any.whl"
-      }
-    ],
-    "logAnalyticsPackages": [
-      {
-        "name": "azure_monitor_ingestion",
-        "uri": "https://files.pythonhosted.org/packages/f7/9f/e9a55bbe647aceeaf78f1bf48e00699b8d5135dd6756af9f98dc7b4fa005/azure_monitor_ingestion-1.1.0-py3-none-any.whl"
       }
     ],
     "customTables": [
@@ -935,67 +866,6 @@
       }
     },
     {
-      "copy": {
-        "name": "corePackages",
-        "count": "[length(variables('pythonPackages'))]",
-        "mode": "serial",
-        "batchSize": 1
-      },
-      "type": "Microsoft.Automation/automationAccounts/python310Packages",
-      "apiVersion": "2023-11-01",
-      "name": "[format('{0}/{1}', variables('automationAccountName'), variables('pythonPackages')[copyIndex()].name)]",
-      "properties": {
-        "contentLink": {
-          "uri": "[variables('pythonPackages')[copyIndex()].uri]"
-        }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
-      ]
-    },
-    {
-      "copy": {
-        "name": "adxPkgs",
-        "count": "[length(variables('adxPackages'))]",
-        "mode": "serial",
-        "batchSize": 1
-      },
-      "condition": "[equals(parameters('analyticsBackend'), 'ADX')]",
-      "type": "Microsoft.Automation/automationAccounts/python310Packages",
-      "apiVersion": "2023-11-01",
-      "name": "[format('{0}/{1}', variables('automationAccountName'), variables('adxPackages')[copyIndex()].name)]",
-      "properties": {
-        "contentLink": {
-          "uri": "[variables('adxPackages')[copyIndex()].uri]"
-        }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
-        "corePackages"
-      ]
-    },
-    {
-      "copy": {
-        "name": "logAnalyticsPkgs",
-        "count": "[length(variables('logAnalyticsPackages'))]",
-        "mode": "serial",
-        "batchSize": 1
-      },
-      "condition": "[equals(parameters('analyticsBackend'), 'LogAnalytics')]",
-      "type": "Microsoft.Automation/automationAccounts/python310Packages",
-      "apiVersion": "2023-11-01",
-      "name": "[format('{0}/{1}', variables('automationAccountName'), variables('logAnalyticsPackages')[copyIndex()].name)]",
-      "properties": {
-        "contentLink": {
-          "uri": "[variables('logAnalyticsPackages')[copyIndex()].uri]"
-        }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
-        "corePackages"
-      ]
-    },
-    {
       "type": "Microsoft.Automation/automationAccounts/variables",
       "apiVersion": "2023-11-01",
       "name": "[format('{0}/{1}', variables('automationAccountName'), 'AZURE_TENANT_ID')]",
@@ -1131,8 +1001,7 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]",
-        "corePackages"
+        "[resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName'))]"
       ]
     },
     {
@@ -1221,6 +1090,10 @@
       "type": "string",
       "value": "[reference(resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName')), '2023-11-01', 'full').identity.principalId]"
     },
+    "runtimeEnvironmentName": {
+      "type": "string",
+      "value": "[variables('runtimeEnvironmentName')]"
+    },
     "logAnalyticsWorkspaceId": {
       "type": "string",
       "value": "[if(equals(parameters('analyticsBackend'), 'LogAnalytics'), reference(resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName')), '2023-09-01').customerId, 'N/A')]"
@@ -1245,13 +1118,17 @@
       "type": "string",
       "value": "[if(equals(parameters('analyticsBackend'), 'ADX'), parameters('adxDatabaseName'), 'N/A')]"
     },
+    "setupRuntimeEnvironmentCommand": {
+      "type": "string",
+      "value": "[format('./scripts/Setup-RuntimeEnvironment.ps1 -AutomationAccountName \"{0}\" -ResourceGroupName \"{1}\" -AnalyticsBackend \"{2}\"', variables('automationAccountName'), resourceGroup().name, parameters('analyticsBackend'))]"
+    },
     "grantGraphPermissionsCommand": {
       "type": "string",
       "value": "[format('./scripts/Grant-GraphPermissions.ps1 -ManagedIdentityObjectId \"{0}\"', reference(resourceId('Microsoft.Automation/automationAccounts', variables('automationAccountName')), '2023-11-01', 'full').identity.principalId)]"
     },
     "nextSteps": {
       "type": "string",
-      "value": "DEPLOYMENT COMPLETE! Next steps:\r\n\r\n1. Grant Microsoft Graph API permissions to the Managed Identity:\r\n   Run: ./scripts/Grant-GraphPermissions.ps1 -ManagedIdentityObjectId \"<managedIdentityPrincipalId>\"\r\n   \r\n   Required permissions:\r\n   - DeviceManagementManagedDevices.Read.All\r\n   - DeviceManagementConfiguration.Read.All  \r\n   - DeviceManagementServiceConfig.Read.All\r\n\r\n2. If using ADX with existing cluster, grant Database Ingestor role and run Schema-Focused.kql\r\n\r\n3. Test: Automation Account > Runbooks > Export-IntuneDevices > Start\r\n"
+      "value": "DEPLOYMENT COMPLETE! Next steps:\r\n\r\n1. Install Python packages (REQUIRED):\r\n   Run: ./scripts/Setup-RuntimeEnvironment.ps1 -AutomationAccountName \"<name>\" -ResourceGroupName \"<rg>\" -AnalyticsBackend \"<backend>\"\r\n   This creates a Runtime Environment and installs packages from PyPI.\r\n\r\n2. Grant Microsoft Graph API permissions to the Managed Identity:\r\n   Run: ./scripts/Grant-GraphPermissions.ps1 -ManagedIdentityObjectId \"<managedIdentityPrincipalId>\"\r\n   \r\n   Required permissions:\r\n   - DeviceManagementManagedDevices.Read.All\r\n   - DeviceManagementConfiguration.Read.All  \r\n   - DeviceManagementServiceConfig.Read.All\r\n\r\n3. If using ADX with existing cluster, grant Database Ingestor role and run Schema-Focused.kql\r\n\r\n4. Test: Automation Account > Runbooks > Export-IntuneDevices > Start\r\n"
     }
   }
 }

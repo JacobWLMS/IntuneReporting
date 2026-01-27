@@ -65,7 +65,7 @@ Microsoft Intune portal is great for day-to-day management, but limited for:
 
 ## 🚀 Quick Start
 
-### 1. Deploy (One-Click)
+### 1. Deploy Infrastructure (One-Click)
 
 1. Click the **Deploy to Azure** button above
 2. Fill in required parameters:
@@ -78,7 +78,26 @@ Microsoft Intune portal is great for day-to-day management, but limited for:
 4. Click **Review + create** → **Create**
 5. ⏳ Wait 5-10 minutes
 
-### 2. Grant Graph API Permissions
+### 2. Install Python Packages (Required)
+
+After deployment, run the setup script to create a Runtime Environment and install packages from PyPI:
+
+```powershell
+# Get values from deployment outputs
+./scripts/Setup-RuntimeEnvironment.ps1 `
+    -AutomationAccountName "<automationAccountName>" `
+    -ResourceGroupName "<resourceGroupName>" `
+    -AnalyticsBackend "LogAnalytics"  # or "ADX"
+```
+
+This script:
+- Creates a Python 3.10 Runtime Environment
+- Installs packages dynamically from PyPI (never stale URLs!)
+- Links all runbooks to the Runtime Environment
+
+> ℹ️ The script fetches the latest package versions from PyPI at runtime.
+
+### 3. Grant Graph API Permissions
 
 The Automation Account's **Managed Identity** needs Microsoft Graph permissions.
 
@@ -98,7 +117,7 @@ This grants:
 
 > **Alternative**: Use an App Registration by providing `graphClientId` and `graphClientSecret` during deployment.
 
-### 3. Backend Permissions (Auto-Configured!)
+### 4. Backend Permissions (Auto-Configured!)
 
 **Log Analytics**: ✅ Monitoring Metrics Publisher role is automatically assigned to the Managed Identity on the DCR.
 
@@ -106,7 +125,7 @@ This grants:
 
 **ADX (existing cluster)**: Manually grant Database Ingestor role to the Managed Identity.
 
-### 4. Test the Runbooks
+### 5. Test the Runbooks
 
 1. Azure Portal → **Automation Account** → **Runbooks**
 2. Select `Export-IntuneDevices` → **Start**
@@ -136,7 +155,9 @@ This grants:
 │       ├── main.bicep                # Bicep template (source)
 │       └── azuredeploy.json          # ARM template (one-click deploy)
 ├── scripts/
-│   └── Grant-GraphPermissions.ps1
+│   ├── Grant-GraphPermissions.ps1    # Grants Graph API permissions to MI
+│   ├── Setup-RuntimeEnvironment.ps1  # Creates Runtime Environment + installs packages
+│   └── Install-PythonPackages.ps1    # Helper for package installation
 └── README.md
 ```
 

@@ -7,6 +7,8 @@
 // - Data Collection Endpoint and Rules (if LogAnalytics backend)
 // - Azure Data Explorer cluster (optional, if ADX backend)
 // - Role assignments for managed identity
+//
+// POST-DEPLOYMENT: Run Setup-RuntimeEnvironment.ps1 to install Python packages
 // ============================================================================
 
 targetScope = 'resourceGroup'
@@ -63,6 +65,7 @@ var logAnalyticsWorkspaceName = '${baseName}-law-${uniqueSuffix}'
 var dceName = '${baseName}-dce-${uniqueSuffix}'
 var dcrName = '${baseName}-dcr-${uniqueSuffix}'
 var adxClusterName = '${baseName}adx${uniqueSuffix}'
+var runtimeEnvironmentName = 'IntuneExport-Python310'
 
 var runbookBaseUrl = 'https://raw.githubusercontent.com/JacobWLMS/IntuneReporting/main/runbooks'
 
@@ -72,32 +75,6 @@ var runbookConfigs = [
   { name: 'Export-IntuneCompliance', file: 'export_compliance.py', desc: 'Exports compliance policies and states', freq: 'Hour', interval: 6 }
   { name: 'Export-EndpointAnalytics', file: 'export_endpoint_analytics.py', desc: 'Exports Endpoint Analytics data', freq: 'Day', interval: 1 }
   { name: 'Export-Autopilot', file: 'export_autopilot.py', desc: 'Exports Autopilot devices and profiles', freq: 'Day', interval: 1 }
-]
-
-// Python packages with dependencies (ordered for sequential install)
-var pythonPackages = [
-  { name: 'azure_core', uri: 'https://files.pythonhosted.org/packages/fc/d8/b8fcba9464f02b121f39de2db2bf57f0b216fe11d014513d666e8634380d/azure_core-1.38.0-py3-none-any.whl' }
-  { name: 'msal', uri: 'https://files.pythonhosted.org/packages/c2/dc/18d48843499e278538890dc709e9ee3dea8375f8be8e82682851df1b48b5/msal-1.34.0-py3-none-any.whl' }
-  { name: 'msal_extensions', uri: 'https://files.pythonhosted.org/packages/5e/75/bd9b7bb966668920f06b200e84454c8f3566b102183bc55c5473d96cb2b9/msal_extensions-1.3.1-py3-none-any.whl' }
-  { name: 'azure_identity', uri: 'https://files.pythonhosted.org/packages/83/7b/5652771e24fff12da9dde4c20ecf4682e606b104f26419d139758cc935a6/azure_identity-1.25.1-py3-none-any.whl' }
-  { name: 'microsoft_kiota_abstractions', uri: 'https://files.pythonhosted.org/packages/3d/03/9a6678f2ab11d9feaa7739eab1e3cf4d38f9abc46a47f48f32083bf2f1c7/microsoft_kiota_abstractions-1.9.8-py3-none-any.whl' }
-  { name: 'microsoft_kiota_http', uri: 'https://files.pythonhosted.org/packages/a3/b9/f42d80428d9486657b333be4206c793404fffbb452dfb6cb7c7659f6a9bf/microsoft_kiota_http-1.9.8-py3-none-any.whl' }
-  { name: 'microsoft_kiota_serialization_json', uri: 'https://files.pythonhosted.org/packages/99/f3/5805a337c2485e74598f96a102e116691b4844ccf5fe1f6ef3bf4fd06331/microsoft_kiota_serialization_json-1.9.8-py3-none-any.whl' }
-  { name: 'microsoft_kiota_serialization_text', uri: 'https://files.pythonhosted.org/packages/6f/e5/bd382327e7ddaaa091f1f323d760408213136f41940d074b2ffffd9a1127/microsoft_kiota_serialization_text-1.9.8-py3-none-any.whl' }
-  { name: 'microsoft_kiota_serialization_form', uri: 'https://files.pythonhosted.org/packages/33/f8/7fc118a80d222dfb05530cfda94c0e776c1bfb9e6504a27e4ffb20fba425/microsoft_kiota_serialization_form-1.9.8-py3-none-any.whl' }
-  { name: 'microsoft_kiota_serialization_multipart', uri: 'https://files.pythonhosted.org/packages/fd/69/11760cc57a57b38a32844b23e63b69f5adf1fedb20b894f46eb4fd7016a8/microsoft_kiota_serialization_multipart-1.9.8-py3-none-any.whl' }
-  { name: 'microsoft_kiota_authentication_azure', uri: 'https://files.pythonhosted.org/packages/3d/6f/62167e5f1a941f5fd12476da43f13a8aac16f634481e317bdba31381da84/microsoft_kiota_authentication_azure-1.9.8-py3-none-any.whl' }
-  { name: 'msgraph_core', uri: 'https://files.pythonhosted.org/packages/cf/4d/01432f60727ae452787014cad0d5bc9e035c6e11a670f12c23f7fc926d90/msgraph_core-1.3.8-py3-none-any.whl' }
-  { name: 'msgraph_beta_sdk', uri: 'https://files.pythonhosted.org/packages/eb/2d/879007876f7e04dd0aa03d496dbb69a09fcc2d308f5f9133f237b8ffcc98/msgraph_beta_sdk-1.55.0-py3-none-any.whl' }
-]
-
-var adxPackages = [
-  { name: 'azure_kusto_data', uri: 'https://files.pythonhosted.org/packages/7e/35/919cc35773a28950c5d2df9e07260eebb43d9a993aea9b28d2921fc7dfd2/azure_kusto_data-6.0.1-py3-none-any.whl' }
-  { name: 'azure_kusto_ingest', uri: 'https://files.pythonhosted.org/packages/26/8b/6a098c5b4c6a1bac6a6924e92496bbae9262f31a10c7067a8002327d4493/azure_kusto_ingest-6.0.1-py3-none-any.whl' }
-]
-
-var logAnalyticsPackages = [
-  { name: 'azure_monitor_ingestion', uri: 'https://files.pythonhosted.org/packages/f7/9f/e9a55bbe647aceeaf78f1bf48e00699b8d5135dd6756af9f98dc7b4fa005/azure_monitor_ingestion-1.1.0-py3-none-any.whl' }
 ]
 
 // ============================================================================
@@ -427,37 +404,10 @@ resource automationAccount 'Microsoft.Automation/automationAccounts@2023-11-01' 
 }
 
 // ============================================================================
-// Python Packages (Python 3.10)
+// NOTE: Python packages are installed via post-deployment script
+// Run: ./scripts/Setup-RuntimeEnvironment.ps1 after deployment
+// This approach ensures packages are always installed from the latest PyPI versions
 // ============================================================================
-
-@batchSize(1)
-resource corePackages 'Microsoft.Automation/automationAccounts/python310Packages@2023-11-01' = [for pkg in pythonPackages: {
-  parent: automationAccount
-  name: pkg.name
-  properties: {
-    contentLink: { uri: pkg.uri }
-  }
-}]
-
-@batchSize(1)
-resource adxPkgs 'Microsoft.Automation/automationAccounts/python310Packages@2023-11-01' = [for pkg in adxPackages: if (analyticsBackend == 'ADX') {
-  parent: automationAccount
-  name: pkg.name
-  properties: {
-    contentLink: { uri: pkg.uri }
-  }
-  dependsOn: [corePackages]
-}]
-
-@batchSize(1)
-resource logAnalyticsPkgs 'Microsoft.Automation/automationAccounts/python310Packages@2023-11-01' = [for pkg in logAnalyticsPackages: if (analyticsBackend == 'LogAnalytics') {
-  parent: automationAccount
-  name: pkg.name
-  properties: {
-    contentLink: { uri: pkg.uri }
-  }
-  dependsOn: [corePackages]
-}]
 
 // ============================================================================
 // Automation Variables
@@ -559,7 +509,6 @@ resource runbooks 'Microsoft.Automation/automationAccounts/runbooks@2023-11-01' 
     description: cfg.desc
     publishContentLink: { uri: '${runbookBaseUrl}/${cfg.file}' }
   }
-  dependsOn: [corePackages]
 }]
 
 resource schedules 'Microsoft.Automation/automationAccounts/schedules@2023-11-01' = [for cfg in runbookConfigs: {
@@ -615,6 +564,7 @@ resource adxRoleAssignment 'Microsoft.Kusto/clusters/databases/principalAssignme
 output automationAccountName string = automationAccount.name
 output automationAccountId string = automationAccount.id
 output managedIdentityPrincipalId string = automationAccount.identity.principalId
+output runtimeEnvironmentName string = runtimeEnvironmentName
 
 output logAnalyticsWorkspaceId string = analyticsBackend == 'LogAnalytics' ? logAnalyticsWorkspace!.properties.customerId : 'N/A'
 output logAnalyticsWorkspaceName string = analyticsBackend == 'LogAnalytics' ? logAnalyticsWorkspace!.name : 'N/A'
@@ -624,12 +574,17 @@ output dataCollectionRuleId string = analyticsBackend == 'LogAnalytics' ? dataCo
 output adxClusterUri string = analyticsBackend == 'ADX' && createAdxCluster ? adxCluster!.properties.uri : (analyticsBackend == 'ADX' ? existingAdxClusterUri : 'N/A')
 output adxDatabaseNameOutput string = analyticsBackend == 'ADX' ? adxDatabaseName : 'N/A'
 
+output setupRuntimeEnvironmentCommand string = './scripts/Setup-RuntimeEnvironment.ps1 -AutomationAccountName "${automationAccount.name}" -ResourceGroupName "${resourceGroup().name}" -AnalyticsBackend "${analyticsBackend}"'
 output grantGraphPermissionsCommand string = './scripts/Grant-GraphPermissions.ps1 -ManagedIdentityObjectId "${automationAccount.identity.principalId}"'
 
 output nextSteps string = '''
 DEPLOYMENT COMPLETE! Next steps:
 
-1. Grant Microsoft Graph API permissions to the Managed Identity:
+1. Install Python packages (REQUIRED):
+   Run: ./scripts/Setup-RuntimeEnvironment.ps1 -AutomationAccountName "<name>" -ResourceGroupName "<rg>" -AnalyticsBackend "<backend>"
+   This creates a Runtime Environment and installs packages from PyPI.
+
+2. Grant Microsoft Graph API permissions to the Managed Identity:
    Run: ./scripts/Grant-GraphPermissions.ps1 -ManagedIdentityObjectId "<managedIdentityPrincipalId>"
    
    Required permissions:
@@ -637,7 +592,7 @@ DEPLOYMENT COMPLETE! Next steps:
    - DeviceManagementConfiguration.Read.All  
    - DeviceManagementServiceConfig.Read.All
 
-2. If using ADX with existing cluster, grant Database Ingestor role and run Schema-Focused.kql
+3. If using ADX with existing cluster, grant Database Ingestor role and run Schema-Focused.kql
 
-3. Test: Automation Account > Runbooks > Export-IntuneDevices > Start
+4. Test: Automation Account > Runbooks > Export-IntuneDevices > Start
 '''
