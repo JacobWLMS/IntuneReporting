@@ -1,0 +1,62 @@
+name: Compile Bicep to ARM JSON
+
+on:
+  push:
+    paths:
+      - 'deployment/**/*.bicep'
+    branches:
+      - main
+  pull_request:
+    paths:
+      - 'deployment/**/*.bicep'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  compile-bicep:
+    name: Compile Bicep templates to ARM JSON
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bicep CLI
+        uses: azure/setup-bicep@v0.3.0
+        
+      - name: Compile Bicep templates
+        run: |
+          # Compile ADX backend template
+          cd deployment/adx
+          bicep build main.bicep --outfile main.json
+          echo "✅ Compiled deployment/adx/main.bicep -> main.json"
+          
+          # Compile Log Analytics backend template
+          cd ../loganalytics
+          bicep build main.bicep --outfile main.json
+          echo "✅ Compiled deployment/loganalytics/main.bicep -> main.json"
+
+      - name: Verify JSON outputs
+        run: |
+          for file in deployment/adx/main.json deployment/loganalytics/main.json; do
+            if [ -f "$file" ]; then
+              echo "✅ $file exists ($(stat -c%s "$file" 2>/dev/null || stat -f%z "$file") bytes)"
+            else
+              echo "❌ $file not found"
+              exit 1
+            fi
+          done
+
+      - name: Commit compiled JSON
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Check if there are changes to commit
+          if git diff --quiet deployment/**/*.json; then
+            echo "No changes to commit"
+          else
+            git add deployment/**/*.json
+            git commit -m "🔧 Auto-compile Bicep to ARM JSON [skip ci]"
+            git push
+          fi

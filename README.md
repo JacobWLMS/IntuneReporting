@@ -8,8 +8,10 @@ Choose your analytics backend:
 
 | Option | Deploy | Cost | Best For |
 |--------|--------|------|----------|
-| **Azure Data Explorer** | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FJacobWLMS%2FIntuneReporting%2Fmain%2Fdeployment%2Fdeploy-adx.json) | Free tier | Powerful KQL, materialized views, time-series |
-| **Log Analytics** | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FJacobWLMS%2FIntuneReporting%2Fmain%2Fdeployment%2Fdeploy-loganalytics.json) | Pay-per-GB | Simpler setup, Azure Monitor integration |
+| **Azure Data Explorer** | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FJacobWLMS%2FIntuneReporting%2Fmain%2Fdeployment%2Fadx%2Fmain.json) | Free tier | Powerful KQL, materialized views, time-series |
+| **Log Analytics** | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FJacobWLMS%2FIntuneReporting%2Fmain%2Fdeployment%2Floganalytics%2Fmain.json) | Pay-per-GB | Simpler setup, Azure Monitor integration |
+
+> 🔒 **Security**: These templates use **Managed Identity** for storage authentication instead of connection strings - the recommended security practice for Azure Functions.
 
 ### Which should I choose?
 
