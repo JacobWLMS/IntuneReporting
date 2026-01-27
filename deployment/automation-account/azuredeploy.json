@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "4132687116514835121"
+      "templateHash": "12502129053153448209"
     }
   },
   "parameters": {
@@ -200,6 +200,269 @@
         "name": "azure_monitor_ingestion",
         "uri": "https://files.pythonhosted.org/packages/b0/a0/c5e14cc42f78f2c36c4c19ef6a74e0e2d82c8e4c10acfbaa2f2f0b6a4d0a/azure_monitor_ingestion-1.0.4-py3-none-any.whl"
       }
+    ],
+    "customTables": [
+      {
+        "name": "IntuneDevices_CL",
+        "columns": [
+          {
+            "name": "TimeGenerated",
+            "type": "datetime"
+          },
+          {
+            "name": "DeviceId",
+            "type": "string"
+          },
+          {
+            "name": "DeviceName",
+            "type": "string"
+          },
+          {
+            "name": "UserPrincipalName",
+            "type": "string"
+          },
+          {
+            "name": "OperatingSystem",
+            "type": "string"
+          },
+          {
+            "name": "OSVersion",
+            "type": "string"
+          },
+          {
+            "name": "ComplianceState",
+            "type": "string"
+          },
+          {
+            "name": "ManagementState",
+            "type": "string"
+          },
+          {
+            "name": "Model",
+            "type": "string"
+          },
+          {
+            "name": "Manufacturer",
+            "type": "string"
+          },
+          {
+            "name": "SerialNumber",
+            "type": "string"
+          },
+          {
+            "name": "OwnerType",
+            "type": "string"
+          },
+          {
+            "name": "JoinType",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "IntuneCompliance_CL",
+        "columns": [
+          {
+            "name": "TimeGenerated",
+            "type": "datetime"
+          },
+          {
+            "name": "DeviceId",
+            "type": "string"
+          },
+          {
+            "name": "PolicyId",
+            "type": "string"
+          },
+          {
+            "name": "PolicyName",
+            "type": "string"
+          },
+          {
+            "name": "State",
+            "type": "string"
+          },
+          {
+            "name": "SettingName",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "IntuneCompliancePolicies_CL",
+        "columns": [
+          {
+            "name": "TimeGenerated",
+            "type": "datetime"
+          },
+          {
+            "name": "PolicyId",
+            "type": "string"
+          },
+          {
+            "name": "PolicyName",
+            "type": "string"
+          },
+          {
+            "name": "Platform",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "IntuneDeviceScores_CL",
+        "columns": [
+          {
+            "name": "TimeGenerated",
+            "type": "datetime"
+          },
+          {
+            "name": "DeviceId",
+            "type": "string"
+          },
+          {
+            "name": "DeviceName",
+            "type": "string"
+          },
+          {
+            "name": "EndpointAnalyticsScore",
+            "type": "real"
+          },
+          {
+            "name": "StartupPerformanceScore",
+            "type": "real"
+          },
+          {
+            "name": "AppReliabilityScore",
+            "type": "real"
+          },
+          {
+            "name": "HealthStatus",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "IntuneStartupPerformance_CL",
+        "columns": [
+          {
+            "name": "TimeGenerated",
+            "type": "datetime"
+          },
+          {
+            "name": "DeviceId",
+            "type": "string"
+          },
+          {
+            "name": "DeviceName",
+            "type": "string"
+          },
+          {
+            "name": "CoreBootTimeInMs",
+            "type": "long"
+          },
+          {
+            "name": "TotalBootTimeInMs",
+            "type": "long"
+          }
+        ]
+      },
+      {
+        "name": "IntuneAppReliability_CL",
+        "columns": [
+          {
+            "name": "TimeGenerated",
+            "type": "datetime"
+          },
+          {
+            "name": "AppName",
+            "type": "string"
+          },
+          {
+            "name": "AppPublisher",
+            "type": "string"
+          },
+          {
+            "name": "DeviceCount",
+            "type": "int"
+          },
+          {
+            "name": "AppCrashCount",
+            "type": "int"
+          }
+        ]
+      },
+      {
+        "name": "IntuneAutopilotDevices_CL",
+        "columns": [
+          {
+            "name": "TimeGenerated",
+            "type": "datetime"
+          },
+          {
+            "name": "Id",
+            "type": "string"
+          },
+          {
+            "name": "SerialNumber",
+            "type": "string"
+          },
+          {
+            "name": "Model",
+            "type": "string"
+          },
+          {
+            "name": "Manufacturer",
+            "type": "string"
+          },
+          {
+            "name": "EnrollmentState",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "IntuneAutopilotProfiles_CL",
+        "columns": [
+          {
+            "name": "TimeGenerated",
+            "type": "datetime"
+          },
+          {
+            "name": "ProfileId",
+            "type": "string"
+          },
+          {
+            "name": "DisplayName",
+            "type": "string"
+          },
+          {
+            "name": "DeviceNameTemplate",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "IntuneSyncState_CL",
+        "columns": [
+          {
+            "name": "TimeGenerated",
+            "type": "datetime"
+          },
+          {
+            "name": "DataType",
+            "type": "string"
+          },
+          {
+            "name": "RecordCount",
+            "type": "int"
+          },
+          {
+            "name": "Status",
+            "type": "string"
+          }
+        ]
+      }
     ]
   },
   "resources": [
@@ -217,6 +480,28 @@
         "publicNetworkAccessForIngestion": "Enabled",
         "publicNetworkAccessForQuery": "Enabled"
       }
+    },
+    {
+      "copy": {
+        "name": "customLogTables",
+        "count": "[length(variables('customTables'))]"
+      },
+      "condition": "[equals(parameters('analyticsBackend'), 'LogAnalytics')]",
+      "type": "Microsoft.OperationalInsights/workspaces/tables",
+      "apiVersion": "2022-10-01",
+      "name": "[format('{0}/{1}', variables('logAnalyticsWorkspaceName'), variables('customTables')[copyIndex()].name)]",
+      "properties": {
+        "schema": {
+          "name": "[variables('customTables')[copyIndex()].name]",
+          "columns": "[variables('customTables')[copyIndex()].columns]"
+        },
+        "retentionInDays": "[parameters('logAnalyticsRetentionDays')]",
+        "totalRetentionInDays": "[parameters('logAnalyticsRetentionDays')]",
+        "plan": "Analytics"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]"
+      ]
     },
     {
       "condition": "[equals(parameters('analyticsBackend'), 'LogAnalytics')]",
@@ -594,6 +879,7 @@
         ]
       },
       "dependsOn": [
+        "customLogTables",
         "[resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dceName'))]",
         "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]"
       ]

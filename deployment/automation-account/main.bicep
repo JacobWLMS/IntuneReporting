@@ -118,6 +118,126 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09
 }
 
 // ============================================================================
+// Custom Tables in Log Analytics (must exist before DCR)
+// ============================================================================
+
+var customTables = [
+  {
+    name: 'IntuneDevices_CL'
+    columns: [
+      { name: 'TimeGenerated', type: 'datetime' }
+      { name: 'DeviceId', type: 'string' }
+      { name: 'DeviceName', type: 'string' }
+      { name: 'UserPrincipalName', type: 'string' }
+      { name: 'OperatingSystem', type: 'string' }
+      { name: 'OSVersion', type: 'string' }
+      { name: 'ComplianceState', type: 'string' }
+      { name: 'ManagementState', type: 'string' }
+      { name: 'Model', type: 'string' }
+      { name: 'Manufacturer', type: 'string' }
+      { name: 'SerialNumber', type: 'string' }
+      { name: 'OwnerType', type: 'string' }
+      { name: 'JoinType', type: 'string' }
+    ]
+  }
+  {
+    name: 'IntuneCompliance_CL'
+    columns: [
+      { name: 'TimeGenerated', type: 'datetime' }
+      { name: 'DeviceId', type: 'string' }
+      { name: 'PolicyId', type: 'string' }
+      { name: 'PolicyName', type: 'string' }
+      { name: 'State', type: 'string' }
+      { name: 'SettingName', type: 'string' }
+    ]
+  }
+  {
+    name: 'IntuneCompliancePolicies_CL'
+    columns: [
+      { name: 'TimeGenerated', type: 'datetime' }
+      { name: 'PolicyId', type: 'string' }
+      { name: 'PolicyName', type: 'string' }
+      { name: 'Platform', type: 'string' }
+    ]
+  }
+  {
+    name: 'IntuneDeviceScores_CL'
+    columns: [
+      { name: 'TimeGenerated', type: 'datetime' }
+      { name: 'DeviceId', type: 'string' }
+      { name: 'DeviceName', type: 'string' }
+      { name: 'EndpointAnalyticsScore', type: 'real' }
+      { name: 'StartupPerformanceScore', type: 'real' }
+      { name: 'AppReliabilityScore', type: 'real' }
+      { name: 'HealthStatus', type: 'string' }
+    ]
+  }
+  {
+    name: 'IntuneStartupPerformance_CL'
+    columns: [
+      { name: 'TimeGenerated', type: 'datetime' }
+      { name: 'DeviceId', type: 'string' }
+      { name: 'DeviceName', type: 'string' }
+      { name: 'CoreBootTimeInMs', type: 'long' }
+      { name: 'TotalBootTimeInMs', type: 'long' }
+    ]
+  }
+  {
+    name: 'IntuneAppReliability_CL'
+    columns: [
+      { name: 'TimeGenerated', type: 'datetime' }
+      { name: 'AppName', type: 'string' }
+      { name: 'AppPublisher', type: 'string' }
+      { name: 'DeviceCount', type: 'int' }
+      { name: 'AppCrashCount', type: 'int' }
+    ]
+  }
+  {
+    name: 'IntuneAutopilotDevices_CL'
+    columns: [
+      { name: 'TimeGenerated', type: 'datetime' }
+      { name: 'Id', type: 'string' }
+      { name: 'SerialNumber', type: 'string' }
+      { name: 'Model', type: 'string' }
+      { name: 'Manufacturer', type: 'string' }
+      { name: 'EnrollmentState', type: 'string' }
+    ]
+  }
+  {
+    name: 'IntuneAutopilotProfiles_CL'
+    columns: [
+      { name: 'TimeGenerated', type: 'datetime' }
+      { name: 'ProfileId', type: 'string' }
+      { name: 'DisplayName', type: 'string' }
+      { name: 'DeviceNameTemplate', type: 'string' }
+    ]
+  }
+  {
+    name: 'IntuneSyncState_CL'
+    columns: [
+      { name: 'TimeGenerated', type: 'datetime' }
+      { name: 'DataType', type: 'string' }
+      { name: 'RecordCount', type: 'int' }
+      { name: 'Status', type: 'string' }
+    ]
+  }
+]
+
+resource customLogTables 'Microsoft.OperationalInsights/workspaces/tables@2022-10-01' = [for table in customTables: if (analyticsBackend == 'LogAnalytics') {
+  parent: logAnalyticsWorkspace
+  name: table.name
+  properties: {
+    schema: {
+      name: table.name
+      columns: table.columns
+    }
+    retentionInDays: logAnalyticsRetentionDays
+    totalRetentionInDays: logAnalyticsRetentionDays
+    plan: 'Analytics'
+  }
+}]
+
+// ============================================================================
 // Data Collection Endpoint (if LogAnalytics backend)
 // ============================================================================
 
@@ -138,6 +258,7 @@ resource dataCollectionEndpoint 'Microsoft.Insights/dataCollectionEndpoints@2022
 resource dataCollectionRule 'Microsoft.Insights/dataCollectionRules@2022-06-01' = if (analyticsBackend == 'LogAnalytics') {
   name: dcrName
   location: location
+  dependsOn: [customLogTables]
   properties: {
     dataCollectionEndpointId: dataCollectionEndpoint.id
     streamDeclarations: {
