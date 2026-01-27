@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "6303216826276029858"
+      "templateHash": "14373719587178827504"
     }
   },
   "parameters": {
@@ -1251,7 +1251,7 @@
     },
     "nextSteps": {
       "type": "string",
-      "value": "DEPLOYMENT COMPLETE! Next steps:\r\n\r\n1. Grant Microsoft Graph API permissions to the Managed Identity:\r\n   Run: ./scripts/Grant-GraphPermissions.ps1 -ManagedIdentityObjectId \"<managedIdentityPrincipalId>\"\r\n   \r\n   Required permissions:\r\n   - DeviceManagementManagedDevices.Read.All\r\n   - DeviceManagementConfiguration.Read.All  \r\n   - DeviceManagementServiceConfig.Read.All\r\n\r\n2. If using ADX with existing cluster, grant Database Ingestor role and run Schema-Focused.kql\r\n\r\n3. Test: Automation Account > Runbooks > Export-IntuneDevices > Start\r\n"
+      "value": "DEPLOYMENT COMPLETE! Next steps:\n\n1. Grant Microsoft Graph API permissions to the Managed Identity:\n   Run: ./scripts/Grant-GraphPermissions.ps1 -ManagedIdentityObjectId \"<managedIdentityPrincipalId>\"\n   \n   Required permissions:\n   - DeviceManagementManagedDevices.Read.All\n   - DeviceManagementConfiguration.Read.All  \n   - DeviceManagementServiceConfig.Read.All\n\n2. If using ADX with existing cluster, grant Database Ingestor role and run Schema-Focused.kql\n\n3. Test: Automation Account > Runbooks > Export-IntuneDevices > Start\n"
     }
   }
 }
