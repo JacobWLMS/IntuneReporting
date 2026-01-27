@@ -77,7 +77,7 @@
   - Added conditional formatting (color-coded cells)
   - Added multi-filter support (OS, compliance, manufacturer)
   - Added section headers for better organization
-- [ ] **Test documentation** - Formal test cases with expected outcomes
+- [x] **Test documentation** - Formal test cases with expected outcomes (docs/TEST_CASES.md)
 - [x] **Sample alert rules** (2) for Intune data scenarios
   - `alerts/noncompliant-devices.json` - Alert when non-compliant devices exceed threshold
   - `alerts/stale-devices.json` - Alert when devices haven't synced for extended period
