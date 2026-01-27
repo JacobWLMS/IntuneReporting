@@ -75,7 +75,7 @@ resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/con
 }
 
 // ============================================================================
-// Deployment Script: Copy function app code from GitHub to storage
+// GitHub Release URL for function code
 // ============================================================================
 
 resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
