@@ -1,8 +1,8 @@
 // ============================================================================
-// Intune Analytics Platform - Log Analytics Backend with Managed Identity
+// Intune Analytics Platform - Log Analytics Backend
 // ============================================================================
 // This template deploys an Azure Function App with Log Analytics workspace
-// using a User-Assigned Managed Identity for storage authentication.
+// using connection string auth for deployment storage.
 // ============================================================================
 
 @description('Base name for all resources (max 11 characters, will be appended with unique suffix)')
@@ -17,9 +17,6 @@ param location string = resourceGroup().location
 @maxValue(730)
 param retentionDays int = 30
 
-@description('Create role assignments (requires Owner or User Access Administrator role). Set to false if you lack permissions - you can grant roles manually after deployment.')
-param createRoleAssignments bool = true
-
 // ============================================================================
 // Variables
 // ============================================================================
@@ -33,12 +30,11 @@ var workspaceName = '${baseName}-law-${uniqueSuffix}'
 var dceName = '${baseName}-dce-${uniqueSuffix}'
 var dcrName = '${baseName}-dcr-${uniqueSuffix}'
 
-// Role definition IDs
-var storageBlobDataOwnerRoleId = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
+// Role definition ID for Monitoring Metrics Publisher (needed for DCR)
 var monitoringMetricsPublisherRoleId = '3913510d-42f4-4e42-8a64-420c390055eb'
 
 // ============================================================================
-// User-Assigned Managed Identity
+// User-Assigned Managed Identity (for Graph API and DCR access)
 // ============================================================================
 
 resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
@@ -47,10 +43,10 @@ resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-
 }
 
 // ============================================================================
-// Storage Account (with shared key access disabled for security)
+// Storage Account
 // ============================================================================
 
-resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageAccountName
   location: location
   sku: {
@@ -61,39 +57,20 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
     supportsHttpsTrafficOnly: true
     minimumTlsVersion: 'TLS1_2'
     allowBlobPublicAccess: false
-    allowSharedKeyAccess: false
-    networkAcls: {
-      defaultAction: 'Allow'
-      bypass: 'AzureServices'
-    }
+    defaultToOAuthAuthentication: true
   }
 }
 
-resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
   parent: storageAccount
   name: 'default'
 }
 
-resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
   parent: blobService
   name: 'deploymentpackage'
   properties: {
     publicAccess: 'None'
-  }
-}
-
-// ============================================================================
-// Role Assignment: Managed Identity -> Storage Blob Data Owner
-// (Conditional - requires Owner or User Access Administrator role)
-// ============================================================================
-
-resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (createRoleAssignments) {
-  name: guid(storageAccount.id, managedIdentity.id, storageBlobDataOwnerRoleId)
-  scope: storageAccount
-  properties: {
-    principalId: managedIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataOwnerRoleId)
   }
 }
 
@@ -485,7 +462,7 @@ resource dataCollectionRule 'Microsoft.Insights/dataCollectionRules@2022-06-01' 
 // App Service Plan (Flex Consumption)
 // ============================================================================
 
-resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
+resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: appServicePlanName
   location: location
   sku: {
@@ -499,10 +476,10 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
 }
 
 // ============================================================================
-// Function App with User-Assigned Managed Identity
+// Function App
 // ============================================================================
 
-resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
+resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   name: functionAppName
   location: location
   kind: 'functionapp,linux'
@@ -521,8 +498,8 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           type: 'blobContainer'
           value: '${storageAccount.properties.primaryEndpoints.blob}deploymentpackage'
           authentication: {
-            type: 'UserAssignedIdentity'
-            userAssignedIdentityResourceId: managedIdentity.id
+            type: 'StorageAccountConnectionString'
+            storageAccountConnectionStringName: 'DEPLOYMENT_STORAGE_CONNECTION_STRING'
           }
         }
       }
@@ -537,18 +514,15 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
     }
     siteConfig: {
       appSettings: [
-        // Identity-based storage connection
+        // Deployment storage connection string
         {
-          name: 'AzureWebJobsStorage__accountName'
-          value: storageAccount.name
+          name: 'DEPLOYMENT_STORAGE_CONNECTION_STRING'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
         }
+        // AzureWebJobsStorage connection string
         {
-          name: 'AzureWebJobsStorage__credential'
-          value: 'managedidentity'
-        }
-        {
-          name: 'AzureWebJobsStorage__clientId'
-          value: managedIdentity.properties.clientId
+          name: 'AzureWebJobsStorage'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
         }
         // Function runtime settings
         {
@@ -580,10 +554,10 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'TENANT_ID'
           value: subscription().tenantId
         }
-        // Deploy from GitHub releases
+        // Managed Identity client ID for Graph API and DCR access
         {
-          name: 'WEBSITE_RUN_FROM_PACKAGE'
-          value: 'https://github.com/JacobWLMS/IntuneReporting/releases/latest/download/function-app.zip'
+          name: 'AZURE_CLIENT_ID'
+          value: managedIdentity.properties.clientId
         }
       ]
     }
@@ -591,11 +565,24 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
 }
 
 // ============================================================================
-// Role Assignment: Managed Identity -> Monitoring Metrics Publisher (DCR)
-// (Conditional - requires Owner or User Access Administrator role)
+// One Deploy: Deploy function code from GitHub release
 // ============================================================================
 
-resource dcrRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (createRoleAssignments) {
+resource oneDeploy 'Microsoft.Web/sites/extensions@2024-04-01' = {
+  parent: functionApp
+  name: 'onedeploy'
+  properties: {
+    packageUri: 'https://github.com/JacobWLMS/IntuneReporting/releases/download/latest/released-package.zip'
+    type: 'zip'
+  }
+}
+
+// ============================================================================
+// Role Assignment: Managed Identity -> Monitoring Metrics Publisher (DCR)
+// This is required for the Function App to write to Log Analytics via DCR
+// ============================================================================
+
+resource dcrRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(dataCollectionRule.id, managedIdentity.id, monitoringMetricsPublisherRoleId)
   scope: dataCollectionRule
   properties: {

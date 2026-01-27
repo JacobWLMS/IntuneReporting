@@ -23,7 +23,8 @@ jobs:
       - name: Create function app zip
         run: |
           # Create zip with function app files
-          zip -r function-app.zip \
+          # IMPORTANT: Flex Consumption requires the package to be named 'released-package.zip'
+          zip -r released-package.zip \
             fn_*/ \
             shared/ \
             requirements.txt \
@@ -31,8 +32,8 @@ jobs:
             -x "**/__pycache__/*" \
             -x "**/*.pyc"
           
-          echo "📦 Created function-app.zip ($(stat -c%s function-app.zip) bytes)"
-          unzip -l function-app.zip | head -30
+          echo "📦 Created released-package.zip ($(stat -c%s released-package.zip) bytes)"
+          unzip -l released-package.zip | head -30
 
       - name: Delete existing release
         run: |
@@ -47,12 +48,12 @@ jobs:
             --title "Latest Function App Release" \
             --notes "Auto-generated release containing the function app deployment package.
           
-          **Download:** \`function-app.zip\`
+          **Download:** \`released-package.zip\`
           
           **Commit:** ${{ github.sha }}
           **Updated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" \
             --latest \
-            function-app.zip
+            released-package.zip
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

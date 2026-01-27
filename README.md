@@ -11,7 +11,7 @@ Choose your analytics backend:
 | **Azure Data Explorer** | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FJacobWLMS%2FIntuneReporting%2Fmain%2Fdeployment%2Fadx%2Fmain.json) | Free tier | Powerful KQL, materialized views, time-series |
 | **Log Analytics** | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FJacobWLMS%2FIntuneReporting%2Fmain%2Fdeployment%2Floganalytics%2Fmain.json) | Pay-per-GB | Simpler setup, Azure Monitor integration |
 
-> 🔒 **Security**: These templates use **Managed Identity** for storage authentication instead of connection strings - the recommended security practice for Azure Functions.
+> ✅ **Simple Setup**: These templates use connection strings for storage and **One Deploy** to automatically deploy the function code from GitHub releases - no manual upload required!
 
 ### Which should I choose?
 
