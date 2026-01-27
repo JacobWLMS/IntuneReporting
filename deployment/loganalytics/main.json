@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "1022738336850503717"
+      "templateHash": "11968983635009253426"
     }
   },
   "parameters": {
@@ -42,8 +42,7 @@
     "workspaceName": "[format('{0}-law-{1}', parameters('baseName'), variables('uniqueSuffix'))]",
     "dceName": "[format('{0}-dce-{1}', parameters('baseName'), variables('uniqueSuffix'))]",
     "dcrName": "[format('{0}-dcr-{1}', parameters('baseName'), variables('uniqueSuffix'))]",
-    "monitoringMetricsPublisherRoleId": "3913510d-42f4-4e42-8a64-420c390055eb",
-    "packageUri": "https://github.com/JacobWLMS/IntuneReporting/releases/download/latest/released-package.zip"
+    "monitoringMetricsPublisherRoleId": "3913510d-42f4-4e42-8a64-420c390055eb"
   },
   "resources": [
     {
@@ -85,6 +84,49 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Storage/storageAccounts/blobServices', variables('storageAccountName'), 'default')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deploymentScripts",
+      "apiVersion": "2023-08-01",
+      "name": "[format('{0}-deploy-code', parameters('baseName'))]",
+      "location": "[parameters('location')]",
+      "kind": "AzureCLI",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName')))]": {}
+        }
+      },
+      "properties": {
+        "azCliVersion": "2.52.0",
+        "timeout": "PT10M",
+        "retentionInterval": "PT1H",
+        "cleanupPreference": "OnSuccess",
+        "environmentVariables": [
+          {
+            "name": "STORAGE_ACCOUNT",
+            "value": "[variables('storageAccountName')]"
+          },
+          {
+            "name": "STORAGE_KEY",
+            "secureValue": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-05-01').keys[0].value]"
+          },
+          {
+            "name": "CONTAINER_NAME",
+            "value": "deploymentpackage"
+          },
+          {
+            "name": "ZIP_URL",
+            "value": "https://github.com/JacobWLMS/IntuneReporting/releases/download/latest/released-package.zip"
+          }
+        ],
+        "scriptContent": "set -e\necho \"Starting deployment script...\"\necho \"Downloading from GitHub: $ZIP_URL\"\ncurl -L -f -o /tmp/released-package.zip \"$ZIP_URL\"\necho \"Download complete. File size: $(stat -c%s /tmp/released-package.zip) bytes\"\necho \"Uploading to storage account: $STORAGE_ACCOUNT\"\naz storage blob upload \\\n  --account-name \"$STORAGE_ACCOUNT\" \\\n  --account-key \"$STORAGE_KEY\" \\\n  --container-name \"$CONTAINER_NAME\" \\\n  --name \"released-package.zip\" \\\n  --file /tmp/released-package.zip \\\n  --overwrite\necho \"Upload complete\"\necho \"{\\\"status\\\": \\\"success\\\", \\\"blobName\\\": \\\"released-package.zip\\\"}\" > $AZ_SCRIPTS_OUTPUT_PATH\n    "
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('storageAccountName'), 'default', 'deploymentpackage')]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
       ]
     },
     {
@@ -1218,21 +1260,10 @@
         "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
         "[resourceId('Microsoft.Insights/dataCollectionEndpoints', variables('dceName'))]",
         "[resourceId('Microsoft.Insights/dataCollectionRules', variables('dcrName'))]",
+        "[resourceId('Microsoft.Resources/deploymentScripts', format('{0}-deploy-code', parameters('baseName')))]",
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('managedIdentityName'))]",
         "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
         "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
-      ]
-    },
-    {
-      "type": "Microsoft.Web/sites/extensions",
-      "apiVersion": "2022-09-01",
-      "name": "[format('{0}/{1}', variables('functionAppName'), 'onedeploy')]",
-      "properties": {
-        "packageUri": "[variables('packageUri')]",
-        "remoteBuild": false
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
       ]
     },
     {
