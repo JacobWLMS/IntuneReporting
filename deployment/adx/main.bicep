@@ -84,24 +84,26 @@ resource deploymentScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = {
     cleanupPreference: 'OnSuccess'
     environmentVariables: [
       { name: 'STORAGE_ACCOUNT', value: storageAccount.name }
-      { name: 'STORAGE_KEY', value: storageAccount.listKeys().keys[0].value }
+      { name: 'STORAGE_KEY', secureValue: storageAccount.listKeys().keys[0].value }
       { name: 'CONTAINER_NAME', value: 'deploymentpackage' }
       { name: 'ZIP_URL', value: 'https://github.com/JacobWLMS/IntuneReporting/releases/download/latest/released-package.zip' }
     ]
     scriptContent: '''
-      # Download from GitHub
-      curl -L -o /tmp/released-package.zip "$ZIP_URL"
-      
-      # Upload to storage using account key
-      az storage blob upload \
-        --account-name "$STORAGE_ACCOUNT" \
-        --account-key "$STORAGE_KEY" \
-        --container-name "$CONTAINER_NAME" \
-        --name "released-package.zip" \
-        --file /tmp/released-package.zip \
-        --overwrite
-      
-      echo "✅ Function code deployed to storage"
+set -e
+echo "Starting deployment script..."
+echo "Downloading from GitHub: $ZIP_URL"
+curl -L -f -o /tmp/released-package.zip "$ZIP_URL"
+echo "Download complete. File size: $(stat -c%s /tmp/released-package.zip) bytes"
+echo "Uploading to storage account: $STORAGE_ACCOUNT"
+az storage blob upload \
+  --account-name "$STORAGE_ACCOUNT" \
+  --account-key "$STORAGE_KEY" \
+  --container-name "$CONTAINER_NAME" \
+  --name "released-package.zip" \
+  --file /tmp/released-package.zip \
+  --overwrite
+echo "Upload complete"
+echo "{\"status\": \"success\", \"blobName\": \"released-package.zip\"}" > $AZ_SCRIPTS_OUTPUT_PATH
     '''
   }
   dependsOn: [
