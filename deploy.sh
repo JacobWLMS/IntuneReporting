@@ -299,20 +299,32 @@ EOF
 # Create Function App
 #######################################
 create_function_app() {
-    log_info "Creating Function App..."
+    log_info "Creating Function App (Flex Consumption)..."
 
-    az functionapp create \
+    # Try Flex Consumption first (modern), fall back to legacy if region doesn't support it
+    if az functionapp create \
         --resource-group "$RESOURCE_GROUP" \
-        --consumption-plan-location "$LOCATION" \
+        --flexconsumption-location "$LOCATION" \
         --runtime python \
         --runtime-version 3.11 \
-        --functions-version 4 \
         --name "$FUNCTION_APP" \
         --storage-account "$STORAGE_ACCOUNT" \
-        --os-type Linux \
-        --output none
-
-    log_success "Function App created: $FUNCTION_APP"
+        --output none 2>/dev/null; then
+        log_success "Function App created (Flex Consumption): $FUNCTION_APP"
+    else
+        log_warn "Flex Consumption not available in $LOCATION, using legacy Consumption plan"
+        az functionapp create \
+            --resource-group "$RESOURCE_GROUP" \
+            --consumption-plan-location "$LOCATION" \
+            --runtime python \
+            --runtime-version 3.11 \
+            --functions-version 4 \
+            --name "$FUNCTION_APP" \
+            --storage-account "$STORAGE_ACCOUNT" \
+            --os-type Linux \
+            --output none
+        log_success "Function App created (Consumption): $FUNCTION_APP"
+    fi
 }
 
 #######################################

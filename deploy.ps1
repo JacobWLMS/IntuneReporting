@@ -340,20 +340,35 @@ function New-DataCollectionRule {
 function New-FunctionApp {
     param($Names)
 
-    Write-Info "Creating Function App..."
+    Write-Info "Creating Function App (Flex Consumption)..."
 
-    az functionapp create `
+    # Try Flex Consumption first (modern), fall back to legacy if region doesn't support it
+    $flexResult = az functionapp create `
         --resource-group $ResourceGroup `
-        --consumption-plan-location $Location `
+        --flexconsumption-location $Location `
         --runtime python `
         --runtime-version 3.11 `
-        --functions-version 4 `
         --name $Names.FunctionApp `
         --storage-account $Names.StorageAccount `
-        --os-type Linux `
-        --output none
+        --output none 2>&1
 
-    Write-Success "Function App created: $($Names.FunctionApp)"
+    if ($LASTEXITCODE -eq 0) {
+        Write-Success "Function App created (Flex Consumption): $($Names.FunctionApp)"
+    }
+    else {
+        Write-Warn "Flex Consumption not available in $Location, using legacy Consumption plan"
+        az functionapp create `
+            --resource-group $ResourceGroup `
+            --consumption-plan-location $Location `
+            --runtime python `
+            --runtime-version 3.11 `
+            --functions-version 4 `
+            --name $Names.FunctionApp `
+            --storage-account $Names.StorageAccount `
+            --os-type Linux `
+            --output none
+        Write-Success "Function App created (Consumption): $($Names.FunctionApp)"
+    }
 }
 
 #######################################
