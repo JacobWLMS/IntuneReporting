@@ -6,7 +6,7 @@ azure-identity==1.19.0
 msal==1.31.0
 
 # Microsoft Graph SDK (beta - required for Intune APIs)
-msgraph-beta-sdk==1.12.0
+msgraph-beta-sdk>=1.12.0
 
 # Log Analytics ingestion
 azure-monitor-ingestion==1.0.4

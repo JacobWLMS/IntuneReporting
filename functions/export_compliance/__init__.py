@@ -4,6 +4,7 @@ Schedule: Every 6 hours
 """
 import logging
 import asyncio
+import json
 import azure.functions as func
 
 from shared import get_graph_client, add_metadata, DataIngester, retry_with_backoff
@@ -40,8 +41,33 @@ async def get_compliance_policies(graph_client) -> list:
 
 
 def parse_report_response(response) -> tuple:
-    """Parse Graph Reports API response."""
-    if not response or not response.values:
+    """Parse Graph Reports API response (handles both object and bytes responses)."""
+    if not response:
+        return [], 0
+    
+    # Handle bytes response (newer SDK versions return raw JSON)
+    if isinstance(response, bytes):
+        try:
+            data = json.loads(response.decode('utf-8'))
+            # Schema can be list of strings or list of dicts with 'name' key
+            schema = data.get('Schema', [])
+            columns = []
+            for col in schema:
+                if isinstance(col, dict):
+                    columns.append(col.get('name', col.get('Name', str(col))))
+                else:
+                    columns.append(str(col))
+            
+            rows = [dict(zip(columns, row)) for row in data.get('Values', [])]
+            total = data.get('TotalRowCount', len(rows))
+            logger.info(f"Parsed report: {len(rows)} rows, columns: {columns[:5]}...")
+            return rows, total
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            logger.error(f"Failed to parse bytes response: {e}")
+            return [], 0
+    
+    # Handle object response (older SDK versions)
+    if not hasattr(response, 'values') or not response.values:
         return [], 0
     columns = [c.name for c in response.schema] if response.schema else []
     rows = [dict(zip(columns, row)) for row in response.values]
