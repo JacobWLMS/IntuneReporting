@@ -76,36 +76,39 @@ async def get_autopilot_profiles(graph_client) -> list:
     logger.info("Fetching Autopilot profiles...")
     profiles = []
 
-    result = await retry_with_backoff(
-        graph_client.device_management.windows_autopilot_deployment_profiles.get
-    )
+    try:
+        result = await retry_with_backoff(
+            graph_client.device_management.windows_autopilot_deployment_profiles.get
+        )
 
-    for p in result.value or []:
-        oobe = None
-        if p.out_of_box_experience_settings:
-            oobe = json.dumps({
-                'hidePrivacySettings': p.out_of_box_experience_settings.hide_privacy_settings,
-                'hideEULA': p.out_of_box_experience_settings.hide_e_u_l_a,
-                'userType': str(p.out_of_box_experience_settings.user_type) if p.out_of_box_experience_settings.user_type else None,
-                'deviceUsageType': str(p.out_of_box_experience_settings.device_usage_type) if p.out_of_box_experience_settings.device_usage_type else None,
-                'skipKeyboardSelectionPage': p.out_of_box_experience_settings.skip_keyboard_selection_page,
-                'hideEscapeLink': p.out_of_box_experience_settings.hide_escape_link,
+        for p in result.value or []:
+            oobe = None
+            if p.out_of_box_experience_settings:
+                oobe = json.dumps({
+                    'hidePrivacySettings': p.out_of_box_experience_settings.hide_privacy_settings,
+                    'hideEULA': p.out_of_box_experience_settings.hide_e_u_l_a,
+                    'userType': str(p.out_of_box_experience_settings.user_type) if p.out_of_box_experience_settings.user_type else None,
+                    'deviceUsageType': str(p.out_of_box_experience_settings.device_usage_type) if p.out_of_box_experience_settings.device_usage_type else None,
+                    'skipKeyboardSelectionPage': p.out_of_box_experience_settings.skip_keyboard_selection_page,
+                    'hideEscapeLink': p.out_of_box_experience_settings.hide_escape_link,
+                })
+
+            profiles.append({
+                'ProfileId': p.id,
+                'DisplayName': p.display_name,
+                'Description': p.description,
+                'CreatedDateTime': p.created_date_time.isoformat() if p.created_date_time else None,
+                'LastModifiedDateTime': p.last_modified_date_time.isoformat() if p.last_modified_date_time else None,
+                'Language': p.language,
+                'DeviceNameTemplate': p.device_name_template,
+                'DeviceType': str(p.device_type) if p.device_type else None,
+                'EnableWhiteGlove': getattr(p, 'enable_white_glove', None),
+                'ExtractHardwareHash': getattr(p, 'extract_hardware_hash', None),
+                'OutOfBoxExperienceSettings': oobe,
+                'ProfileType': type(p).__name__.replace('WindowsAutopilotDeploymentProfile', ''),
             })
-
-        profiles.append({
-            'ProfileId': p.id,
-            'DisplayName': p.display_name,
-            'Description': p.description,
-            'CreatedDateTime': p.created_date_time.isoformat() if p.created_date_time else None,
-            'LastModifiedDateTime': p.last_modified_date_time.isoformat() if p.last_modified_date_time else None,
-            'Language': p.language,
-            'DeviceNameTemplate': p.device_name_template,
-            'DeviceType': str(p.device_type) if p.device_type else None,
-            'EnableWhiteGlove': getattr(p, 'enable_white_glove', None),
-            'ExtractHardwareHash': getattr(p, 'extract_hardware_hash', None),
-            'OutOfBoxExperienceSettings': oobe,
-            'ProfileType': type(p).__name__.replace('WindowsAutopilotDeploymentProfile', ''),
-        })
+    except Exception as e:
+        logger.warning(f"Could not fetch Autopilot profiles: {e}")
 
     logger.info(f"Fetched {len(profiles)} Autopilot profiles")
     return profiles

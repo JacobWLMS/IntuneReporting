@@ -23,7 +23,7 @@ async def get_device_scores(graph_client) -> list:
     while result:
         for d in result.value or []:
             scores.append({
-                'DeviceId': d.device_name,
+                'DeviceId': d.id,
                 'DeviceName': d.device_name,
                 'Model': d.model,
                 'Manufacturer': d.manufacturer,

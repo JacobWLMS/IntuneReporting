@@ -206,13 +206,20 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         results = {}
         total_records = 0
         start_time = datetime.now(timezone.utc)
+        export_count = 0
 
         for name, (description, run_func) in EXPORTS.items():
             try:
+                # Add delay between exports to avoid rate limiting (except first)
+                if export_count > 0:
+                    import time
+                    time.sleep(5)
+
                 logger.info(f"Running {description}...")
                 count = asyncio.run(run_func())
                 results[name] = {'status': 'success', 'records': count}
                 total_records += count
+                export_count += 1
             except Exception as e:
                 logger.error(f"Failed {name}: {e}")
                 results[name] = {'status': 'error', 'error': str(e)}
