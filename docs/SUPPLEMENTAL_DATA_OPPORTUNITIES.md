@@ -1,455 +1,202 @@
-# Supplemental Data Opportunities for Intune Dashboards
+# Supplemental Data Opportunities
 
-This document identifies opportunities to enhance the Device Health, Device Inventory, and Autopilot Deployment dashboards with additional data from Microsoft Graph API endpoints.
+**Goal:** Add 3-5 lightweight API calls that enhance existing dashboards without significant ingestion costs.
 
----
-
-## 📊 Device Health Workbook
-
-### Current Data Sources
-- `IntuneDevices_CL` - Basic device info and sync status
-- `IntuneDeviceScores_CL` - Endpoint Analytics scores
-- `IntuneStartupPerformance_CL` - Boot/login performance
-- `IntuneAppReliability_CL` - Application crash/hang data
-
-### Supplemental Data Opportunities
-
-#### 1. Windows Update Status
-**Gap:** No visibility into update compliance, pending updates, or update history.
-
-**Benefit:** Identify devices missing critical security updates, track update deployment success rates.
-
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/windowsUpdateCatalogItems` | Available Windows updates |
-| `GET /deviceManagement/softwareUpdateStatusSummary` | Update deployment status summary |
-| `GET /deviceManagement/deviceConfigurations/{id}/deviceStatuses` | Per-device update ring status |
-| `GET /admin/windows/updates/deployments` | Windows Update for Business deployments |
-| `GET /admin/windows/updates/updatableAssets` | Assets eligible for updates |
-
-**Suggested Table:** `IntuneWindowsUpdates_CL`
+**Design Principles:**
+- ✅ Aggregate/summary endpoints only (1-200 rows)
+- ✅ Failures and exceptions only (not successes)
+- ❌ Per-device state data
 
 ---
 
-#### 2. Microsoft Defender Status
-**Gap:** No security health information (antivirus status, threat detections, firewall state).
+## Recommended Endpoints (Priority Order)
 
-**Benefit:** Correlate health scores with security posture, identify compromised devices.
+### 1. Battery Health by Device ⭐ HIGHEST VALUE
+**Why:** Per-device battery status for replacement planning and user outreach.
 
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/managedDevices/{id}/windowsProtectionState` | Defender status per device |
-| `GET /security/alerts_v2` | Security alerts and threats |
-| `GET /deviceManagement/deviceProtectionOverview` | Protection summary stats |
-| `GET /security/secureScores` | Tenant security score |
+| Endpoint | Rows | Frequency |
+|----------|------|-----------|
+| `GET /deviceManagement/userExperienceAnalyticsBatteryHealthDevicePerformance` | **~10-20k** | Daily |
 
-**Suggested Table:** `IntuneDefenderStatus_CL`
+**Table:** `IntuneBatteryHealth_CL`
 
-**Key Fields to Capture:**
-- `antiMalwareVersion`
-- `engineVersion`
-- `signatureVersion`
-- `malwareProtectionEnabled`
-- `realTimeProtectionEnabled`
-- `networkInspectionSystemEnabled`
-- `quickScanOverdue`, `fullScanOverdue`, `signatureUpdateOverdue`
-- `rebootRequired`
-- `lastQuickScanDateTime`, `lastFullScanDateTime`
-
----
-
-#### 3. Battery Health Details
-**Gap:** Only have BatteryHealthScore in IntuneDeviceScores_CL, no cycle count or capacity data.
-
-**Benefit:** Proactively identify devices needing battery replacement.
-
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/userExperienceAnalyticsBatteryHealthDevicePerformance` | Per-device battery metrics |
-| `GET /deviceManagement/userExperienceAnalyticsBatteryHealthModelPerformance` | Battery health by model |
-| `GET /deviceManagement/userExperienceAnalyticsBatteryHealthOsPerformance` | Battery health by OS |
-
-**Suggested Table:** `IntuneBatteryHealth_CL`
-
-**Key Fields to Capture:**
-- `estimatedRuntimeInMinutes`
+**Fields:**
+- `deviceId`, `deviceName`
+- `model`, `manufacturer`
 - `maxCapacityPercentage`
-- `healthStatus` (good, degraded, replace, unknown)
+- `estimatedRuntimeInMinutes`
 - `batteryAgeInDays`
+- `healthStatus` (sufficient, insufficientData, needsAttention, poorHealth)
 - `fullBatteryDrainCount`
-- `activeDevices`
+
+**Dashboard Use:** 
+- "Devices Needing Battery Replacement" table (filter `healthStatus ne 'sufficient'`)
+- Battery health distribution charts
+- Aggregate by model to identify problematic hardware lines
+- Sort by `maxCapacityPercentage` to prioritize worst cases
+
+**Alert:** Devices with `healthStatus eq 'poorHealth'`
+
+**Why this is OK:** One row per device (~10-20k), not per-device × per-policy.
 
 ---
 
-#### 4. Resource Performance (CPU/Memory Spikes)
-**Gap:** Have MeanResourceSpikeTimeScore but no detailed resource utilization data.
+### 2. Device Encryption Status (BitLocker) ⭐ HIGHEST VALUE
+**Why:** Current dashboards show encryption as 0 - this endpoint has the actual BitLocker state.
 
-**Benefit:** Identify devices with performance bottlenecks, memory leaks.
+| Endpoint | Rows | Frequency |
+|----------|------|-----------|
+| `GET /deviceManagement/managedDeviceEncryptionStates` | **~10-20k** | Daily |
 
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/userExperienceAnalyticsResourcePerformance` | CPU/memory performance data |
-| `GET /deviceManagement/userExperienceAnalyticsDevicePerformance` | Device performance summary |
+**Table:** `IntuneEncryptionStatus_CL`
 
-**Suggested Table:** `IntuneResourcePerformance_CL`
+**Fields:**
+- `id`, `deviceName`, `userPrincipalName`
+- `osVersion`, `deviceType`
+- `encryptionState` (notEncrypted, encrypted)
+- `encryptionPolicySettingState` (compliant, nonCompliant, error, notApplicable)
+- `advancedBitLockerStates` (detailed flags like tpmAndPinProtector, recoveryKeyEscrowed, etc.)
+- `encryptionReadinessState` (ready, notReady)
+- `fileVaultStates` (for macOS)
 
-**Key Fields to Capture:**
-- `cpuSpikeTimePercentage`
-- `ramSpikeTimePercentage`
-- `cpuSpikeTimeScore`
-- `ramSpikeTimeScore`
-- `deviceResourcePerformanceScore`
+**Dashboard Use:** 
+- "Unencrypted Devices" list (filter `encryptionState eq 'notEncrypted'`)
+- Encryption compliance pie chart
+- BitLocker readiness tracking
+- Recovery key escrow status
 
----
+**Alert:** Devices where `encryptionState eq 'notEncrypted'` and `encryptionReadinessState eq 'ready'`
 
-#### 5. Model/Hardware Quality Insights
-**Gap:** Can identify problematic models but lack context on why.
-
-**Benefit:** Make data-driven hardware procurement decisions.
-
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/userExperienceAnalyticsModelScores` | Aggregate scores by model |
-| `GET /deviceManagement/userExperienceAnalyticsDeviceScopes` | Custom device scopes for comparison |
-
-**Suggested Table:** `IntuneModelScores_CL`
+**Why this is OK:** One row per device with encryption state - not per-policy.
 
 ---
 
-## 📦 Device Inventory Workbook
+### 3. Model Scores (Endpoint Analytics by Model)
+**Why:** Identify problematic hardware models fleet-wide, not just individual devices.
 
-### Current Data Sources
-- `IntuneDevices_CL` - Device inventory with basic properties
+| Endpoint | Rows | Frequency |
+|----------|------|-----------|
+| `GET /deviceManagement/userExperienceAnalyticsModelScores` | **~20-50** | Daily |
 
-### Supplemental Data Opportunities
+**Table:** `IntuneModelScores_CL`
 
-#### 1. Installed Applications
-**Gap:** No visibility into what software is installed on devices.
+**Fields:**
+- `model`, `manufacturer`
+- `modelDeviceCount`
+- `endpointAnalyticsScore`
+- `startupPerformanceScore`
+- `appReliabilityScore`
+- `workFromAnywhereScore`
+- `healthStatus`
 
-**Benefit:** Software license management, identify unauthorized apps, security vulnerability assessment.
+**Dashboard Use:** "Model Performance Comparison" table, hardware procurement decisions
 
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/managedDevices/{id}/detectedApps` | Apps detected on a device |
-| `GET /deviceManagement/detectedApps` | All detected apps with device counts |
-| `GET /deviceManagement/detectedApps/{id}/managedDevices` | Devices with specific app |
-
-**Suggested Table:** `IntuneDetectedApps_CL`
-
-**Key Fields to Capture:**
-- `displayName`
-- `version`
-- `platform`
-- `publisher`
-- `deviceCount`
-- `sizeInByte`
+**Alert:** `healthStatus eq 'needsAttention'` with `modelDeviceCount > 50`
 
 ---
 
-#### 2. Hardware Inventory Details
-**Gap:** Missing RAM, CPU, TPM version, BIOS version, Secure Boot status.
+### 4. Compliance Setting Summary (Compliance Dashboard)
+**Why:** Know which specific compliance settings are failing most - not just policy-level status.
 
-**Benefit:** Hardware lifecycle management, Windows 11 readiness, security compliance.
+| Endpoint | Rows | Frequency |
+|----------|------|-----------|
+| `GET /deviceManagement/deviceCompliancePolicySettingStateSummaries` | **~50-100** | Daily |
 
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/managedDevices/{id}?$select=hardwareInformation` | Detailed hardware info |
-| `GET /deviceManagement/windowsAutopilotDeviceIdentities/{id}` | Hardware hash, TPM info |
+**Table:** `IntuneComplianceSettingSummary_CL`
 
-**Suggested Table:** `IntuneHardwareInventory_CL`
+**Fields:**
+- `settingName` (e.g., "Require BitLocker", "Minimum OS Version")
+- `compliantDeviceCount`
+- `nonCompliantDeviceCount`
+- `errorDeviceCount`
+- `conflictDeviceCount`
+- `notApplicableDeviceCount`
 
-**Key Fields to Capture:**
-- `totalStorageSpace`, `freeStorageSpace` (already have)
-- `physicalMemoryInBytes`
-- `processorArchitecture`
-- `tpmSpecificationVersion`
-- `tpmManufacturer`
-- `systemManagementBIOSVersion`
-- `isSharedDevice`
-- `sharedDeviceCachedUsers`
+**Dashboard Use:** 
+- "Top 10 Failing Compliance Settings" bar chart
+- Prioritize remediation efforts
+- "BitLocker is causing 60% of noncompliance"
 
----
-
-#### 3. Configuration Profile Status
-**Gap:** No visibility into which profiles are applied and their status.
-
-**Benefit:** Troubleshoot configuration issues, verify policy deployment.
-
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/managedDevices/{id}/deviceConfigurationStates` | Config profiles on device |
-| `GET /deviceManagement/deviceConfigurations/{id}/deviceStatuses` | Devices and their status for a profile |
-| `GET /deviceManagement/deviceConfigurations` | All configuration profiles |
-
-**Suggested Table:** `IntuneConfigurationStatus_CL`
-
-**Key Fields to Capture:**
-- `displayName` (profile name)
-- `state` (succeeded, failed, conflict, error, notApplicable)
-- `version`
-- `platformType`
-- `settingCount`
+**Alert:** `nonCompliantDeviceCount` increased by >10% from previous day
 
 ---
 
-#### 4. Group Memberships
-**Gap:** Can't see what Entra ID groups devices belong to.
+### 5. Configuration Profile Summary (Device Health Dashboard)
+**Why:** Know which config profiles have issues without per-device data.
 
-**Benefit:** Understand targeting, troubleshoot policy application.
+| Endpoint | Rows | Frequency |
+|----------|------|-----------|
+| `GET /deviceManagement/deviceConfigurations?$expand=deviceStatusOverview` | **~50-200** | Daily |
 
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /devices/{id}/memberOf` | Groups a device belongs to |
-| `GET /deviceManagement/managedDevices/{id}/deviceCategory` | Assigned device category |
+**Table:** `IntuneConfigProfileSummary_CL`
 
-**Suggested Table:** `IntuneDeviceGroups_CL`
+**Fields:**
+- `id`, `displayName`, `lastModifiedDateTime`
+- `deviceStatusOverview.configuredDeviceCount` (total assigned)
+- `deviceStatusOverview.errorDeviceCount`
+- `deviceStatusOverview.failedDeviceCount`
+- `deviceStatusOverview.conflictDeviceCount`
 
----
+**Dashboard Use:** "Config Profiles with Errors" table, profile health heatmap
 
-#### 5. App Protection Policy Status
-**Gap:** No visibility into MAM policies applied to devices.
-
-**Benefit:** Verify data protection on BYOD devices.
-
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceAppManagement/managedAppRegistrations` | MAM registered apps |
-| `GET /deviceAppManagement/mdmWindowsInformationProtectionPolicies` | WIP policies |
-| `GET /deviceAppManagement/managedAppStatuses` | MAM status summary |
-
-**Suggested Table:** `IntuneAppProtectionStatus_CL`
+**Alert:** `errorDeviceCount > 0` or `failedDeviceCount > 10`
 
 ---
 
-#### 6. Certificates
-**Gap:** No visibility into certificate deployment status.
+### 6. Configuration Profile Failures (Exception-Only)
+**Why:** When a profile has errors, you need to know which devices.
 
-**Benefit:** Troubleshoot Wi-Fi/VPN issues, certificate expiration monitoring.
+| Endpoint | Rows | Frequency |
+|----------|------|-----------|
+| `GET /deviceManagement/deviceConfigurations/{id}/deviceStatuses?$filter=status eq 'error' or status eq 'failed' or status eq 'conflict'` | **~10-100 per profile** | Daily |
 
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/managedDevices/{id}/managedDeviceCertificateStates` | Certificates on device |
+**Note:** Only query profiles where `errorDeviceCount > 0` from the summary above.
 
-**Suggested Table:** `IntuneDeviceCertificates_CL`
+**Table:** `IntuneConfigProfileFailures_CL`
 
-**Key Fields to Capture:**
-- `certificateSubjectName`
-- `certificateExpirationDateTime`
-- `certificateIssuanceState`
-- `certificateIssuer`
-- `certificateThumbprint`
+**Fields:**
+- `profileId`, `profileDisplayName`
+- `deviceDisplayName`, `userName`
+- `status`, `lastReportedDateTime`
 
----
-
-## 🚀 Autopilot Deployment Workbook
-
-### Current Data Sources
-- `IntuneAutopilotDevices_CL` - Autopilot device identities
-- `IntuneAutopilotProfiles_CL` - Deployment profiles
-
-### Supplemental Data Opportunities
-
-#### 1. Enrollment Status Page (ESP) Results
-**Gap:** Know devices failed but not which apps/policies caused failures.
-
-**Benefit:** Identify blocking apps, reduce deployment time.
-
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/deviceEnrollmentConfigurations` | ESP configurations |
-| `GET /deviceManagement/depOnboardingSettings/{id}/enrollmentProfiles` | Enrollment profiles |
-| `GET /deviceManagement/autopilotEvents` | Detailed deployment events |
-
-**Suggested Table:** `IntuneAutopilotEvents_CL`
-
-**Key Fields to Capture:**
-- `deviceId`
-- `eventDateTime`
-- `deviceRegisteredDateTime`
-- `enrollmentStartDateTime`
-- `enrollmentType`
-- `deviceSetupDuration`
-- `accountSetupDuration`
-- `deviceSetupStatus`
-- `accountSetupStatus`
-- `enrollmentState`
-- `targetedAppCount`
-- `targetedPolicyCount`
+**Dashboard Use:** Drill-down from profile summary to specific failed devices
 
 ---
 
-#### 2. App Installation Status During Enrollment
-**Gap:** Can't see which required apps succeeded/failed during Autopilot.
+## Summary
 
-**Benefit:** Identify apps causing enrollment delays or failures.
+| # | Data | Dashboard | Daily Rows | Row Type |
+|---|------|-----------|------------|----------|
+| 1 | Battery Health | Device Health | ~10-20k | Per device |
+| 2 | **Encryption Status** | Device Health | ~10-20k | Per device |
+| 3 | Model Scores | Device Health | ~30 | Per model |
+| 4 | Compliance Setting Summary | Compliance | ~80 | Per setting |
+| 5 | Config Profile Summary | Device Health | ~100 | Per profile |
+| 6 | Config Profile Failures | Device Health | ~50-500 | Per failure |
 
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/autopilotEvents/{id}/policyStatusDetails` | Policy install status during Autopilot |
-| `GET /deviceAppManagement/mobileApps/{id}/deviceStatuses` | App install status per device |
+**Total estimated daily ingestion:** ~20-40k rows
 
-**Suggested Table:** `IntuneAutopilotAppStatus_CL`
+**What we avoid:** Per-device × per-policy × per-setting (millions of rows)
 
----
-
-#### 3. Pre-provisioning (White Glove) Status
-**Gap:** No visibility into technician pre-provisioning phase results.
-
-**Benefit:** Track partner/IT pre-provisioning success rates.
-
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/windowsAutopilotDeploymentProfiles/{id}` | Profile with pre-provisioning settings |
-| `GET /deviceManagement/autopilotEvents?$filter=deploymentState eq 'preProvisioned'` | Pre-provisioned events |
-
-**Key Fields to Capture:**
-- `osVersion`
-- `deploymentState`
-- `deploymentDuration`
-- `deploymentTotalDuration`
-- `devicePreparationDuration`
-- `deviceSetupDuration`
-- `accountSetupDuration`
+**What's OK:** Per-device with a single state (battery, encryption) - one row per device
 
 ---
 
-#### 4. Enrollment Failure Details
-**Gap:** Know enrollment failed but not the specific error codes/messages.
+## Implementation
 
-**Benefit:** Faster troubleshooting, pattern identification.
-
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/troubleshootingEvents` | Enrollment troubleshooting events |
-| `GET /deviceManagement/importedWindowsAutopilotDeviceIdentities` | Import status with errors |
-
-**Suggested Table:** `IntuneEnrollmentErrors_CL`
-
-**Key Fields to Capture:**
-- `correlationId`
-- `eventDateTime`
-- `eventName`
-- `troubleshootingErrorDetails` (contains error code, message, remediation)
-- `enrollmentType`
-- `failureCategory`
-- `failureReason`
-
----
-
-#### 5. Device Preparation Policy Status
-**Gap:** New Device Preparation feature data not captured.
-
-**Benefit:** Track modern enrollment experience success.
-
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/deviceEnrollmentConfigurations?$filter=deviceEnrollmentConfigurationType eq 'devicePreparation'` | Device preparation configs |
-
----
-
-#### 6. Deployment Profile Assignment Details
-**Gap:** Know profile assignment status but not which groups are targeted.
-
-**Benefit:** Troubleshoot why devices aren't getting expected profiles.
-
-**Graph API Endpoints:**
-| Endpoint | Description |
-|----------|-------------|
-| `GET /deviceManagement/windowsAutopilotDeploymentProfiles/{id}/assignments` | Profile group assignments |
-| `GET /deviceManagement/windowsAutopilotDeploymentProfiles/{id}/assignedDevices` | Devices assigned to profile |
-
-**Suggested Table:** `IntuneAutopilotAssignments_CL`
-
----
-
-## 📋 Summary: Priority Recommendations
-
-### High Priority (High Impact, Commonly Needed)
-| Data | Dashboard | Endpoint |
-|------|-----------|----------|
-| Windows Update Status | Device Health | `/deviceManagement/softwareUpdateStatusSummary` |
-| Defender Status | Device Health | `/deviceManagement/managedDevices/{id}/windowsProtectionState` |
-| Detected Apps | Device Inventory | `/deviceManagement/detectedApps` |
-| Autopilot Events | Autopilot | `/deviceManagement/autopilotEvents` |
-| Configuration Status | Device Inventory | `/deviceManagement/managedDevices/{id}/deviceConfigurationStates` |
-
-### Medium Priority (Valuable for Specific Use Cases)
-| Data | Dashboard | Endpoint |
-|------|-----------|----------|
-| Battery Health | Device Health | `/deviceManagement/userExperienceAnalyticsBatteryHealthDevicePerformance` |
-| Hardware Details | Device Inventory | `/deviceManagement/managedDevices/{id}?$select=hardwareInformation` |
-| Device Certificates | Device Inventory | `/deviceManagement/managedDevices/{id}/managedDeviceCertificateStates` |
-| Enrollment Errors | Autopilot | `/deviceManagement/troubleshootingEvents` |
-
-### Lower Priority (Nice to Have)
-| Data | Dashboard | Endpoint |
-|------|-----------|----------|
-| Resource Performance | Device Health | `/deviceManagement/userExperienceAnalyticsResourcePerformance` |
-| Group Memberships | Device Inventory | `/devices/{id}/memberOf` |
-| Profile Assignments | Autopilot | `/deviceManagement/windowsAutopilotDeploymentProfiles/{id}/assignments` |
-
----
-
-## 🔧 Implementation Notes
-
-### Required Graph API Permissions
+### Required Permissions
 ```
-DeviceManagementManagedDevices.Read.All
 DeviceManagementConfiguration.Read.All
-DeviceManagementApps.Read.All
-SecurityEvents.Read.All (for Defender data)
-WindowsUpdates.Read.All (for Windows Update data)
+DeviceManagementManagedDevices.Read.All
 ```
 
-### Export Function Structure
-For each new data source, create a function following the existing pattern:
+### Suggested Functions
 ```
 functions/
-  export_windows_updates/
-    __init__.py
-    function.json
-  export_defender_status/
-    __init__.py
-    function.json
-  export_detected_apps/
-    __init__.py
-    function.json
-  export_autopilot_events/
-    __init__.py
-    function.json
+  export_battery_health/             # Daily
+  export_encryption_status/          # Daily
+  export_model_scores/               # Daily
+  export_compliance_setting_summary/ # Daily
+  export_config_profile_summary/     # Daily
+  export_config_profile_failures/    # Daily (after summary)
 ```
-
-### Data Freshness Considerations
-| Data Type | Recommended Sync Frequency |
-|-----------|---------------------------|
-| Windows Updates | Daily |
-| Defender Status | Every 6 hours |
-| Detected Apps | Daily |
-| Autopilot Events | Hourly during business hours |
-| Battery Health | Weekly |
-| Hardware Inventory | Weekly |
-
----
-
-## 📚 Reference Documentation
-
-- [Microsoft Graph Device Management API](https://learn.microsoft.com/en-us/graph/api/resources/intune-graph-overview)
-- [Endpoint Analytics API](https://learn.microsoft.com/en-us/graph/api/resources/intune-devices-userexperienceanalyticsoverview)
-- [Windows Update for Business API](https://learn.microsoft.com/en-us/graph/api/resources/adminwindowsupdates-windowsupdates-overview)
-- [Security API](https://learn.microsoft.com/en-us/graph/api/resources/security-api-overview)
