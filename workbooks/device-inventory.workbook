@@ -4,7 +4,7 @@
     {
       "type": 1,
       "content": {
-        "json": "# Device Inventory\n---\nComplete device inventory with filtering, search, and hardware details."
+        "json": "# 📦 Device Inventory Dashboard\n---\nComprehensive inventory of all managed devices with hardware, software, and enrollment insights.\n\n**Data Source:** `IntuneDevices_CL` - Complete device inventory from Microsoft Intune"
       },
       "name": "header"
     },
@@ -13,6 +13,15 @@
       "content": {
         "version": "KqlParameterItem/1.0",
         "parameters": [
+          {
+            "id": "tab-param",
+            "version": "KqlParameterItem/1.0",
+            "name": "Tab",
+            "type": 1,
+            "isRequired": true,
+            "isHiddenWhenLocked": true,
+            "value": "Overview"
+          },
           {
             "id": "time-range",
             "version": "KqlParameterItem/1.0",
@@ -39,7 +48,7 @@
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "IntuneDevices_CL\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| distinct OperatingSystem\n| order by OperatingSystem asc",
+            "query": "IntuneDevices_CL\r\n| where TimeGenerated > ago(30d)\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| distinct OperatingSystem\r\n| where isnotempty(OperatingSystem)\r\n| order by OperatingSystem asc",
             "typeSettings": {
               "additionalResourceOptions": ["value::all"],
               "showDefault": false
@@ -59,7 +68,7 @@
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "IntuneDevices_CL\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| distinct ComplianceState\n| order by ComplianceState asc",
+            "query": "IntuneDevices_CL\r\n| where TimeGenerated > ago(30d)\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| distinct ComplianceState\r\n| where isnotempty(ComplianceState)\r\n| order by ComplianceState asc",
             "typeSettings": {
               "additionalResourceOptions": ["value::all"],
               "showDefault": false
@@ -79,7 +88,7 @@
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "IntuneDevices_CL\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| distinct Manufacturer\n| order by Manufacturer asc",
+            "query": "IntuneDevices_CL\r\n| where TimeGenerated > ago(30d)\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| distinct Manufacturer\r\n| where isnotempty(Manufacturer)\r\n| order by Manufacturer asc",
             "typeSettings": {
               "additionalResourceOptions": ["value::all"],
               "showDefault": false
@@ -98,239 +107,734 @@
       "name": "parameters"
     },
     {
-      "type": 1,
+      "type": 11,
       "content": {
-        "json": "## Fleet Overview"
+        "version": "LinkItem/1.0",
+        "style": "tabs",
+        "links": [
+          {"id": "overview-tab", "cellValue": "Tab", "linkTarget": "parameter", "linkLabel": "📊 Overview", "subTarget": "Overview", "style": "link"},
+          {"id": "hardware-tab", "cellValue": "Tab", "linkTarget": "parameter", "linkLabel": "💻 Hardware", "subTarget": "Hardware", "style": "link"},
+          {"id": "os-tab", "cellValue": "Tab", "linkTarget": "parameter", "linkLabel": "🖥️ OS Analysis", "subTarget": "OSAnalysis", "style": "link"},
+          {"id": "storage-tab", "cellValue": "Tab", "linkTarget": "parameter", "linkLabel": "💾 Storage", "subTarget": "Storage", "style": "link"},
+          {"id": "users-tab", "cellValue": "Tab", "linkTarget": "parameter", "linkLabel": "👤 Users", "subTarget": "Users", "style": "link"},
+          {"id": "inventory-tab", "cellValue": "Tab", "linkTarget": "parameter", "linkLabel": "📋 Full Inventory", "subTarget": "Inventory", "style": "link"}
+        ]
       },
-      "name": "overview-header"
+      "name": "tabs"
     },
     {
-      "type": 3,
+      "type": 12,
       "content": {
-        "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| count",
-        "size": 4,
-        "title": "Total Devices",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "tiles",
-        "tileSettings": {
-          "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "blue"}},
-          "showBorder": false
-        }
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## Fleet Summary"
+            },
+            "name": "overview-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| count",
+              "size": 4,
+              "title": "Total Devices",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "blue"}},
+                "showBorder": false
+              }
+            },
+            "customWidth": "16",
+            "name": "total-devices"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where ComplianceState == 'compliant'\r\n| count",
+              "size": 4,
+              "title": "Compliant",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "green"}},
+                "showBorder": false
+              }
+            },
+            "customWidth": "16",
+            "name": "compliant-count"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where ComplianceState == 'noncompliant'\r\n| count",
+              "size": 4,
+              "title": "Non-Compliant",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "red"}},
+                "showBorder": false
+              }
+            },
+            "customWidth": "16",
+            "name": "noncompliant-count"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where IsEncrypted == true\r\n| count",
+              "size": 4,
+              "title": "Encrypted",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "green"}},
+                "showBorder": false
+              }
+            },
+            "customWidth": "16",
+            "name": "encrypted-count"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where OwnerType == 'company'\r\n| count",
+              "size": 4,
+              "title": "Corporate",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "blue"}},
+                "showBorder": false
+              }
+            },
+            "customWidth": "16",
+            "name": "corporate-count"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where OwnerType == 'personal'\r\n| count",
+              "size": 4,
+              "title": "Personal (BYOD)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "purple"}},
+                "showBorder": false
+              }
+            },
+            "customWidth": "16",
+            "name": "byod-count"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "## Distribution Overview"
+            },
+            "name": "distribution-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by OperatingSystem\r\n| order by Count desc",
+              "size": 2,
+              "title": "By Operating System",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "piechart"
+            },
+            "customWidth": "25",
+            "name": "os-pie"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by ComplianceState\r\n| order by Count desc",
+              "size": 2,
+              "title": "By Compliance State",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "piechart",
+              "chartSettings": {
+                "seriesLabelSettings": [
+                  {"seriesName": "compliant", "color": "green"},
+                  {"seriesName": "noncompliant", "color": "red"},
+                  {"seriesName": "unknown", "color": "gray"},
+                  {"seriesName": "inGracePeriod", "color": "yellow"}
+                ]
+              }
+            },
+            "customWidth": "25",
+            "name": "compliance-pie"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by Manufacturer\r\n| order by Count desc\r\n| take 10",
+              "size": 2,
+              "title": "By Manufacturer",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "piechart"
+            },
+            "customWidth": "25",
+            "name": "manufacturer-pie"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by OwnerType\r\n| order by Count desc",
+              "size": 2,
+              "title": "By Ownership",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "piechart",
+              "chartSettings": {
+                "seriesLabelSettings": [
+                  {"seriesName": "company", "label": "Corporate", "color": "blue"},
+                  {"seriesName": "personal", "label": "Personal (BYOD)", "color": "purple"}
+                ]
+              }
+            },
+            "customWidth": "25",
+            "name": "ownership-pie"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "## Enrollment Trends"
+            },
+            "name": "enrollment-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by bin(EnrolledDateTime, 1d)\r\n| order by EnrolledDateTime asc",
+              "size": 0,
+              "title": "Device Enrollments Over Time",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "linechart"
+            },
+            "name": "enrollment-trend"
+          }
+        ]
       },
-      "customWidth": "20",
-      "name": "total-devices"
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "Overview"
+      },
+      "name": "overview-group"
     },
     {
-      "type": 3,
+      "type": 12,
       "content": {
-        "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| summarize Encrypted = countif(IsEncrypted == 'true' or IsEncrypted == 'True'), Total = count()\n| extend Rate = round(100.0 * Encrypted / Total, 1)\n| project strcat(Rate, '%')",
-        "size": 4,
-        "title": "Encryption Rate",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "tiles",
-        "tileSettings": {
-          "titleContent": {"columnMatch": "Column1", "formatter": 1},
-          "showBorder": false
-        }
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## Hardware Analysis\nBreakdown of device hardware by manufacturer and model."
+            },
+            "name": "hardware-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize \r\n    Count = count(),\r\n    Compliant = countif(ComplianceState == 'compliant'),\r\n    Encrypted = countif(IsEncrypted == true)\r\n  by Manufacturer\r\n| extend ComplianceRate = round(100.0 * Compliant / Count, 1)\r\n| extend EncryptionRate = round(100.0 * Encrypted / Count, 1)\r\n| order by Count desc",
+              "size": 0,
+              "title": "Devices by Manufacturer",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {"columnMatch": "Count", "formatter": 4, "formatOptions": {"palette": "blue"}},
+                  {"columnMatch": "ComplianceRate", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
+                  {"columnMatch": "EncryptionRate", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}}
+                ],
+                "filter": true
+              }
+            },
+            "customWidth": "50",
+            "name": "by-manufacturer"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by Manufacturer\r\n| order by Count desc\r\n| take 10",
+              "size": 0,
+              "title": "Top 10 Manufacturers",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "barchart"
+            },
+            "customWidth": "50",
+            "name": "manufacturer-bar"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "## Models"
+            },
+            "name": "models-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize \r\n    Count = count(),\r\n    Compliant = countif(ComplianceState == 'compliant'),\r\n    AvgStorageGB = round(avg(TotalStorageGB), 1)\r\n  by Manufacturer, Model\r\n| extend ComplianceRate = round(100.0 * Compliant / Count, 1)\r\n| order by Count desc\r\n| take 25",
+              "size": 0,
+              "title": "Top 25 Device Models",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {"columnMatch": "Count", "formatter": 4, "formatOptions": {"palette": "blue"}},
+                  {"columnMatch": "ComplianceRate", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
+                  {"columnMatch": "AvgStorageGB", "formatter": 0}
+                ],
+                "filter": true
+              }
+            },
+            "name": "top-models"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "## Device Age Analysis"
+            },
+            "name": "age-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| extend EnrollmentAge = datetime_diff('month', now(), EnrolledDateTime)\r\n| extend AgeBucket = case(\r\n    EnrollmentAge <= 3, '0-3 months',\r\n    EnrollmentAge <= 6, '3-6 months',\r\n    EnrollmentAge <= 12, '6-12 months',\r\n    EnrollmentAge <= 24, '1-2 years',\r\n    EnrollmentAge <= 36, '2-3 years',\r\n    '>3 years')\r\n| summarize Count = count() by AgeBucket\r\n| order by AgeBucket asc",
+              "size": 2,
+              "title": "Devices by Enrollment Age",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "piechart",
+              "chartSettings": {
+                "seriesLabelSettings": [
+                  {"seriesName": "0-3 months", "color": "green"},
+                  {"seriesName": "3-6 months", "color": "blue"},
+                  {"seriesName": "6-12 months", "color": "yellow"},
+                  {"seriesName": "1-2 years", "color": "orange"},
+                  {"seriesName": "2-3 years", "color": "redOrange"},
+                  {"seriesName": ">3 years", "color": "red"}
+                ]
+              }
+            },
+            "customWidth": "40",
+            "name": "age-pie"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| extend EnrollmentAge = datetime_diff('month', now(), EnrolledDateTime)\r\n| extend AgeBucket = case(\r\n    EnrollmentAge <= 3, '0-3 months',\r\n    EnrollmentAge <= 6, '3-6 months',\r\n    EnrollmentAge <= 12, '6-12 months',\r\n    EnrollmentAge <= 24, '1-2 years',\r\n    EnrollmentAge <= 36, '2-3 years',\r\n    '>3 years')\r\n| summarize Count = count() by OperatingSystem, AgeBucket\r\n| order by OperatingSystem asc",
+              "size": 0,
+              "title": "Age by Operating System",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "barchart",
+              "chartSettings": {
+                "xAxis": "OperatingSystem",
+                "group": "AgeBucket",
+                "createOtherGroup": false
+              }
+            },
+            "customWidth": "60",
+            "name": "age-by-os"
+          }
+        ]
       },
-      "customWidth": "20",
-      "name": "encryption-rate"
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "Hardware"
+      },
+      "name": "hardware-group"
     },
     {
-      "type": 3,
+      "type": 12,
       "content": {
-        "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| distinct Manufacturer\n| count",
-        "size": 4,
-        "title": "Manufacturers",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "tiles",
-        "tileSettings": {
-          "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "purple"}},
-          "showBorder": false
-        }
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## Operating System Analysis\nDetailed breakdown of operating system versions across your device fleet."
+            },
+            "name": "os-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by OperatingSystem\r\n| order by Count desc",
+              "size": 0,
+              "title": "Devices by OS",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "barchart"
+            },
+            "customWidth": "50",
+            "name": "os-bar"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize \r\n    Total = count(),\r\n    Compliant = countif(ComplianceState == 'compliant'),\r\n    NonCompliant = countif(ComplianceState == 'noncompliant'),\r\n    Encrypted = countif(IsEncrypted == true)\r\n  by OperatingSystem\r\n| extend ComplianceRate = round(100.0 * Compliant / Total, 1)\r\n| extend EncryptionRate = round(100.0 * Encrypted / Total, 1)\r\n| order by Total desc",
+              "size": 0,
+              "title": "OS Summary",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {"columnMatch": "Total", "formatter": 4, "formatOptions": {"palette": "blue"}},
+                  {"columnMatch": "Compliant", "formatter": 4, "formatOptions": {"palette": "green"}},
+                  {"columnMatch": "NonCompliant", "formatter": 4, "formatOptions": {"palette": "red"}},
+                  {"columnMatch": "ComplianceRate", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
+                  {"columnMatch": "EncryptionRate", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}}
+                ]
+              }
+            },
+            "customWidth": "50",
+            "name": "os-summary-table"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "## OS Version Details"
+            },
+            "name": "version-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by OperatingSystem, OSVersion\r\n| order by OperatingSystem asc, Count desc",
+              "size": 0,
+              "title": "OS Version Distribution",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {"columnMatch": "Count", "formatter": 4, "formatOptions": {"palette": "blue"}}
+                ],
+                "filter": true,
+                "hierarchySettings": {"treeType": 1, "groupBy": ["OperatingSystem"]}
+              }
+            },
+            "name": "os-version-table"
+          }
+        ]
       },
-      "customWidth": "20",
-      "name": "manufacturer-count"
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "OSAnalysis"
+      },
+      "name": "os-group"
     },
     {
-      "type": 3,
+      "type": 12,
       "content": {
-        "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| distinct Model\n| count",
-        "size": 4,
-        "title": "Device Models",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "tiles",
-        "tileSettings": {
-          "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "orange"}},
-          "showBorder": false
-        }
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## Storage Analysis\nAnalyze storage capacity and free space across your device fleet."
+            },
+            "name": "storage-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0\r\n| summarize \r\n    ['Total Devices'] = count(),\r\n    ['Avg Total (GB)'] = round(avg(TotalStorageGB), 1),\r\n    ['Avg Free (GB)'] = round(avg(FreeStorageGB), 1),\r\n    ['Avg Used %'] = round(100.0 * (1 - avg(FreeStorageGB) / avg(TotalStorageGB)), 1)",
+              "size": 4,
+              "title": "Storage Summary",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table"
+            },
+            "name": "storage-summary"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0 and isnotnull(FreeStorageGB)\r\n| extend UsedPercent = round(100.0 * (TotalStorageGB - FreeStorageGB) / TotalStorageGB, 0)\r\n| extend StorageBucket = case(\r\n    UsedPercent < 50, '0-50% Used',\r\n    UsedPercent < 70, '50-70% Used',\r\n    UsedPercent < 85, '70-85% Used',\r\n    UsedPercent < 95, '85-95% Used',\r\n    '>95% Used (Critical)')\r\n| summarize Count = count() by StorageBucket\r\n| order by StorageBucket asc",
+              "size": 2,
+              "title": "Devices by Storage Usage",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "piechart",
+              "chartSettings": {
+                "seriesLabelSettings": [
+                  {"seriesName": "0-50% Used", "color": "green"},
+                  {"seriesName": "50-70% Used", "color": "blue"},
+                  {"seriesName": "70-85% Used", "color": "yellow"},
+                  {"seriesName": "85-95% Used", "color": "orange"},
+                  {"seriesName": ">95% Used (Critical)", "color": "red"}
+                ]
+              }
+            },
+            "customWidth": "40",
+            "name": "storage-usage-pie"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0\r\n| extend TotalBucket = case(\r\n    TotalStorageGB < 64, '<64 GB',\r\n    TotalStorageGB < 128, '64-127 GB',\r\n    TotalStorageGB < 256, '128-255 GB',\r\n    TotalStorageGB < 512, '256-511 GB',\r\n    TotalStorageGB < 1024, '512-1023 GB',\r\n    '>= 1 TB')\r\n| summarize Count = count() by TotalBucket\r\n| order by TotalBucket asc",
+              "size": 0,
+              "title": "Devices by Total Storage",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "barchart"
+            },
+            "customWidth": "60",
+            "name": "storage-capacity-bar"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "## Low Storage Devices (>85% Used)\nThese devices may experience performance issues or update failures."
+            },
+            "name": "low-storage-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0 and isnotnull(FreeStorageGB)\r\n| extend UsedPercent = round(100.0 * (TotalStorageGB - FreeStorageGB) / TotalStorageGB, 1)\r\n| where UsedPercent > 85\r\n| project \r\n    DeviceName,\r\n    User = UserDisplayName,\r\n    OS = OperatingSystem,\r\n    ['Total GB'] = round(TotalStorageGB, 1),\r\n    ['Free GB'] = round(FreeStorageGB, 1),\r\n    ['Used %'] = UsedPercent\r\n| order by ['Used %'] desc",
+              "size": 0,
+              "title": "Devices with Low Storage",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {"columnMatch": "Free GB", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 50}},
+                  {"columnMatch": "Used %", "formatter": 8, "formatOptions": {"palette": "greenRed", "min": 85, "max": 100}}
+                ],
+                "filter": true
+              }
+            },
+            "name": "low-storage-table"
+          }
+        ]
       },
-      "customWidth": "20",
-      "name": "model-count"
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "Storage"
+      },
+      "name": "storage-group"
     },
     {
-      "type": 3,
+      "type": 12,
       "content": {
-        "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| distinct UserPrincipalName\n| count",
-        "size": 4,
-        "title": "Unique Users",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "tiles",
-        "tileSettings": {
-          "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "green"}},
-          "showBorder": false
-        }
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## User Analysis\nDevice distribution by user and identify users with multiple devices."
+            },
+            "name": "users-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize DeviceCount = count() by UserDisplayName\r\n| summarize \r\n    ['Total Users'] = count(),\r\n    ['Users with 1 Device'] = countif(DeviceCount == 1),\r\n    ['Users with 2 Devices'] = countif(DeviceCount == 2),\r\n    ['Users with 3+ Devices'] = countif(DeviceCount >= 3)",
+              "size": 4,
+              "title": "User Summary",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table"
+            },
+            "name": "user-summary"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize DeviceCount = count() by UserDisplayName\r\n| summarize Count = count() by DeviceCount\r\n| order by DeviceCount asc\r\n| project ['Devices per User'] = DeviceCount, ['User Count'] = Count",
+              "size": 0,
+              "title": "Devices per User Distribution",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "barchart"
+            },
+            "customWidth": "50",
+            "name": "devices-per-user"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize \r\n    DeviceCount = count(),\r\n    Devices = make_list(DeviceName)\r\n  by UserDisplayName\r\n| where DeviceCount >= 3\r\n| order by DeviceCount desc\r\n| take 20\r\n| project User = UserDisplayName, ['Device Count'] = DeviceCount, Devices = strcat_array(Devices, ', ')",
+              "size": 0,
+              "title": "Users with 3+ Devices",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {"columnMatch": "Device Count", "formatter": 4, "formatOptions": {"palette": "blue"}}
+                ],
+                "filter": true
+              }
+            },
+            "customWidth": "50",
+            "name": "multi-device-users"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "## Unassigned Devices\nDevices without an assigned user."
+            },
+            "name": "unassigned-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isempty(UserDisplayName) or UserDisplayName == ''\r\n| project \r\n    DeviceName,\r\n    OS = OperatingSystem,\r\n    Model,\r\n    Manufacturer,\r\n    OwnerType,\r\n    ComplianceState,\r\n    ['Enrolled'] = EnrolledDateTime\r\n| order by Enrolled desc",
+              "size": 0,
+              "title": "Devices Without Assigned User",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {"columnMatch": "ComplianceState", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "compliant", "representation": "success", "text": "{0}"}, {"operator": "==", "thresholdValue": "noncompliant", "representation": "failed", "text": "{0}"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}},
+                  {"columnMatch": "Enrolled", "formatter": 6}
+                ],
+                "filter": true
+              }
+            },
+            "name": "unassigned-devices"
+          }
+        ]
       },
-      "customWidth": "20",
-      "name": "user-count"
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "Users"
+      },
+      "name": "users-group"
     },
     {
-      "type": 1,
+      "type": 12,
       "content": {
-        "json": "## Hardware Distribution"
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## Full Device Inventory\nComplete list of all managed devices with full details."
+            },
+            "name": "inventory-header"
+          },
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "device-search",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "DeviceSearch",
+                  "type": 1,
+                  "label": "Search Device Name",
+                  "value": ""
+                }
+              ],
+              "style": "above",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "name": "inventory-search"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isempty('{DeviceSearch}') or DeviceName contains '{DeviceSearch}'\r\n| project \r\n    DeviceName,\r\n    User = UserDisplayName,\r\n    OS = OperatingSystem,\r\n    ['OS Version'] = OSVersion,\r\n    Manufacturer,\r\n    Model,\r\n    ComplianceState,\r\n    IsEncrypted,\r\n    OwnerType,\r\n    ['Total GB'] = round(TotalStorageGB, 1),\r\n    ['Free GB'] = round(FreeStorageGB, 1),\r\n    ['Last Sync'] = LastSyncDateTime,\r\n    ['Enrolled'] = EnrolledDateTime,\r\n    DeviceId\r\n| order by DeviceName asc",
+              "size": 0,
+              "showExportToExcel": true,
+              "title": "Complete Device Inventory",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {"columnMatch": "ComplianceState", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "compliant", "representation": "success", "text": "{0}"}, {"operator": "==", "thresholdValue": "noncompliant", "representation": "failed", "text": "{0}"}, {"operator": "==", "thresholdValue": "inGracePeriod", "representation": "pending", "text": "{0}"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}},
+                  {"columnMatch": "IsEncrypted", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "true", "representation": "success", "text": "Yes"}, {"operator": "==", "thresholdValue": "false", "representation": "failed", "text": "No"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}},
+                  {"columnMatch": "OwnerType", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "company", "representation": "1", "text": "Corporate"}, {"operator": "==", "thresholdValue": "personal", "representation": "2", "text": "Personal"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}},
+                  {"columnMatch": "Last Sync", "formatter": 6},
+                  {"columnMatch": "Enrolled", "formatter": 6},
+                  {"columnMatch": "DeviceId", "formatter": 5}
+                ],
+                "filter": true,
+                "sortBy": [{"itemKey": "DeviceName", "sortOrder": 1}]
+              }
+            },
+            "name": "full-inventory"
+          }
+        ]
       },
-      "name": "hardware-header"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| summarize Count = count() by Manufacturer\n| order by Count desc\n| take 10",
-        "size": 2,
-        "title": "Devices by Manufacturer",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "piechart"
+      "conditionalVisibility": {
+        "parameterName": "Tab",
+        "comparison": "isEqualTo",
+        "value": "Inventory"
       },
-      "customWidth": "33",
-      "name": "by-manufacturer"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| summarize Count = count() by OperatingSystem\n| order by Count desc",
-        "size": 2,
-        "title": "Devices by OS",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "piechart"
-      },
-      "customWidth": "33",
-      "name": "by-os"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| summarize Count = count() by ComplianceState\n| order by Count desc",
-        "size": 2,
-        "title": "Compliance Status",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "piechart"
-      },
-      "customWidth": "34",
-      "name": "by-compliance"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| summarize Count = count() by Model\n| order by Count desc\n| take 15",
-        "size": 0,
-        "title": "Top 15 Device Models",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "barchart"
-      },
-      "name": "top-models"
-    },
-    {
-      "type": 1,
-      "content": {
-        "json": "## OS Version Analysis"
-      },
-      "name": "os-header"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| summarize Count = count() by OperatingSystem, OSVersion\n| order by OperatingSystem asc, Count desc",
-        "size": 0,
-        "title": "OS Version Distribution",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "table",
-        "gridSettings": {
-          "formatters": [
-            {"columnMatch": "Count", "formatter": 8, "formatOptions": {"palette": "blue"}}
-          ]
-        }
-      },
-      "customWidth": "50",
-      "name": "os-versions"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| summarize \n    Total = count(),\n    Encrypted = countif(IsEncrypted == 'true' or IsEncrypted == 'True'),\n    NotEncrypted = countif(IsEncrypted == 'false' or IsEncrypted == 'False' or isnull(IsEncrypted))\n    by OperatingSystem\n| extend EncryptionRate = round(100.0 * Encrypted / Total, 1)\n| project OperatingSystem, Total, Encrypted, NotEncrypted, EncryptionRate\n| order by Total desc",
-        "size": 0,
-        "title": "Encryption by OS",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "table",
-        "gridSettings": {
-          "formatters": [
-            {"columnMatch": "EncryptionRate", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
-            {"columnMatch": "NotEncrypted", "formatter": 8, "formatOptions": {"palette": "red"}}
-          ]
-        }
-      },
-      "customWidth": "50",
-      "name": "encryption-by-os"
-    },
-    {
-      "type": 1,
-      "content": {
-        "json": "## Full Device Inventory"
-      },
-      "name": "inventory-header"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| project DeviceName, UserDisplayName, UserPrincipalName, OperatingSystem, OSVersion, Model, Manufacturer, ComplianceState, IsEncrypted, EnrolledDateTime, LastSyncDateTime\n| order by LastSyncDateTime desc",
-        "size": 0,
-        "title": "All Devices",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "visualization": "table",
-        "gridSettings": {
-          "formatters": [
-            {"columnMatch": "ComplianceState", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "compliant", "representation": "success", "text": "{0}"}, {"operator": "==", "thresholdValue": "noncompliant", "representation": "failed", "text": "{0}"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}},
-            {"columnMatch": "IsEncrypted", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "true", "representation": "success", "text": "Yes"}, {"operator": "==", "thresholdValue": "True", "representation": "success", "text": "Yes"}, {"operator": "==", "thresholdValue": "false", "representation": "failed", "text": "No"}, {"operator": "==", "thresholdValue": "False", "representation": "failed", "text": "No"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}}
-          ],
-          "filter": true,
-          "sortBy": [{"itemKey": "LastSyncDateTime", "sortOrder": 2}]
-        }
-      },
-      "name": "full-inventory"
+      "name": "inventory-group"
     }
   ],
-  "isLocked": false,
+  "fallbackResourceIds": [],
   "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
 }
