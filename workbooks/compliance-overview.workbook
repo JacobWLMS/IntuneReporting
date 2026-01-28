@@ -15,12 +15,15 @@
         "parameters": [
           {
             "id": "time-range",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
             "type": 4,
+            "isRequired": true,
             "typeSettings": {
               "selectableValues": [
-                {"durationMs": 86400000, "displayName": "Last 24 hours"},
-                {"durationMs": 604800000, "displayName": "Last 7 days"},
-                {"durationMs": 2592000000, "displayName": "Last 30 days"}
+                {"durationMs": 86400000},
+                {"durationMs": 604800000},
+                {"durationMs": 2592000000}
               ],
               "allowCustom": true
             },
@@ -29,18 +32,28 @@
           },
           {
             "id": "os-filter",
+            "version": "KqlParameterItem/1.0",
+            "name": "OSFilter",
             "type": 2,
-            "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| distinct OperatingSystem\n| order by OperatingSystem asc",
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "IntuneDevices_CL\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| distinct OperatingSystem\n| order by OperatingSystem asc",
             "typeSettings": {
               "additionalResourceOptions": ["value::all"],
               "showDefault": false
             },
+            "defaultValue": "value::all",
             "queryType": 0,
             "resourceType": "microsoft.operationalinsights/workspaces",
             "label": "Operating System",
-            "value": "value::all"
+            "value": ["value::all"]
           }
-        ]
+        ],
+        "style": "pills",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
       },
       "name": "parameters"
     },
@@ -55,7 +68,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| summarize \n    Total = count(),\n    Compliant = countif(ComplianceState == 'compliant'),\n    NonCompliant = countif(ComplianceState == 'noncompliant')\n| extend ComplianceRate = round(100.0 * Compliant / Total, 1)\n| project strcat(ComplianceRate, '%')",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter})\n| summarize \n    Total = count(),\n    Compliant = countif(ComplianceState == 'compliant'),\n    NonCompliant = countif(ComplianceState == 'noncompliant')\n| extend ComplianceRate = round(100.0 * Compliant / Total, 1)\n| project strcat(ComplianceRate, '%')",
         "size": 4,
         "title": "Compliance Rate",
         "queryType": 0,
@@ -73,7 +86,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| where ComplianceState == 'compliant'\n| count",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter})\n| where ComplianceState == 'compliant'\n| count",
         "size": 4,
         "title": "Compliant Devices",
         "queryType": 0,
@@ -91,7 +104,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| where ComplianceState == 'noncompliant'\n| count",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter})\n| where ComplianceState == 'noncompliant'\n| count",
         "size": 4,
         "title": "Non-Compliant Devices",
         "queryType": 0,
@@ -109,7 +122,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneCompliancePolicies_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by PolicyId\n| count",
+        "query": "IntuneCompliancePolicies_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by PolicyId\n| count",
         "size": 4,
         "title": "Active Policies",
         "queryType": 0,
@@ -134,7 +147,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| summarize \n    Total = dcount(DeviceId),\n    Compliant = dcountif(DeviceId, ComplianceState == 'compliant')\n    by bin(TimeGenerated, 1d)\n| extend ComplianceRate = round(100.0 * Compliant / Total, 1)\n| project TimeGenerated, ComplianceRate\n| order by TimeGenerated asc",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| where '{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter})\n| summarize \n    Total = dcount(DeviceId),\n    Compliant = dcountif(DeviceId, ComplianceState == 'compliant')\n    by bin(TimeGenerated, 1d)\n| extend ComplianceRate = round(100.0 * Compliant / Total, 1)\n| project TimeGenerated, ComplianceRate\n| order by TimeGenerated asc",
         "size": 0,
         "title": "Compliance Rate Over Time",
         "queryType": 0,
@@ -151,7 +164,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| summarize Count = count() by ComplianceState\n| order by Count desc",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter})\n| summarize Count = count() by ComplianceState\n| order by Count desc",
         "size": 2,
         "title": "Compliance Status Distribution",
         "queryType": 0,
@@ -172,7 +185,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneComplianceStates_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId, PolicyId\n| where Status == 'noncompliant'\n| summarize NonCompliant = count() by PolicyName\n| order by NonCompliant desc\n| take 10",
+        "query": "IntuneComplianceStates_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId, PolicyId\n| where Status == 'noncompliant'\n| summarize NonCompliant = count() by PolicyName\n| order by NonCompliant desc\n| take 10",
         "size": 0,
         "title": "Top 10 Policies with Non-Compliant Devices",
         "queryType": 0,
@@ -189,7 +202,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| summarize \n    Total = count(), \n    Compliant = countif(ComplianceState == 'compliant'),\n    NonCompliant = countif(ComplianceState == 'noncompliant')\n    by OperatingSystem\n| extend Rate = round(100.0 * Compliant / Total, 1)\n| project OperatingSystem, Compliant, NonCompliant, Total, Rate\n| order by Total desc",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where '{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter})\n| summarize \n    Total = count(), \n    Compliant = countif(ComplianceState == 'compliant'),\n    NonCompliant = countif(ComplianceState == 'noncompliant')\n    by OperatingSystem\n| extend Rate = round(100.0 * Compliant / Total, 1)\n| project OperatingSystem, Compliant, NonCompliant, Total, Rate\n| order by Total desc",
         "size": 0,
         "title": "Compliance by Operating System",
         "queryType": 0,
@@ -216,7 +229,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneComplianceStates_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId, PolicyId\n| where Status == 'noncompliant'\n| join kind=leftouter (\n    IntuneDevices_CL\n    | where TimeGenerated {time-range}\n    | summarize arg_max(TimeGenerated, *) by DeviceId\n    | project DeviceId, OperatingSystem\n) on DeviceId\n| where '{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}'\n| project DeviceName, UserPrincipalName, PolicyName, FailedSettingCount, OperatingSystem, TimeGenerated\n| order by FailedSettingCount desc, TimeGenerated desc\n| take 50",
+        "query": "IntuneComplianceStates_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId, PolicyId\n| where Status == 'noncompliant'\n| join kind=leftouter (\n    IntuneDevices_CL\n    | where TimeGenerated {TimeRange}\n    | summarize arg_max(TimeGenerated, *) by DeviceId\n    | project DeviceId, OperatingSystem\n) on DeviceId\n| where '{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter})\n| project DeviceName, UserPrincipalName, PolicyName, FailedSettingCount, OperatingSystem, TimeGenerated\n| order by FailedSettingCount desc, TimeGenerated desc\n| take 50",
         "size": 0,
         "title": "Non-Compliant Devices (Top 50)",
         "queryType": 0,
@@ -235,7 +248,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneCompliancePolicies_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by PolicyId\n| project PolicyName = DisplayName, Description, Platform = Platforms, CreatedDateTime, LastModifiedDateTime\n| order by PolicyName asc",
+        "query": "IntuneCompliancePolicies_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by PolicyId\n| project PolicyName, Description, PolicyType, CreatedDateTime, LastModifiedDateTime\n| order by PolicyName asc",
         "size": 0,
         "title": "All Compliance Policies",
         "queryType": 0,

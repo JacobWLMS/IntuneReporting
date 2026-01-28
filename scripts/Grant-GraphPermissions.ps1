@@ -61,7 +61,7 @@ $RequiredPermissions = @(
     },
     @{
         Name = "DeviceManagementConfiguration.Read.All"
-        Id = "dc377aa6-52d8-4e23-b271-2a7ae6b159e6"
+        Id = "5ac13192-7ace-4fcf-b828-1a26f28068ee"
         Description = "Read Intune compliance policies and endpoint analytics"
     },
     @{

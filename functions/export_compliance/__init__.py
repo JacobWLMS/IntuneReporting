@@ -49,18 +49,21 @@ def parse_report_response(response) -> tuple:
     if isinstance(response, bytes):
         try:
             data = json.loads(response.decode('utf-8'))
-            # Schema can be list of strings or list of dicts with 'name' key
+            # Schema is list of dicts with 'Column' key (Graph Reports API format)
             schema = data.get('Schema', [])
             columns = []
             for col in schema:
                 if isinstance(col, dict):
-                    columns.append(col.get('name', col.get('Name', str(col))))
+                    # Graph Reports API uses 'Column' key for column name
+                    columns.append(col.get('Column', col.get('name', col.get('Name', str(col)))))
                 else:
                     columns.append(str(col))
             
             rows = [dict(zip(columns, row)) for row in data.get('Values', [])]
             total = data.get('TotalRowCount', len(rows))
-            logger.info(f"Parsed report: {len(rows)} rows, columns: {columns[:5]}...")
+            logger.info(f"Parsed report: {len(rows)} rows, columns: {columns}")
+            if rows:
+                logger.info(f"Sample row keys: {list(rows[0].keys())}")
             return rows, total
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
             logger.error(f"Failed to parse bytes response: {e}")
@@ -95,17 +98,27 @@ async def get_compliance_states(graph_client, policy_id: str, policy_name: str) 
         rows, total = parse_report_response(response)
 
         for row in rows:
+            # PolicyStatus comes as int from API (not Status)
+            status_raw = row.get('PolicyStatus')
+            try:
+                status_int = int(status_raw) if status_raw is not None else None
+            except (ValueError, TypeError):
+                status_int = None
+            
+            # Use PolicyStatus_loc for human-readable status if available
+            status_text = row.get('PolicyStatus_loc', STATUS_MAP.get(status_int, 'unknown'))
+            
             states.append({
                 'DeviceId': row.get('DeviceId'),
                 'DeviceName': row.get('DeviceName'),
                 'UserId': row.get('UserId'),
                 'UserPrincipalName': row.get('UPN'),
                 'PolicyId': row.get('PolicyId'),
-                'PolicyName': row.get('PolicyName'),
-                'Status': STATUS_MAP.get(row.get('Status'), 'unknown'),
-                'StatusRaw': row.get('Status'),
-                'SettingCount': row.get('SettingCount'),
-                'FailedSettingCount': row.get('FailedSettingCount'),
+                'PolicyName': policy_name,  # Use passed-in policy name since API doesn't return it
+                'Status': status_text.lower() if status_text else 'unknown',
+                'StatusRaw': status_int,
+                'SettingCount': None,  # Not returned by this API
+                'FailedSettingCount': None,  # Not returned by this API  
                 'LastContact': row.get('LastContact'),
             })
 
@@ -136,6 +149,11 @@ async def run():
         all_states.extend(states)
 
     all_states = add_metadata(all_states, 'IntuneComplianceExport')
+    
+    # Debug: log sample record before ingestion
+    if all_states:
+        logger.info(f"Sample compliance state record: {all_states[0]}")
+    
     count = ingester.ingest('DeviceComplianceStates', all_states)
 
     logger.info(f"Export completed: {len(policies)} policies, {count} states")

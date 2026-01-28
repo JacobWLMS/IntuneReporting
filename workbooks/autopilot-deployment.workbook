@@ -15,19 +15,25 @@
         "parameters": [
           {
             "id": "time-range",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
             "type": 4,
+            "isRequired": true,
             "typeSettings": {
               "selectableValues": [
-                {"durationMs": 86400000, "displayName": "Last 24 hours"},
-                {"durationMs": 604800000, "displayName": "Last 7 days"},
-                {"durationMs": 2592000000, "displayName": "Last 30 days"}
+                {"durationMs": 86400000},
+                {"durationMs": 604800000},
+                {"durationMs": 2592000000}
               ],
               "allowCustom": true
             },
             "label": "Time Range",
             "value": {"durationMs": 604800000}
           }
-        ]
+        ],
+        "style": "pills",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
       },
       "name": "parameters"
     },

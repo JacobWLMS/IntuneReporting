@@ -15,12 +15,15 @@
         "parameters": [
           {
             "id": "time-range",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
             "type": 4,
+            "isRequired": true,
             "typeSettings": {
               "selectableValues": [
-                {"durationMs": 86400000, "displayName": "Last 24 hours"},
-                {"durationMs": 604800000, "displayName": "Last 7 days"},
-                {"durationMs": 2592000000, "displayName": "Last 30 days"}
+                {"durationMs": 86400000},
+                {"durationMs": 604800000},
+                {"durationMs": 2592000000}
               ],
               "allowCustom": true
             },
@@ -29,44 +32,68 @@
           },
           {
             "id": "os-filter",
+            "version": "KqlParameterItem/1.0",
+            "name": "OSFilter",
             "type": 2,
-            "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| distinct OperatingSystem\n| order by OperatingSystem asc",
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "IntuneDevices_CL\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| distinct OperatingSystem\n| order by OperatingSystem asc",
             "typeSettings": {
               "additionalResourceOptions": ["value::all"],
               "showDefault": false
             },
+            "defaultValue": "value::all",
             "queryType": 0,
             "resourceType": "microsoft.operationalinsights/workspaces",
             "label": "Operating System",
-            "value": "value::all"
+            "value": ["value::all"]
           },
           {
             "id": "compliance-filter",
+            "version": "KqlParameterItem/1.0",
+            "name": "ComplianceFilter",
             "type": 2,
-            "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| distinct ComplianceState\n| order by ComplianceState asc",
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "IntuneDevices_CL\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| distinct ComplianceState\n| order by ComplianceState asc",
             "typeSettings": {
               "additionalResourceOptions": ["value::all"],
               "showDefault": false
             },
+            "defaultValue": "value::all",
             "queryType": 0,
             "resourceType": "microsoft.operationalinsights/workspaces",
             "label": "Compliance",
-            "value": "value::all"
+            "value": ["value::all"]
           },
           {
             "id": "manufacturer-filter",
+            "version": "KqlParameterItem/1.0",
+            "name": "ManufacturerFilter",
             "type": 2,
-            "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| distinct Manufacturer\n| order by Manufacturer asc",
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "IntuneDevices_CL\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| distinct Manufacturer\n| order by Manufacturer asc",
             "typeSettings": {
               "additionalResourceOptions": ["value::all"],
               "showDefault": false
             },
+            "defaultValue": "value::all",
             "queryType": 0,
             "resourceType": "microsoft.operationalinsights/workspaces",
             "label": "Manufacturer",
-            "value": "value::all"
+            "value": ["value::all"]
           }
-        ]
+        ],
+        "style": "pills",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
       },
       "name": "parameters"
     },
@@ -81,7 +108,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}')\n    and ('{compliance-filter}' == 'value::all' or ComplianceState == '{compliance-filter}')\n    and ('{manufacturer-filter}' == 'value::all' or Manufacturer == '{manufacturer-filter}')\n| count",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| count",
         "size": 4,
         "title": "Total Devices",
         "queryType": 0,
@@ -99,7 +126,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}')\n    and ('{compliance-filter}' == 'value::all' or ComplianceState == '{compliance-filter}')\n    and ('{manufacturer-filter}' == 'value::all' or Manufacturer == '{manufacturer-filter}')\n| summarize Encrypted = countif(IsEncrypted == true), Total = count()\n| extend Rate = round(100.0 * Encrypted / Total, 1)\n| project strcat(Rate, '%')",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| summarize Encrypted = countif(IsEncrypted == 'true' or IsEncrypted == 'True'), Total = count()\n| extend Rate = round(100.0 * Encrypted / Total, 1)\n| project strcat(Rate, '%')",
         "size": 4,
         "title": "Encryption Rate",
         "queryType": 0,
@@ -117,7 +144,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}')\n    and ('{compliance-filter}' == 'value::all' or ComplianceState == '{compliance-filter}')\n    and ('{manufacturer-filter}' == 'value::all' or Manufacturer == '{manufacturer-filter}')\n| distinct Manufacturer\n| count",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| distinct Manufacturer\n| count",
         "size": 4,
         "title": "Manufacturers",
         "queryType": 0,
@@ -135,7 +162,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}')\n    and ('{compliance-filter}' == 'value::all' or ComplianceState == '{compliance-filter}')\n    and ('{manufacturer-filter}' == 'value::all' or Manufacturer == '{manufacturer-filter}')\n| distinct Model\n| count",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| distinct Model\n| count",
         "size": 4,
         "title": "Device Models",
         "queryType": 0,
@@ -153,7 +180,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}')\n    and ('{compliance-filter}' == 'value::all' or ComplianceState == '{compliance-filter}')\n    and ('{manufacturer-filter}' == 'value::all' or Manufacturer == '{manufacturer-filter}')\n| distinct UserPrincipalName\n| count",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| distinct UserPrincipalName\n| count",
         "size": 4,
         "title": "Unique Users",
         "queryType": 0,
@@ -178,7 +205,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}')\n    and ('{compliance-filter}' == 'value::all' or ComplianceState == '{compliance-filter}')\n    and ('{manufacturer-filter}' == 'value::all' or Manufacturer == '{manufacturer-filter}')\n| summarize Count = count() by Manufacturer\n| order by Count desc\n| take 10",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| summarize Count = count() by Manufacturer\n| order by Count desc\n| take 10",
         "size": 2,
         "title": "Devices by Manufacturer",
         "queryType": 0,
@@ -192,7 +219,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}')\n    and ('{compliance-filter}' == 'value::all' or ComplianceState == '{compliance-filter}')\n    and ('{manufacturer-filter}' == 'value::all' or Manufacturer == '{manufacturer-filter}')\n| summarize Count = count() by OperatingSystem\n| order by Count desc",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| summarize Count = count() by OperatingSystem\n| order by Count desc",
         "size": 2,
         "title": "Devices by OS",
         "queryType": 0,
@@ -206,7 +233,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}')\n    and ('{compliance-filter}' == 'value::all' or ComplianceState == '{compliance-filter}')\n    and ('{manufacturer-filter}' == 'value::all' or Manufacturer == '{manufacturer-filter}')\n| summarize Count = count() by ComplianceState\n| order by Count desc",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| summarize Count = count() by ComplianceState\n| order by Count desc",
         "size": 2,
         "title": "Compliance Status",
         "queryType": 0,
@@ -220,7 +247,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}')\n    and ('{compliance-filter}' == 'value::all' or ComplianceState == '{compliance-filter}')\n    and ('{manufacturer-filter}' == 'value::all' or Manufacturer == '{manufacturer-filter}')\n| summarize Count = count() by Model\n| order by Count desc\n| take 15",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| summarize Count = count() by Model\n| order by Count desc\n| take 15",
         "size": 0,
         "title": "Top 15 Device Models",
         "queryType": 0,
@@ -240,7 +267,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}')\n    and ('{compliance-filter}' == 'value::all' or ComplianceState == '{compliance-filter}')\n    and ('{manufacturer-filter}' == 'value::all' or Manufacturer == '{manufacturer-filter}')\n| summarize Count = count() by OperatingSystem, OSVersion\n| order by OperatingSystem asc, Count desc",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| summarize Count = count() by OperatingSystem, OSVersion\n| order by OperatingSystem asc, Count desc",
         "size": 0,
         "title": "OS Version Distribution",
         "queryType": 0,
@@ -259,7 +286,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}')\n    and ('{compliance-filter}' == 'value::all' or ComplianceState == '{compliance-filter}')\n    and ('{manufacturer-filter}' == 'value::all' or Manufacturer == '{manufacturer-filter}')\n| summarize \n    Total = count(),\n    Encrypted = countif(IsEncrypted == true),\n    NotEncrypted = countif(IsEncrypted == false or isnull(IsEncrypted))\n    by OperatingSystem\n| extend EncryptionRate = round(100.0 * Encrypted / Total, 1)\n| project OperatingSystem, Total, Encrypted, NotEncrypted, EncryptionRate\n| order by Total desc",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| summarize \n    Total = count(),\n    Encrypted = countif(IsEncrypted == 'true' or IsEncrypted == 'True'),\n    NotEncrypted = countif(IsEncrypted == 'false' or IsEncrypted == 'False' or isnull(IsEncrypted))\n    by OperatingSystem\n| extend EncryptionRate = round(100.0 * Encrypted / Total, 1)\n| project OperatingSystem, Total, Encrypted, NotEncrypted, EncryptionRate\n| order by Total desc",
         "size": 0,
         "title": "Encryption by OS",
         "queryType": 0,
@@ -286,7 +313,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "IntuneDevices_CL\n| where TimeGenerated {time-range}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{os-filter}' == 'value::all' or OperatingSystem == '{os-filter}')\n    and ('{compliance-filter}' == 'value::all' or ComplianceState == '{compliance-filter}')\n    and ('{manufacturer-filter}' == 'value::all' or Manufacturer == '{manufacturer-filter}')\n| project DeviceName, UserDisplayName, UserPrincipalName, OperatingSystem, OSVersion, Model, Manufacturer, ComplianceState, IsEncrypted, EnrolledDateTime, LastSyncDateTime\n| order by LastSyncDateTime desc",
+        "query": "IntuneDevices_CL\n| where TimeGenerated {TimeRange}\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ('{OSFilter:label}' == 'All' or OperatingSystem in ({OSFilter}))\n    and ('{ComplianceFilter:label}' == 'All' or ComplianceState in ({ComplianceFilter}))\n    and ('{ManufacturerFilter:label}' == 'All' or Manufacturer in ({ManufacturerFilter}))\n| project DeviceName, UserDisplayName, UserPrincipalName, OperatingSystem, OSVersion, Model, Manufacturer, ComplianceState, IsEncrypted, EnrolledDateTime, LastSyncDateTime\n| order by LastSyncDateTime desc",
         "size": 0,
         "title": "All Devices",
         "queryType": 0,
@@ -295,7 +322,7 @@
         "gridSettings": {
           "formatters": [
             {"columnMatch": "ComplianceState", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "compliant", "representation": "success", "text": "{0}"}, {"operator": "==", "thresholdValue": "noncompliant", "representation": "failed", "text": "{0}"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}},
-            {"columnMatch": "IsEncrypted", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "true", "representation": "success", "text": "Yes"}, {"operator": "==", "thresholdValue": "false", "representation": "failed", "text": "No"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}}
+            {"columnMatch": "IsEncrypted", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "true", "representation": "success", "text": "Yes"}, {"operator": "==", "thresholdValue": "True", "representation": "success", "text": "Yes"}, {"operator": "==", "thresholdValue": "false", "representation": "failed", "text": "No"}, {"operator": "==", "thresholdValue": "False", "representation": "failed", "text": "No"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}}
           ],
           "filter": true,
           "sortBy": [{"itemKey": "LastSyncDateTime", "sortOrder": 2}]
