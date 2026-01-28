@@ -3,17 +3,19 @@
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "python",
+    "PYTHON_VERSION": "3.11",
 
+    "USE_MANAGED_IDENTITY": "false",
     "AZURE_TENANT_ID": "<your-tenant-id>",
     "AZURE_CLIENT_ID": "<your-app-registration-client-id>",
     "AZURE_CLIENT_SECRET": "<your-app-registration-client-secret>",
 
     "ANALYTICS_BACKEND": "LogAnalytics",
 
-    "LOG_ANALYTICS_DCE": "https://<your-dce>.eastus-1.ingest.monitor.azure.com",
+    "LOG_ANALYTICS_DCE": "https://<your-dce>.uksouth-1.ingest.monitor.azure.com",
     "LOG_ANALYTICS_DCR_ID": "dcr-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 
-    "ADX_CLUSTER_URI": "https://<your-cluster>.eastus.kusto.windows.net",
+    "ADX_CLUSTER_URI": "https://<your-cluster>.uksouth.kusto.windows.net",
     "ADX_DATABASE": "IntuneAnalytics"
   }
 }

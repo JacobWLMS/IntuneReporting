@@ -7,9 +7,14 @@
     - Resource Group
     - Log Analytics Workspace with custom tables (30-day retention)
     - Data Collection Endpoint & Rule
-    - Function App (Flex Consumption - scales to zero)
-    - App Registration for Microsoft Graph access
+    - Function App (Flex Consumption - scales to zero) with Managed Identity
     - Azure Monitor Workbooks for visualization
+
+    Uses System-Assigned Managed Identity for:
+    - Microsoft Graph API access (Intune data)
+    - Log Analytics data ingestion (DCR)
+
+    No secrets or App Registrations required!
 
     Supports two modes:
     - Az PowerShell module (preferred, if installed)
@@ -19,10 +24,10 @@
     Naming prefix for resources (e.g., 'contoso-intune')
 
 .PARAMETER Location
-    Azure region (default: eastus)
+    Azure region (default: uksouth)
 
 .PARAMETER ResourceGroup
-    Resource group name (default: rg-{Name})
+    Resource group name (default: ancIntuneReporting-Dev)
 
 .PARAMETER SkipConfirmation
     Skip confirmation prompt
@@ -37,6 +42,12 @@
     Requires: Azure CLI OR Az PowerShell module, Azure Functions Core Tools
     Install Az module: Install-Module -Name Az -Scope CurrentUser -Force
     Install Azure CLI: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
+
+    Post-Deployment Requirements (require elevated permissions):
+    1. DCR Role: 'Monitoring Metrics Publisher' on the Data Collection Rule
+    2. Graph Permissions: Grant Graph API permissions to the Managed Identity
+
+    The summary will show the exact commands to run if these fail.
 #>
 
 [CmdletBinding()]
@@ -48,7 +59,7 @@ param(
     [string]$Location = "uksouth",
 
     [Parameter(Mandatory = $false)]
-    [string]$ResourceGroup,
+    [string]$ResourceGroup = "ancIntuneReporting-Dev",
 
     [Parameter(Mandatory = $false)]
     [switch]$SkipConfirmation
@@ -106,7 +117,15 @@ function Invoke-AzCli {
 
 function Get-AzureAccessToken {
     if ($script:UseAzModule) {
-        return (Get-AzAccessToken -ResourceUrl "https://management.azure.com").Token
+        $tokenObj = Get-AzAccessToken -ResourceUrl "https://management.azure.com"
+        # Handle both old (string) and new (SecureString) Az module versions
+        if ($tokenObj.Token -is [System.Security.SecureString]) {
+            return [System.Runtime.InteropServices.Marshal]::PtrToStringAuto(
+                [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($tokenObj.Token)
+            )
+        } else {
+            return $tokenObj.Token
+        }
     } else {
         $tokenResult = Invoke-AzCli "account get-access-token --resource https://management.azure.com" -ReturnJson
         return $tokenResult.accessToken
@@ -226,18 +245,16 @@ function Get-Configuration {
     $script:LogAnalyticsName = "$($script:NamePrefix)-law"
     $script:DceName = "$($script:NamePrefix)-dce"
     $script:DcrName = "$($script:NamePrefix)-dcr"
-    $script:AppRegistrationName = "$($script:NamePrefix)-app"
 
     Write-Host ""
     Write-Host "Resources to be created:"
     Write-Host "  Resource Group:     $($script:ResourceGroupName)"
     Write-Host "  Location:           $Location"
     Write-Host "  Storage Account:    $($script:StorageAccountName)"
-    Write-Host "  Function App:       $($script:FunctionAppName)"
+    Write-Host "  Function App:       $($script:FunctionAppName) (with Managed Identity)"
     Write-Host "  Log Analytics:      $($script:LogAnalyticsName)"
     Write-Host "  DCE:                $($script:DceName)"
     Write-Host "  DCR:                $($script:DcrName)"
-    Write-Host "  App Registration:   $($script:AppRegistrationName)"
     Write-Host ""
 
     if (-not $SkipConfirmation) {
@@ -411,29 +428,175 @@ function New-DataCollectionRule {
     $token = Get-AzureAccessToken
     $headers = @{ "Authorization" = "Bearer $token"; "Content-Type" = "application/json" }
 
-    $streams = @(
-        "IntuneDevices_CL",
-        "IntuneCompliancePolicies_CL",
-        "IntuneComplianceStates_CL",
-        "IntuneDeviceScores_CL",
-        "IntuneStartupPerformance_CL",
-        "IntuneAppReliability_CL",
-        "IntuneAutopilotDevices_CL",
-        "IntuneAutopilotProfiles_CL",
-        "IntuneSyncState_CL"
-    )
+    # Define complete schemas for each stream based on Python export fields
+    $streamSchemas = @{
+        "Custom-IntuneDevices_CL" = @(
+            @{name="TimeGenerated"; type="datetime"}
+            @{name="IngestionTime"; type="datetime"}
+            @{name="SourceSystem"; type="string"}
+            @{name="DeviceId"; type="string"}
+            @{name="DeviceName"; type="string"}
+            @{name="UserPrincipalName"; type="string"}
+            @{name="UserDisplayName"; type="string"}
+            @{name="OperatingSystem"; type="string"}
+            @{name="OSVersion"; type="string"}
+            @{name="ComplianceState"; type="string"}
+            @{name="ManagementState"; type="string"}
+            @{name="EnrolledDateTime"; type="datetime"}
+            @{name="LastSyncDateTime"; type="datetime"}
+            @{name="Manufacturer"; type="string"}
+            @{name="Model"; type="string"}
+            @{name="SerialNumber"; type="string"}
+            @{name="IMEI"; type="string"}
+            @{name="ManagementAgent"; type="string"}
+            @{name="OwnerType"; type="string"}
+            @{name="DeviceEnrollmentType"; type="string"}
+            @{name="EmailAddress"; type="string"}
+            @{name="AzureADRegistered"; type="boolean"}
+            @{name="AzureADDeviceId"; type="string"}
+            @{name="DeviceRegistrationState"; type="string"}
+            @{name="IsEncrypted"; type="boolean"}
+            @{name="IsSupervised"; type="boolean"}
+            @{name="JailBroken"; type="string"}
+            @{name="AutopilotEnrolled"; type="boolean"}
+            @{name="DeviceCategory"; type="string"}
+            @{name="TotalStorageGB"; type="real"}
+            @{name="FreeStorageGB"; type="real"}
+            @{name="PhysicalMemoryGB"; type="real"}
+            @{name="WiFiMacAddress"; type="string"}
+            @{name="EthernetMacAddress"; type="string"}
+        )
+        "Custom-IntuneCompliancePolicies_CL" = @(
+            @{name="TimeGenerated"; type="datetime"}
+            @{name="IngestionTime"; type="datetime"}
+            @{name="SourceSystem"; type="string"}
+            @{name="PolicyId"; type="string"}
+            @{name="PolicyName"; type="string"}
+            @{name="Description"; type="string"}
+            @{name="CreatedDateTime"; type="datetime"}
+            @{name="LastModifiedDateTime"; type="datetime"}
+            @{name="PolicyType"; type="string"}
+        )
+        "Custom-IntuneComplianceStates_CL" = @(
+            @{name="TimeGenerated"; type="datetime"}
+            @{name="IngestionTime"; type="datetime"}
+            @{name="SourceSystem"; type="string"}
+            @{name="DeviceId"; type="string"}
+            @{name="DeviceName"; type="string"}
+            @{name="UserId"; type="string"}
+            @{name="UserPrincipalName"; type="string"}
+            @{name="PolicyId"; type="string"}
+            @{name="PolicyName"; type="string"}
+            @{name="Status"; type="string"}
+            @{name="StatusRaw"; type="int"}
+            @{name="SettingCount"; type="int"}
+            @{name="FailedSettingCount"; type="int"}
+            @{name="LastContact"; type="datetime"}
+        )
+        "Custom-IntuneDeviceScores_CL" = @(
+            @{name="TimeGenerated"; type="datetime"}
+            @{name="IngestionTime"; type="datetime"}
+            @{name="SourceSystem"; type="string"}
+            @{name="DeviceId"; type="string"}
+            @{name="DeviceName"; type="string"}
+            @{name="Model"; type="string"}
+            @{name="Manufacturer"; type="string"}
+            @{name="HealthStatus"; type="string"}
+            @{name="EndpointAnalyticsScore"; type="real"}
+            @{name="StartupPerformanceScore"; type="real"}
+            @{name="AppReliabilityScore"; type="real"}
+            @{name="WorkFromAnywhereScore"; type="real"}
+            @{name="MeanResourceSpikeTimeScore"; type="real"}
+            @{name="BatteryHealthScore"; type="real"}
+        )
+        "Custom-IntuneStartupPerformance_CL" = @(
+            @{name="TimeGenerated"; type="datetime"}
+            @{name="IngestionTime"; type="datetime"}
+            @{name="SourceSystem"; type="string"}
+            @{name="DeviceId"; type="string"}
+            @{name="StartTime"; type="datetime"}
+            @{name="CoreBootTimeInMs"; type="int"}
+            @{name="GroupPolicyBootTimeInMs"; type="int"}
+            @{name="GroupPolicyLoginTimeInMs"; type="int"}
+            @{name="CoreLoginTimeInMs"; type="int"}
+            @{name="TotalBootTimeInMs"; type="int"}
+            @{name="TotalLoginTimeInMs"; type="int"}
+            @{name="IsFirstLogin"; type="boolean"}
+            @{name="IsFeatureUpdate"; type="boolean"}
+            @{name="OperatingSystemVersion"; type="string"}
+            @{name="RestartCategory"; type="string"}
+            @{name="RestartFaultBucket"; type="string"}
+        )
+        "Custom-IntuneAppReliability_CL" = @(
+            @{name="TimeGenerated"; type="datetime"}
+            @{name="IngestionTime"; type="datetime"}
+            @{name="SourceSystem"; type="string"}
+            @{name="AppName"; type="string"}
+            @{name="AppDisplayName"; type="string"}
+            @{name="AppPublisher"; type="string"}
+            @{name="ActiveDeviceCount"; type="int"}
+            @{name="AppCrashCount"; type="int"}
+            @{name="AppHangCount"; type="int"}
+            @{name="MeanTimeToFailureInMinutes"; type="int"}
+            @{name="AppHealthScore"; type="real"}
+            @{name="AppHealthStatus"; type="string"}
+        )
+        "Custom-IntuneAutopilotDevices_CL" = @(
+            @{name="TimeGenerated"; type="datetime"}
+            @{name="IngestionTime"; type="datetime"}
+            @{name="SourceSystem"; type="string"}
+            @{name="AutopilotDeviceId"; type="string"}
+            @{name="SerialNumber"; type="string"}
+            @{name="ProductKey"; type="string"}
+            @{name="Manufacturer"; type="string"}
+            @{name="Model"; type="string"}
+            @{name="GroupTag"; type="string"}
+            @{name="PurchaseOrderIdentifier"; type="string"}
+            @{name="EnrollmentState"; type="string"}
+            @{name="DeploymentProfileAssignmentStatus"; type="string"}
+            @{name="DeploymentProfileAssignedDateTime"; type="datetime"}
+            @{name="LastContactedDateTime"; type="datetime"}
+            @{name="AddressableUserName"; type="string"}
+            @{name="UserPrincipalName"; type="string"}
+            @{name="ResourceName"; type="string"}
+            @{name="AzureActiveDirectoryDeviceId"; type="string"}
+            @{name="ManagedDeviceId"; type="string"}
+            @{name="DisplayName"; type="string"}
+        )
+        "Custom-IntuneAutopilotProfiles_CL" = @(
+            @{name="TimeGenerated"; type="datetime"}
+            @{name="IngestionTime"; type="datetime"}
+            @{name="SourceSystem"; type="string"}
+            @{name="ProfileId"; type="string"}
+            @{name="DisplayName"; type="string"}
+            @{name="Description"; type="string"}
+            @{name="CreatedDateTime"; type="datetime"}
+            @{name="LastModifiedDateTime"; type="datetime"}
+            @{name="Language"; type="string"}
+            @{name="DeviceNameTemplate"; type="string"}
+            @{name="DeviceType"; type="string"}
+            @{name="EnableWhiteGlove"; type="boolean"}
+            @{name="ExtractHardwareHash"; type="boolean"}
+            @{name="OutOfBoxExperienceSettings"; type="string"}
+            @{name="ProfileType"; type="string"}
+        )
+        "Custom-IntuneSyncState_CL" = @(
+            @{name="TimeGenerated"; type="datetime"}
+            @{name="IngestionTime"; type="datetime"}
+            @{name="SourceSystem"; type="string"}
+            @{name="ExportType"; type="string"}
+            @{name="RecordCount"; type="int"}
+            @{name="DurationSeconds"; type="real"}
+            @{name="Status"; type="string"}
+        )
+    }
 
     $streamDeclarations = @{}
     $dataFlows = @()
 
-    foreach ($stream in $streams) {
-        $streamName = "Custom-$stream"
+    foreach ($streamName in $streamSchemas.Keys) {
         $streamDeclarations[$streamName] = @{
-            columns = @(
-                @{name="TimeGenerated"; type="datetime"}
-                @{name="IngestionTime"; type="datetime"}
-                @{name="SourceSystem"; type="string"}
-            )
+            columns = $streamSchemas[$streamName]
         }
         $dataFlows += @{
             streams = @($streamName)
@@ -487,111 +650,66 @@ function New-FunctionApp {
     $existing = Invoke-AzCli "functionapp show --resource-group $($script:ResourceGroupName) --name $($script:FunctionAppName)" -ReturnJson
     if ($existing) {
         Write-Log "Function App $($script:FunctionAppName) already exists" -Level WARN
-        return
-    }
-
-    # Create using az CLI (Az module doesn't support Flex Consumption yet)
-    try {
-        $null = Invoke-Expression "az functionapp create --resource-group $($script:ResourceGroupName) --flexconsumption-location $Location --runtime python --runtime-version 3.11 --name $($script:FunctionAppName) --storage-account $($script:StorageAccountName) --output none 2>&1"
-
-        if ($LASTEXITCODE -eq 0) {
-            Write-Log "Created Function App (Flex Consumption): $($script:FunctionAppName)" -Level SUCCESS
-            return
-        }
-    } catch { }
-
-    Write-Log "Flex Consumption not available, using legacy Consumption plan" -Level WARN
-    Invoke-AzCli "functionapp create --resource-group $($script:ResourceGroupName) --consumption-plan-location $Location --runtime python --runtime-version 3.11 --functions-version 4 --name $($script:FunctionAppName) --storage-account $($script:StorageAccountName) --os-type Linux --output none"
-    Write-Log "Created Function App (Consumption): $($script:FunctionAppName)" -Level SUCCESS
-}
-
-function New-AppRegistration {
-    Write-Log "Creating App Registration" -Level STEP
-
-    if ($script:UseAzModule) {
-        $existingApp = Get-AzADApplication -DisplayName $script:AppRegistrationName -ErrorAction SilentlyContinue
-
-        if ($existingApp) {
-            Write-Log "App Registration already exists" -Level WARN
-            $script:AppClientId = $existingApp.AppId
-        } else {
-            $app = New-AzADApplication -DisplayName $script:AppRegistrationName
-            $script:AppClientId = $app.AppId
-
-            # Create service principal
-            New-AzADServicePrincipal -ApplicationId $script:AppClientId | Out-Null
-            Write-Log "Created App Registration: $($script:AppRegistrationName)" -Level SUCCESS
-        }
-
-        # Create new secret
-        $secret = New-AzADAppCredential -ApplicationId $script:AppClientId -EndDate (Get-Date).AddYears(2)
-        $script:AppClientSecret = $secret.SecretText
     } else {
-        $existingApp = Invoke-AzCli "ad app list --display-name `"$($script:AppRegistrationName)`" --query `"[0]`"" -ReturnJson
+        # Create using az CLI (Az module doesn't support Flex Consumption yet)
+        try {
+            $null = Invoke-Expression "az functionapp create --resource-group $($script:ResourceGroupName) --flexconsumption-location $Location --runtime python --runtime-version 3.11 --name $($script:FunctionAppName) --storage-account $($script:StorageAccountName) --output none 2>&1"
 
-        if ($existingApp) {
-            Write-Log "App Registration already exists" -Level WARN
-            $script:AppClientId = $existingApp.appId
-        } else {
-            $app = Invoke-AzCli "ad app create --display-name `"$($script:AppRegistrationName)`"" -ReturnJson
-            $script:AppClientId = $app.appId
-
-            # Create service principal
-            Invoke-AzCli "ad sp create --id $($script:AppClientId) --output none"
-            Write-Log "Created App Registration: $($script:AppRegistrationName)" -Level SUCCESS
+            if ($LASTEXITCODE -eq 0) {
+                Write-Log "Created Function App (Flex Consumption): $($script:FunctionAppName)" -Level SUCCESS
+            } else {
+                throw "Flex consumption failed"
+            }
+        } catch {
+            Write-Log "Flex Consumption not available, using legacy Consumption plan" -Level WARN
+            Invoke-AzCli "functionapp create --resource-group $($script:ResourceGroupName) --consumption-plan-location $Location --runtime python --runtime-version 3.11 --functions-version 4 --name $($script:FunctionAppName) --storage-account $($script:StorageAccountName) --os-type Linux --output none"
+            Write-Log "Created Function App (Consumption): $($script:FunctionAppName)" -Level SUCCESS
         }
-
-        # Create new secret (2 years) - use direct az command to avoid stderr mixing
-        $endDate = (Get-Date).AddYears(2).ToString("yyyy-MM-dd")
-        $secretOutput = & az ad app credential reset --id $script:AppClientId --end-date $endDate --query password --output tsv 2>$null
-        $script:AppClientSecret = $secretOutput.Trim()
     }
 
-    Write-Log "Client ID: $($script:AppClientId)" -Level INFO
+    # Enable system-assigned managed identity
+    Write-Log "Enabling system-assigned managed identity" -Level INFO
+    if ($script:UseAzModule) {
+        $identity = Set-AzWebApp -ResourceGroupName $script:ResourceGroupName -Name $script:FunctionAppName -AssignIdentity $true
+        $script:FunctionAppPrincipalId = $identity.Identity.PrincipalId
+    } else {
+        $identityResult = Invoke-AzCli "functionapp identity assign --resource-group $($script:ResourceGroupName) --name $($script:FunctionAppName)" -ReturnJson
+        $script:FunctionAppPrincipalId = $identityResult.principalId
+    }
+
+    if ($script:FunctionAppPrincipalId) {
+        Write-Log "Managed Identity enabled (Principal ID: $($script:FunctionAppPrincipalId))" -Level SUCCESS
+    } else {
+        Write-Log "Failed to enable managed identity" -Level ERROR
+    }
 }
 
 function Grant-DcrPermissions {
-    Write-Log "Granting DCR Permissions" -Level STEP
+    Write-Log "DCR Permissions Required" -Level STEP
 
-    # Monitoring Metrics Publisher role
-    $roleDefId = "3913510d-42f4-4e42-8a64-420c390055eb"
+    # Don't attempt assignment - just track what's needed for summary
+    # Monitoring Metrics Publisher role ID: 3913510d-42f4-4e42-8a64-420c390055eb
+    Write-Log "DCR role assignment will be shown in summary" -Level INFO
+    $script:DcrRoleAssignmentNeeded = $true
+}
 
-    if ($script:UseAzModule) {
-        $sp = Get-AzADServicePrincipal -ApplicationId $script:AppClientId -ErrorAction SilentlyContinue
-        if (-not $sp) {
-            Write-Log "Could not find service principal, skipping DCR permission" -Level WARN
-            return
-        }
+function Grant-GraphPermissions {
+    Write-Log "Graph API Permissions Required" -Level STEP
 
-        try {
-            New-AzRoleAssignment -ObjectId $sp.Id -RoleDefinitionId $roleDefId -Scope $script:DcrResourceId -ErrorAction SilentlyContinue | Out-Null
-            Write-Log "Granted Monitoring Metrics Publisher role on DCR" -Level SUCCESS
-        } catch {
-            Write-Log "DCR permission may already exist" -Level WARN
-        }
-    } else {
-        $sp = Invoke-AzCli "ad sp show --id $($script:AppClientId)" -ReturnJson
-        if (-not $sp) {
-            Write-Log "Could not find service principal, skipping DCR permission" -Level WARN
-            return
-        }
-
-        try {
-            Invoke-AzCli "role assignment create --assignee-object-id $($sp.id) --role `"$roleDefId`" --scope `"$($script:DcrResourceId)`" --assignee-principal-type ServicePrincipal --output none"
-            Write-Log "Granted Monitoring Metrics Publisher role on DCR" -Level SUCCESS
-        } catch {
-            Write-Log "DCR permission may already exist" -Level WARN
-        }
-    }
+    # Don't attempt assignment - requires Global Admin or Privileged Role Admin
+    # Just track what's needed for summary
+    Write-Log "Graph API permissions will be shown in summary" -Level INFO
+    $script:GraphPermissionsNeeded = $true
 }
 
 function Set-FunctionAppConfiguration {
     Write-Log "Configuring Function App" -Level STEP
 
+    # Managed Identity is used for both Graph API and Log Analytics ingestion
+    # No secrets required!
     $settings = @{
+        "USE_MANAGED_IDENTITY" = "true"
         "AZURE_TENANT_ID" = $script:TenantId
-        "AZURE_CLIENT_ID" = $script:AppClientId
-        "AZURE_CLIENT_SECRET" = $script:AppClientSecret
         "ANALYTICS_BACKEND" = "LogAnalytics"
         "LOG_ANALYTICS_DCE" = $script:DceEndpoint
         "LOG_ANALYTICS_DCR_ID" = $script:DcrImmutableId
@@ -698,7 +816,25 @@ function Deploy-Workbooks {
 #endregion
 
 #region Summary
+function Get-FunctionKey {
+    # Get the function host key for API calls
+    try {
+        if ($script:UseAzModule) {
+            $keys = Invoke-AzResourceAction -ResourceGroupName $script:ResourceGroupName -ResourceType "Microsoft.Web/sites" -ResourceName $script:FunctionAppName -Action "host/default/listkeys" -ApiVersion "2022-03-01" -Force -ErrorAction SilentlyContinue
+            return $keys.functionKeys.default
+        } else {
+            $keysJson = Invoke-AzCli "functionapp keys list --name $($script:FunctionAppName) --resource-group $($script:ResourceGroupName)" -ReturnJson
+            return $keysJson.functionKeys.default
+        }
+    } catch {
+        return $null
+    }
+}
+
 function Show-Summary {
+    # Get function key for test URLs
+    $functionKey = Get-FunctionKey
+
     Write-Host ""
     Write-Host "==============================================" -ForegroundColor Green
     Write-Host "DEPLOYMENT COMPLETE" -ForegroundColor Green
@@ -706,30 +842,80 @@ function Show-Summary {
     Write-Host ""
     Write-Host "Resources created in: $($script:ResourceGroupName)"
     Write-Host ""
-    Write-Host "Function App:    https://$($script:FunctionAppName).azurewebsites.net"
-    Write-Host "Log Analytics:   $($script:LogAnalyticsName)"
+    Write-Host "Function App:     https://$($script:FunctionAppName).azurewebsites.net"
+    Write-Host "Log Analytics:    $($script:LogAnalyticsName)"
+    Write-Host "DCE Endpoint:     $($script:DceEndpoint)"
+    Write-Host "DCR Immutable ID: $($script:DcrImmutableId)"
     Write-Host ""
-    Write-Host "App Registration:"
-    Write-Host "  Name:          $($script:AppRegistrationName)"
-    Write-Host "  Client ID:     $($script:AppClientId)"
-    Write-Host "  Tenant ID:     $($script:TenantId)"
+    Write-Host "Managed Identity:"
+    Write-Host "  Principal ID:   $($script:FunctionAppPrincipalId)"
+    Write-Host "  Tenant ID:      $($script:TenantId)"
+
+    # Permission commands section
     Write-Host ""
-    Write-Host "IMPORTANT: Grant Microsoft Graph API permissions" -ForegroundColor Yellow
+    Write-Host "==============================================" -ForegroundColor Yellow
+    Write-Host "ACTION REQUIRED: Permission Assignments" -ForegroundColor Yellow
+    Write-Host "==============================================" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "1. Open Azure Portal > App Registrations > $($script:AppRegistrationName)"
-    Write-Host "2. Go to API Permissions > Add a permission > Microsoft Graph"
-    Write-Host "3. Select Application permissions and add:"
-    Write-Host "   - DeviceManagementManagedDevices.Read.All"
-    Write-Host "   - DeviceManagementConfiguration.Read.All"
-    Write-Host "   - DeviceManagementServiceConfig.Read.All"
-    Write-Host "4. Click 'Grant admin consent'"
+    Write-Host "The following commands require elevated permissions." -ForegroundColor Yellow
+    Write-Host "Ask someone with Owner/User Access Administrator (for DCR)" -ForegroundColor Yellow
+    Write-Host "and Global Admin or Privileged Role Admin (for Graph) to run:" -ForegroundColor Yellow
+
+    # DCR Role Assignment
     Write-Host ""
-    Write-Host "Quick link:"
-    Write-Host "https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/CallAnAPI/appId/$($script:AppClientId)"
+    Write-Host "1. DCR ROLE ASSIGNMENT (Log Analytics Ingestion)" -ForegroundColor Cyan
+    Write-Host "   Grants 'Monitoring Metrics Publisher' role to Managed Identity"
     Write-Host ""
-    Write-Host "Test endpoints:"
-    Write-Host "  Health:  https://$($script:FunctionAppName).azurewebsites.net/api/export/health"
-    Write-Host "  Test:    https://$($script:FunctionAppName).azurewebsites.net/api/export/test"
+    Write-Host "   az role assignment create ``" -ForegroundColor White
+    Write-Host "     --assignee-object-id `"$($script:FunctionAppPrincipalId)`" ``" -ForegroundColor White
+    Write-Host "     --assignee-principal-type ServicePrincipal ``" -ForegroundColor White
+    Write-Host "     --role `"Monitoring Metrics Publisher`" ``" -ForegroundColor White
+    Write-Host "     --scope `"$($script:DcrResourceId)`"" -ForegroundColor White
+
+    # Graph API Permissions
+    Write-Host ""
+    Write-Host "2. GRAPH API PERMISSIONS (Intune Data Access)" -ForegroundColor Cyan
+    Write-Host "   Grants Microsoft Graph permissions to Managed Identity"
+    Write-Host ""
+    Write-Host "   # Get Microsoft Graph service principal ID" -ForegroundColor Gray
+    Write-Host "   `$graphSpId = (az ad sp list --filter `"appId eq '00000003-0000-0000-c000-000000000000'`" --query `"[0].id`" -o tsv)" -ForegroundColor White
+    Write-Host ""
+    Write-Host "   # DeviceManagementManagedDevices.Read.All" -ForegroundColor Gray
+    Write-Host "   az rest --method POST ``" -ForegroundColor White
+    Write-Host "     --uri `"https://graph.microsoft.com/v1.0/servicePrincipals/$($script:FunctionAppPrincipalId)/appRoleAssignments`" ``" -ForegroundColor White
+    Write-Host "     --body `"{\`"principalId\`":\`"$($script:FunctionAppPrincipalId)\`",\`"resourceId\`":\`"`$graphSpId\`",\`"appRoleId\`":\`"dc377aa6-52d8-4e23-b271-2a7ae04cedf3\`"}`"" -ForegroundColor White
+    Write-Host ""
+    Write-Host "   # DeviceManagementConfiguration.Read.All" -ForegroundColor Gray
+    Write-Host "   az rest --method POST ``" -ForegroundColor White
+    Write-Host "     --uri `"https://graph.microsoft.com/v1.0/servicePrincipals/$($script:FunctionAppPrincipalId)/appRoleAssignments`" ``" -ForegroundColor White
+    Write-Host "     --body `"{\`"principalId\`":\`"$($script:FunctionAppPrincipalId)\`",\`"resourceId\`":\`"`$graphSpId\`",\`"appRoleId\`":\`"5ac13192-7ace-4fcf-b828-1a26f28068ee\`"}`"" -ForegroundColor White
+    Write-Host ""
+    Write-Host "   # DeviceManagementServiceConfig.Read.All" -ForegroundColor Gray
+    Write-Host "   az rest --method POST ``" -ForegroundColor White
+    Write-Host "     --uri `"https://graph.microsoft.com/v1.0/servicePrincipals/$($script:FunctionAppPrincipalId)/appRoleAssignments`" ``" -ForegroundColor White
+    Write-Host "     --body `"{\`"principalId\`":\`"$($script:FunctionAppPrincipalId)\`",\`"resourceId\`":\`"`$graphSpId\`",\`"appRoleId\`":\`"06a5fe6d-c49d-46a7-b082-56b1b14103c7\`"}`"" -ForegroundColor White
+
+    Write-Host ""
+    Write-Host "   Or use the helper script:" -ForegroundColor Gray
+    Write-Host "   .\\scripts\\Grant-GraphPermissions.ps1 -ServicePrincipalObjectId `"$($script:FunctionAppPrincipalId)`"" -ForegroundColor White
+
+    Write-Host ""
+    Write-Host "==============================================" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Test endpoints (after permissions are granted):"
+    if ($functionKey) {
+        Write-Host "  Function Key:  $functionKey" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  Health:  https://$($script:FunctionAppName).azurewebsites.net/api/export/health?code=$functionKey"
+        Write-Host "  Devices: https://$($script:FunctionAppName).azurewebsites.net/api/export/devices?code=$functionKey"
+        Write-Host "  Test:    https://$($script:FunctionAppName).azurewebsites.net/api/export/test?code=$functionKey"
+    } else {
+        Write-Host "  (Get function key from Azure Portal or run:)"
+        Write-Host "  az functionapp keys list --name $($script:FunctionAppName) --resource-group $($script:ResourceGroupName)"
+        Write-Host ""
+        Write-Host "  Health:  https://$($script:FunctionAppName).azurewebsites.net/api/export/health?code=<FUNCTION_KEY>"
+        Write-Host "  Devices: https://$($script:FunctionAppName).azurewebsites.net/api/export/devices?code=<FUNCTION_KEY>"
+    }
     Write-Host ""
     Write-Host "==============================================" -ForegroundColor Green
 }
@@ -751,8 +937,8 @@ New-CustomTables
 New-DataCollectionEndpoint
 New-DataCollectionRule
 New-FunctionApp
-New-AppRegistration
 Grant-DcrPermissions
+Grant-GraphPermissions
 Set-FunctionAppConfiguration
 Publish-FunctionCode
 Deploy-Workbooks

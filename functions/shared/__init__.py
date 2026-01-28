@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from io import StringIO
 from typing import List, Dict, Any, Optional
 
-from azure.identity import DefaultAzureCredential, ClientSecretCredential
+from azure.identity import DefaultAzureCredential, ClientSecretCredential, ManagedIdentityCredential
 from azure.monitor.ingestion import LogsIngestionClient
 from msgraph_beta import GraphServiceClient
 
@@ -51,21 +51,25 @@ def validate_config() -> Dict[str, Any]:
     tenant_id = os.environ.get('AZURE_TENANT_ID')
     client_id = os.environ.get('AZURE_CLIENT_ID')
     client_secret = os.environ.get('AZURE_CLIENT_SECRET')
+    use_managed_identity = os.environ.get('USE_MANAGED_IDENTITY', '').lower() in ('true', '1', 'yes')
 
-    if all([tenant_id, client_id, client_secret]):
+    if all([tenant_id, client_id, client_secret]) and not use_managed_identity:
         config['auth_method'] = 'client_secret'
         config['tenant_id'] = tenant_id
         config['client_id'] = client_id
-    elif any([tenant_id, client_id, client_secret]):
+    elif use_managed_identity or not any([client_id, client_secret]):
+        # Use managed identity if explicitly set or if no client credentials provided
+        config['auth_method'] = 'managed_identity'
+        if tenant_id:
+            config['tenant_id'] = tenant_id
+        warnings.append("Using managed identity - ensure Function App has required permissions")
+    else:
         # Partial config - probably an error
         missing = []
         if not tenant_id: missing.append('AZURE_TENANT_ID')
         if not client_id: missing.append('AZURE_CLIENT_ID')
         if not client_secret: missing.append('AZURE_CLIENT_SECRET')
         errors.append(f"Partial auth config - missing: {', '.join(missing)}")
-    else:
-        config['auth_method'] = 'managed_identity'
-        warnings.append("Using managed identity - ensure Function App has required permissions")
 
     # Check analytics backend
     backend = os.environ.get('ANALYTICS_BACKEND', 'LogAnalytics').upper()
@@ -214,7 +218,14 @@ class DataIngester:
 
     def __init__(self):
         self.backend = get_env('ANALYTICS_BACKEND', 'LogAnalytics').upper()
-        self.credential = get_credential()
+        
+        # Always use Managed Identity for DCR ingestion (even if App Reg is configured for Graph)
+        use_mi = get_env('USE_MANAGED_IDENTITY', '').lower() in ('true', '1', 'yes')
+        if use_mi:
+            logger.info("DataIngester: Using Managed Identity for DCR")
+            self.credential = ManagedIdentityCredential()
+        else:
+            self.credential = get_credential()
 
         if self.backend == 'LOGANALYTICS':
             self.dce = get_env('LOG_ANALYTICS_DCE')
