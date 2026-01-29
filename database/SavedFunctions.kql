@@ -1,0 +1,526 @@
+// ============================================================================
+// INTUNE REPORTING - SAVED FUNCTIONS AND QUERIES
+// ============================================================================
+// Reusable functions for Log Analytics dashboards, workbooks, and ad-hoc queries
+//
+// Tables:
+//   - IntuneDevices_CL (device inventory)
+//   - IntuneComplianceStates_CL (per-device per-policy compliance)
+//   - IntuneCompliancePolicies_CL (policy definitions)
+//   - IntuneDeviceScores_CL (Endpoint Analytics scores)
+//   - IntuneStartupPerformance_CL (boot/login times)
+//   - IntuneAppReliability_CL (app crash/hang data)
+//   - IntuneAutopilotDevices_CL (Autopilot registrations)
+//
+// StatusRaw Values (compliance):
+//   1 = Unknown, 2 = Compliant, 3 = InGracePeriod, 4 = NonCompliant,
+//   5 = Error, 6 = Conflict, 7 = NotApplicable
+//
+// WORKBOOK NOTE: Azure Workbooks can use these functions directly. However,
+// for time-filtered queries, workbooks should apply TimeRange BEFORE arg_max
+// for better performance:
+//   IntuneDevices_CL | where TimeGenerated {TimeRange} | summarize arg_max(...)
+// ============================================================================
+
+
+// ============================================================================
+// LATEST STATE HELPERS
+// ============================================================================
+// To save as functions in Log Analytics:
+// 1. Copy the query (without the comment)
+// 2. Go to Log Analytics > Logs > Save > Save as function
+// 3. Give it the function name shown
+// 4. Then use it like: LatestDevices | where OperatingSystem == "Windows"
+// ============================================================================
+
+// Function name: LatestDevices
+// Get latest device record per device
+IntuneDevices_CL
+| summarize arg_max(TimeGenerated, *) by DeviceId
+
+// Function name: LatestComplianceStates
+// Get latest compliance state per device per policy (includes StatusLabel)
+IntuneComplianceStates_CL
+| summarize arg_max(TimeGenerated, *) by DeviceId, PolicyId
+| extend StatusLabel = case(
+    StatusRaw == 1, 'Unknown',
+    StatusRaw == 2, 'Compliant',
+    StatusRaw == 3, 'InGracePeriod',
+    StatusRaw == 4, 'NonCompliant',
+    StatusRaw == 5, 'Error',
+    StatusRaw == 6, 'Conflict',
+    StatusRaw == 7, 'NotApplicable',
+    'Other')
+
+// Function name: LatestDeviceScores
+// Get latest Endpoint Analytics scores per device
+IntuneDeviceScores_CL
+| summarize arg_max(TimeGenerated, *) by DeviceId
+
+// Function name: LatestStartup
+// Get latest startup performance per device
+IntuneStartupPerformance_CL
+| summarize arg_max(TimeGenerated, *) by DeviceId
+
+// Function name: LatestAutopilot
+// Get latest Autopilot device records
+IntuneAutopilotDevices_CL
+| summarize arg_max(TimeGenerated, *) by AutopilotDeviceId
+
+// Function name: LatestAppReliability
+// Get latest app reliability per app
+IntuneAppReliability_CL
+| summarize arg_max(TimeGenerated, *) by AppName
+
+// Function name: LatestCompliancePolicies
+// Get latest compliance policy definitions
+IntuneCompliancePolicies_CL
+| summarize arg_max(TimeGenerated, *) by PolicyId
+
+// Function name: LatestAutopilotProfiles
+// Get latest Autopilot deployment profiles
+IntuneAutopilotProfiles_CL
+| summarize arg_max(TimeGenerated, *) by ProfileId
+
+
+// ============================================================================
+// DEVICE QUERIES
+// ============================================================================
+
+// Stale devices (not synced in X days) - change 30 to desired threshold
+LatestDevices
+| extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))
+| where LastSyncDaysAgo > 30
+| project DeviceName, UserPrincipalName, LastSyncDateTime, LastSyncDaysAgo, Model, OperatingSystem
+| order by LastSyncDaysAgo desc
+
+// Device count by OS
+LatestDevices
+| summarize Count = count() by OperatingSystem
+| order by Count desc
+
+// Device count by Model
+LatestDevices
+| summarize Count = count() by Manufacturer, Model
+| order by Count desc
+| take 20
+
+// Device sync freshness distribution
+LatestDevices
+| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)
+| extend SyncBucket = case(
+    DaysSinceSync <= 1, '0-1 days (Active)',
+    DaysSinceSync <= 7, '2-7 days',
+    DaysSinceSync <= 14, '8-14 days',
+    DaysSinceSync <= 30, '15-30 days',
+    '>30 days (Stale)')
+| summarize Count = count() by SyncBucket
+| order by SyncBucket asc
+
+// Devices by ownership type
+LatestDevices
+| summarize Count = count() by OwnerType
+| order by Count desc
+
+// Devices by enrollment age
+LatestDevices
+| extend EnrollmentAge = datetime_diff('month', now(), EnrolledDateTime)
+| extend AgeBucket = case(
+    EnrollmentAge <= 3, '0-3 months',
+    EnrollmentAge <= 6, '3-6 months',
+    EnrollmentAge <= 12, '6-12 months',
+    EnrollmentAge <= 24, '1-2 years',
+    EnrollmentAge <= 36, '2-3 years',
+    '>3 years')
+| summarize Count = count() by AgeBucket
+| order by AgeBucket asc
+
+// Encryption status summary
+LatestDevices
+| summarize 
+    Total = count(),
+    Encrypted = countif(IsEncrypted == true),
+    NotEncrypted = countif(IsEncrypted == false or isnull(IsEncrypted))
+| extend EncryptionRate = round(100.0 * Encrypted / Total, 1)
+
+
+// ============================================================================
+// COMPLIANCE QUERIES
+// ============================================================================
+
+// Overall compliance rate
+LatestDevices
+| summarize 
+    Total = count(), 
+    Compliant = countif(tolower(ComplianceState) == 'compliant')
+| extend ComplianceRate = round(100.0 * Compliant / Total, 1)
+
+// Compliance by policy
+LatestComplianceStates
+| summarize 
+    Compliant = countif(StatusRaw == 2),
+    NonCompliant = countif(StatusRaw == 4),
+    Error = countif(StatusRaw == 5),
+    InGracePeriod = countif(StatusRaw == 3),
+    Unknown = countif(StatusRaw == 1),
+    NotApplicable = countif(StatusRaw == 7),
+    Conflict = countif(StatusRaw == 6)
+    by PolicyName
+| extend Total = Compliant + NonCompliant + Error + InGracePeriod + Unknown + NotApplicable + Conflict
+| extend ComplianceRate = round(100.0 * Compliant / Total, 1)
+| project PolicyName, ComplianceRate, Compliant, NonCompliant, Error, InGracePeriod, Unknown, NotApplicable, Conflict, Total
+| order by ComplianceRate asc
+
+// Noncompliant devices with policy details
+LatestComplianceStates
+| where StatusLabel == 'NonCompliant'
+| project DeviceName, UserPrincipalName, PolicyName, FailedSettingCount, LastContact
+| order by FailedSettingCount desc
+
+// Compliance status distribution (pie chart)
+LatestComplianceStates
+| summarize Count = count() by StatusLabel
+| order by Count desc
+
+// Compliance trend (30 days)
+IntuneComplianceStates_CL
+| where TimeGenerated > ago(30d)
+| summarize arg_max(TimeGenerated, *) by DeviceId, PolicyId, bin(TimeGenerated, 1d)
+| summarize 
+    Compliant = countif(StatusRaw == 2),
+    NonCompliant = countif(StatusRaw == 4),
+    Total = count()
+    by Day = bin(TimeGenerated, 1d)
+| extend ComplianceRate = round(100.0 * Compliant / Total, 1)
+| order by Day asc
+
+// Devices with policy issues (count of non-compliant/error/unknown policies per device)
+LatestDevices
+| project DeviceId, DeviceName, UserPrincipalName, OperatingSystem, Model, ComplianceState
+| join kind=leftouter (
+    LatestComplianceStates
+    | where StatusRaw !in (2, 7)  // Not compliant or notApplicable
+    | summarize 
+        IssueCount = count(), 
+        PolicyNames = make_set(PolicyName),
+        StatusTypes = make_set(StatusLabel) 
+        by DeviceId
+) on DeviceId
+| extend IssueCount = coalesce(IssueCount, 0)
+| where IssueCount > 0
+| extend PolicyList = strcat_array(PolicyNames, ', ')
+| project DeviceName, UserPrincipalName, OperatingSystem, ComplianceState, IssueCount, PolicyList
+| order by IssueCount desc
+
+// Risk level distribution (devices by policy failure count)
+LatestDevices
+| project DeviceId
+| join kind=leftouter (
+    LatestComplianceStates
+    | where StatusRaw !in (2, 7)
+    | summarize IssueCount = count() by DeviceId
+) on DeviceId
+| extend IssueCount = coalesce(IssueCount, 0)
+| extend RiskLevel = case(
+    IssueCount == 0, 'No Issues',
+    IssueCount == 1, 'Low Risk (1 issue)',
+    IssueCount <= 3, 'Medium Risk (2-3 issues)',
+    'High Risk (4+ issues)')
+| summarize Count = count() by RiskLevel
+| order by Count desc
+
+// Users with noncompliant devices
+LatestDevices
+| where isnotempty(UserPrincipalName)
+| summarize 
+    TotalDevices = count(),
+    NonCompliantDevices = countif(tolower(ComplianceState) == 'noncompliant'),
+    DeviceList = make_set(DeviceName)
+    by UserPrincipalName, UserDisplayName
+| where NonCompliantDevices > 0
+| extend DeviceNames = strcat_array(DeviceList, ', ')
+| project UserPrincipalName, UserDisplayName, NonCompliantDevices, TotalDevices, DeviceNames
+| order by NonCompliantDevices desc
+| take 20
+
+
+// ============================================================================
+// ENDPOINT ANALYTICS QUERIES
+// ============================================================================
+
+// Devices with poor health scores
+LatestDevices
+| project DeviceId, DeviceName, Model, Manufacturer
+| join kind=leftouter (LatestDeviceScores) on DeviceId
+| where EndpointAnalyticsScore < 50
+| project DeviceName, Model, Manufacturer, EndpointAnalyticsScore, 
+          StartupPerformanceScore, AppReliabilityScore, HealthStatus
+| order by EndpointAnalyticsScore asc
+
+// Score distribution by health status
+LatestDeviceScores
+| summarize Count = count() by HealthStatus
+| order by Count desc
+
+// Score distribution by bucket
+LatestDeviceScores
+| extend ScoreBucket = case(
+    EndpointAnalyticsScore >= 80, '80-100 Excellent',
+    EndpointAnalyticsScore >= 60, '60-79 Good',
+    EndpointAnalyticsScore >= 40, '40-59 Fair',
+    EndpointAnalyticsScore >= 20, '20-39 Poor',
+    '0-19 Critical')
+| summarize Count = count() by ScoreBucket
+| order by ScoreBucket asc
+
+// Average scores by model
+LatestDevices
+| project DeviceId, Model, Manufacturer
+| join kind=leftouter (LatestDeviceScores) on DeviceId
+| where isnotnull(EndpointAnalyticsScore)
+| summarize 
+    DeviceCount = count(),
+    AvgScore = round(avg(EndpointAnalyticsScore), 1),
+    AvgStartup = round(avg(StartupPerformanceScore), 1),
+    AvgAppReliability = round(avg(AppReliabilityScore), 1)
+    by Model, Manufacturer
+| where DeviceCount > 10
+| order by AvgScore asc
+
+// Average scores by manufacturer
+LatestDeviceScores
+| where isnotempty(Manufacturer)
+| summarize 
+    DeviceCount = count(),
+    AvgOverall = round(avg(EndpointAnalyticsScore), 1),
+    AvgStartup = round(avg(StartupPerformanceScore), 1),
+    AvgApp = round(avg(AppReliabilityScore), 1)
+    by Manufacturer
+| where DeviceCount > 5
+| order by AvgOverall desc
+
+// Score averages summary
+LatestDeviceScores
+| summarize 
+    AvgOverall = round(avg(EndpointAnalyticsScore), 1),
+    AvgStartup = round(avg(StartupPerformanceScore), 1),
+    AvgAppReliability = round(avg(AppReliabilityScore), 1),
+    AvgWorkAnywhere = round(avg(WorkFromAnywhereScore), 1),
+    DeviceCount = count()
+
+// Health score trends (7 days)
+IntuneDeviceScores_CL
+| where TimeGenerated > ago(7d)
+| summarize 
+    AvgEndpoint = round(avg(EndpointAnalyticsScore), 1),
+    AvgStartup = round(avg(StartupPerformanceScore), 1),
+    AvgAppReliability = round(avg(AppReliabilityScore), 1)
+    by bin(TimeGenerated, 1d)
+| order by TimeGenerated asc
+
+
+// ============================================================================
+// STARTUP PERFORMANCE QUERIES
+// ============================================================================
+
+// Slow boot devices (over 2 minutes)
+LatestDevices
+| project DeviceId, DeviceName, Model
+| join kind=leftouter (LatestStartup) on DeviceId
+| where TotalBootTimeInMs > 120000
+| extend TotalBootTimeSec = round(TotalBootTimeInMs / 1000.0, 0)
+| project DeviceName, Model, TotalBootTimeSec, 
+          CoreBootSec = round(CoreBootTimeInMs / 1000.0, 0),
+          GroupPolicySec = round(GroupPolicyBootTimeInMs / 1000.0, 0)
+| order by TotalBootTimeSec desc
+
+// Average boot time by model
+LatestDevices
+| project DeviceId, Model
+| join kind=leftouter (LatestStartup) on DeviceId
+| where isnotnull(TotalBootTimeInMs)
+| summarize 
+    DeviceCount = count(),
+    AvgBootTimeSec = round(avg(TotalBootTimeInMs) / 1000.0, 0),
+    AvgLoginTimeSec = round(avg(TotalLoginTimeInMs) / 1000.0, 0)
+    by Model
+| where DeviceCount > 5
+| order by AvgBootTimeSec desc
+
+
+// ============================================================================
+// APP RELIABILITY QUERIES
+// ============================================================================
+
+// Top crashing apps
+LatestAppReliability
+| where AppCrashCount > 0
+| project AppDisplayName, AppPublisher, AppCrashCount, AppHangCount, 
+          ActiveDeviceCount, AppHealthScore
+| order by AppCrashCount desc
+| take 20
+
+// Apps with poor health
+LatestAppReliability
+| where AppHealthStatus == "needsAttention" or AppHealthScore < 50
+| project AppDisplayName, AppPublisher, AppHealthScore, AppHealthStatus,
+          AppCrashCount, AppHangCount, ActiveDeviceCount
+| order by AppHealthScore asc
+
+
+// ============================================================================
+// AUTOPILOT QUERIES
+// ============================================================================
+
+// Autopilot enrollment summary
+LatestAutopilot
+| summarize 
+    Total = count(),
+    Enrolled = countif(EnrollmentState == 'enrolled'),
+    Pending = countif(EnrollmentState in ('unknown', 'notContacted', 'pendingReset')),
+    Failed = countif(EnrollmentState == 'failed'),
+    Blocked = countif(EnrollmentState == 'blocked')
+| extend EnrollmentRate = round(100.0 * Enrolled / Total, 1)
+
+// Autopilot devices pending enrollment
+LatestAutopilot
+| where EnrollmentState != "enrolled"
+| project SerialNumber, Model, Manufacturer, GroupTag, EnrollmentState, 
+          DeploymentProfileAssignmentStatus, LastContactedDateTime
+
+// Autopilot enrollment failures
+LatestAutopilot
+| where EnrollmentState == 'failed' or DeploymentProfileAssignmentStatus == 'failed'
+| project SerialNumber, Manufacturer, Model, GroupTag, EnrollmentState, 
+          DeploymentProfileAssignmentStatus, LastContactedDateTime, UserPrincipalName
+| order by LastContactedDateTime desc
+
+// Autopilot devices by enrollment state
+LatestAutopilot
+| summarize Count = count() by EnrollmentState
+| order by Count desc
+
+// Autopilot devices by profile assignment status
+LatestAutopilot
+| summarize Count = count() by DeploymentProfileAssignmentStatus
+| order by Count desc
+
+// Autopilot devices by group tag
+LatestAutopilot
+| summarize 
+    Total = count(),
+    Enrolled = countif(EnrollmentState == 'enrolled'),
+    Pending = countif(EnrollmentState in ('unknown', 'notContacted', 'pendingReset')),
+    Failed = countif(EnrollmentState == 'failed')
+    by GroupTag = iff(isempty(GroupTag), '(No Tag)', GroupTag)
+| extend EnrollmentRate = round(100.0 * Enrolled / Total, 1)
+| order by Total desc
+
+// Autopilot devices by manufacturer
+LatestAutopilot
+| summarize Count = count() by Manufacturer
+| order by Count desc
+
+// Autopilot top models
+LatestAutopilot
+| summarize 
+    Count = count(),
+    Enrolled = countif(EnrollmentState == 'enrolled'),
+    Failed = countif(EnrollmentState == 'failed')
+    by Manufacturer, Model
+| extend EnrollmentRate = round(100.0 * Enrolled / Count, 1)
+| order by Count desc
+| take 15
+
+// Autopilot deployment profiles
+LatestAutopilotProfiles
+| project DisplayName, Description, DeviceNameTemplate, ProfileType, 
+          CreatedDateTime, LastModifiedDateTime
+| order by DisplayName asc
+
+
+// ============================================================================
+// CROSS-TABLE: DEVICES NEEDING ATTENTION
+// ============================================================================
+
+// Devices with multiple issues (noncompliant + poor score + stale)
+LatestDevices
+| extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))
+| join kind=leftouter (
+    LatestComplianceStates
+    | where StatusLabel == 'NonCompliant'
+    | summarize NonCompliantCount = count() by DeviceId
+) on DeviceId
+| join kind=leftouter (
+    LatestDeviceScores
+    | where EndpointAnalyticsScore < 50
+    | project DeviceId, EndpointAnalyticsScore
+) on DeviceId
+| where NonCompliantCount > 0 or EndpointAnalyticsScore < 50 or LastSyncDaysAgo > 14
+| project DeviceName, UserPrincipalName, Model,
+          NonCompliantPolicies = coalesce(NonCompliantCount, 0),
+          EndpointAnalyticsScore = coalesce(EndpointAnalyticsScore, -1.0),
+          LastSyncDaysAgo
+| order by NonCompliantPolicies desc, EndpointAnalyticsScore asc
+
+// Device health overview (combines device info with scores)
+LatestDevices
+| project DeviceId, DeviceName, UserPrincipalName, Model, Manufacturer, 
+          OperatingSystem, ComplianceState, LastSyncDateTime
+| join kind=leftouter (
+    LatestDeviceScores
+    | project DeviceId, EndpointAnalyticsScore, StartupPerformanceScore, 
+              AppReliabilityScore, HealthStatus
+) on DeviceId
+| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)
+| project DeviceName, UserPrincipalName, Model, OperatingSystem, ComplianceState,
+          EndpointAnalyticsScore, HealthStatus, DaysSinceSync
+| order by EndpointAnalyticsScore asc
+
+
+// ============================================================================
+// DATA QUALITY & DIAGNOSTICS
+// ============================================================================
+
+// Data freshness check
+union 
+    (IntuneDevices_CL | summarize LastRecord = max(TimeGenerated), RecordCount = count() | extend Table = 'IntuneDevices_CL'),
+    (IntuneComplianceStates_CL | summarize LastRecord = max(TimeGenerated), RecordCount = count() | extend Table = 'IntuneComplianceStates_CL'),
+    (IntuneCompliancePolicies_CL | summarize LastRecord = max(TimeGenerated), RecordCount = count() | extend Table = 'IntuneCompliancePolicies_CL'),
+    (IntuneDeviceScores_CL | summarize LastRecord = max(TimeGenerated), RecordCount = count() | extend Table = 'IntuneDeviceScores_CL'),
+    (IntuneStartupPerformance_CL | summarize LastRecord = max(TimeGenerated), RecordCount = count() | extend Table = 'IntuneStartupPerformance_CL'),
+    (IntuneAppReliability_CL | summarize LastRecord = max(TimeGenerated), RecordCount = count() | extend Table = 'IntuneAppReliability_CL'),
+    (IntuneAutopilotDevices_CL | summarize LastRecord = max(TimeGenerated), RecordCount = count() | extend Table = 'IntuneAutopilotDevices_CL')
+| project Table, LastRecord, AgeHours = round((now() - LastRecord) / 1h, 1), RecordCount
+| order by Table asc
+
+// Data coverage: devices with/without compliance state records
+let DevicesWithStates = IntuneComplianceStates_CL
+| summarize arg_max(TimeGenerated, *) by DeviceId
+| distinct DeviceId;
+LatestDevices
+| summarize 
+    TotalDevices = count(),
+    WithComplianceRecords = countif(DeviceId in (DevicesWithStates)),
+    WithoutComplianceRecords = countif(DeviceId !in (DevicesWithStates))
+
+// Devices without any compliance state records
+let DevicesWithStates = IntuneComplianceStates_CL
+| summarize arg_max(TimeGenerated, *) by DeviceId
+| distinct DeviceId;
+LatestDevices
+| where DeviceId !in (DevicesWithStates)
+| project DeviceName, UserPrincipalName, OperatingSystem, Model, 
+          ComplianceState, LastSyncDateTime, EnrolledDateTime
+| order by ComplianceState desc, DeviceName asc
+
+// Noncompliant devices with no policy failures (diagnostic)
+let DevicesWithPolicyFailures = LatestComplianceStates
+| where StatusRaw == 4
+| distinct DeviceId;
+LatestDevices
+| where tolower(ComplianceState) == 'noncompliant'
+| where DeviceId !in (DevicesWithPolicyFailures)
+| project DeviceName, UserPrincipalName, OperatingSystem, Model, 
+          ComplianceState, LastSyncDateTime
+| order by DeviceName asc
