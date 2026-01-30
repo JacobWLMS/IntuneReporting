@@ -4,7 +4,7 @@
     {
       "type": 1,
       "content": {
-        "json": "# 🏥 Device Health Dashboard\n---\nMonitor device health scores, sync status, startup performance, and app reliability.\n\n**Data Sources:**\n- **IntuneDevices_CL** - Device inventory and sync status\n- **IntuneDeviceScores_CL** - Endpoint Analytics health scores\n- **IntuneStartupPerformance_CL** - Boot and login performance metrics\n- **IntuneAppReliability_CL** - Application health and crash data"
+        "json": "# Device Health\n\nMonitor device health scores, sync status, startup performance, and application reliability."
       },
       "name": "header"
     },
@@ -30,14 +30,22 @@
             "isRequired": true,
             "typeSettings": {
               "selectableValues": [
-                {"durationMs": 86400000},
-                {"durationMs": 604800000},
-                {"durationMs": 2592000000}
+                {
+                  "durationMs": 86400000
+                },
+                {
+                  "durationMs": 604800000
+                },
+                {
+                  "durationMs": 2592000000
+                }
               ],
               "allowCustom": true
             },
             "label": "Time Range",
-            "value": {"durationMs": 604800000}
+            "value": {
+              "durationMs": 604800000
+            }
           },
           {
             "id": "os-filter",
@@ -50,14 +58,18 @@
             "delimiter": ",",
             "query": "IntuneDevices_CL\r\n| where TimeGenerated > ago(30d)\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| distinct OperatingSystem\r\n| where isnotempty(OperatingSystem)\r\n| order by OperatingSystem asc",
             "typeSettings": {
-              "additionalResourceOptions": ["value::all"],
+              "additionalResourceOptions": [
+                "value::all"
+              ],
               "showDefault": false
             },
             "defaultValue": "value::all",
             "queryType": 0,
             "resourceType": "microsoft.operationalinsights/workspaces",
             "label": "Operating System",
-            "value": ["value::all"]
+            "value": [
+              "value::all"
+            ]
           }
         ],
         "style": "pills",
@@ -72,11 +84,46 @@
         "version": "LinkItem/1.0",
         "style": "tabs",
         "links": [
-          {"id": "overview-tab", "cellValue": "Tab", "linkTarget": "parameter", "linkLabel": "📊 Overview", "subTarget": "Overview", "style": "link"},
-          {"id": "health-tab", "cellValue": "Tab", "linkTarget": "parameter", "linkLabel": "💯 Health Scores", "subTarget": "HealthScores", "style": "link"},
-          {"id": "sync-tab", "cellValue": "Tab", "linkTarget": "parameter", "linkLabel": "🔄 Sync Status", "subTarget": "SyncStatus", "style": "link"},
-          {"id": "startup-tab", "cellValue": "Tab", "linkTarget": "parameter", "linkLabel": "🚀 Startup Performance", "subTarget": "Startup", "style": "link"},
-          {"id": "apps-tab", "cellValue": "Tab", "linkTarget": "parameter", "linkLabel": "📱 App Reliability", "subTarget": "Apps", "style": "link"}
+          {
+            "id": "overview-tab",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "Overview",
+            "subTarget": "Overview",
+            "style": "link"
+          },
+          {
+            "id": "health-tab",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "Health Scores",
+            "subTarget": "HealthScores",
+            "style": "link"
+          },
+          {
+            "id": "sync-tab",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "Sync Status",
+            "subTarget": "SyncStatus",
+            "style": "link"
+          },
+          {
+            "id": "startup-tab",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "Startup Performance",
+            "subTarget": "Startup",
+            "style": "link"
+          },
+          {
+            "id": "apps-tab",
+            "cellValue": "Tab",
+            "linkTarget": "parameter",
+            "linkLabel": "App Reliability",
+            "subTarget": "Apps",
+            "style": "link"
+          }
         ]
       },
       "name": "tabs"
@@ -88,13 +135,6 @@
         "groupType": "editable",
         "items": [
           {
-            "type": 1,
-            "content": {
-              "json": "## Key Metrics"
-            },
-            "name": "overview-header"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
@@ -103,10 +143,13 @@
               "title": "Total Devices",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
-              "visualization": "tiles",
-              "tileSettings": {
-                "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "blue"}},
-                "showBorder": false
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "blue"
+                }
               }
             },
             "customWidth": "20",
@@ -121,10 +164,26 @@
               "title": "Avg Health Score",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
-              "visualization": "tiles",
-              "tileSettings": {
-                "titleContent": {"columnMatch": "AvgScore", "formatter": 12, "formatOptions": {"palette": "greenRed"}},
-                "showBorder": false
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "AvgScore",
+                "colorSettings": {
+                  "mode": "thresholds",
+                  "thresholds": [
+                    {
+                      "value": 0,
+                      "color": "red"
+                    },
+                    {
+                      "value": 50,
+                      "color": "orange"
+                    },
+                    {
+                      "value": 70,
+                      "color": "green"
+                    }
+                  ]
+                }
               }
             },
             "customWidth": "20",
@@ -139,10 +198,13 @@
               "title": "Needs Attention",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
-              "visualization": "tiles",
-              "tileSettings": {
-                "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "red"}},
-                "showBorder": false
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "red"
+                }
               }
             },
             "customWidth": "20",
@@ -157,10 +219,13 @@
               "title": "Stale (>7 days)",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
-              "visualization": "tiles",
-              "tileSettings": {
-                "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "orange"}},
-                "showBorder": false
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "orange"
+                }
               }
             },
             "customWidth": "20",
@@ -175,39 +240,50 @@
               "title": "Active Today",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
-              "visualization": "tiles",
-              "tileSettings": {
-                "titleContent": {"columnMatch": "Count", "formatter": 12, "formatOptions": {"palette": "green"}},
-                "showBorder": false
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "green"
+                }
               }
             },
             "customWidth": "20",
             "name": "active-today"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "## Health Overview"
-            },
-            "name": "health-overview-header"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "IntuneDeviceScores_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| extend ScoreBucket = case(\r\n    EndpointAnalyticsScore >= 80, '80-100 Excellent',\r\n    EndpointAnalyticsScore >= 60, '60-79 Good',\r\n    EndpointAnalyticsScore >= 40, '40-59 Fair',\r\n    EndpointAnalyticsScore >= 20, '20-39 Poor',\r\n    '0-19 Critical')\r\n| summarize Count = count() by ScoreBucket\r\n| order by ScoreBucket asc",
-              "size": 2,
+              "size": 1,
               "title": "Health Score Distribution",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
               "visualization": "piechart",
               "chartSettings": {
                 "seriesLabelSettings": [
-                  {"seriesName": "80-100 Excellent", "color": "green"},
-                  {"seriesName": "60-79 Good", "color": "blue"},
-                  {"seriesName": "40-59 Fair", "color": "yellow"},
-                  {"seriesName": "20-39 Poor", "color": "orange"},
-                  {"seriesName": "0-19 Critical", "color": "red"}
+                  {
+                    "seriesName": "80-100 Excellent",
+                    "color": "green"
+                  },
+                  {
+                    "seriesName": "60-79 Good",
+                    "color": "blue"
+                  },
+                  {
+                    "seriesName": "40-59 Fair",
+                    "color": "yellow"
+                  },
+                  {
+                    "seriesName": "20-39 Poor",
+                    "color": "orange"
+                  },
+                  {
+                    "seriesName": "0-19 Critical",
+                    "color": "red"
+                  }
                 ]
               }
             },
@@ -219,18 +295,33 @@
             "content": {
               "version": "KqlItem/1.0",
               "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\r\n| extend SyncBucket = case(\r\n    DaysSinceSync <= 1, '0-1 days (Active)',\r\n    DaysSinceSync <= 7, '2-7 days',\r\n    DaysSinceSync <= 14, '8-14 days',\r\n    DaysSinceSync <= 30, '15-30 days',\r\n    '>30 days (Stale)')\r\n| summarize Count = count() by SyncBucket\r\n| order by SyncBucket asc",
-              "size": 2,
+              "size": 1,
               "title": "Device Sync Freshness",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
               "visualization": "piechart",
               "chartSettings": {
                 "seriesLabelSettings": [
-                  {"seriesName": "0-1 days (Active)", "color": "green"},
-                  {"seriesName": "2-7 days", "color": "blue"},
-                  {"seriesName": "8-14 days", "color": "yellow"},
-                  {"seriesName": "15-30 days", "color": "orange"},
-                  {"seriesName": ">30 days (Stale)", "color": "red"}
+                  {
+                    "seriesName": "0-1 days (Active)",
+                    "color": "green"
+                  },
+                  {
+                    "seriesName": "2-7 days",
+                    "color": "blue"
+                  },
+                  {
+                    "seriesName": "8-14 days",
+                    "color": "yellow"
+                  },
+                  {
+                    "seriesName": "15-30 days",
+                    "color": "orange"
+                  },
+                  {
+                    "seriesName": ">30 days (Stale)",
+                    "color": "red"
+                  }
                 ]
               }
             },
@@ -242,28 +333,30 @@
             "content": {
               "version": "KqlItem/1.0",
               "query": "IntuneDeviceScores_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| summarize Count = count() by HealthStatus\r\n| order by Count desc",
-              "size": 2,
+              "size": 1,
               "title": "By Health Status",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
               "visualization": "piechart",
               "chartSettings": {
                 "seriesLabelSettings": [
-                  {"seriesName": "MeetsGoals", "color": "green"},
-                  {"seriesName": "NeedsAttention", "color": "orange"},
-                  {"seriesName": "InsufficientData", "color": "gray"}
+                  {
+                    "seriesName": "MeetsGoals",
+                    "color": "green"
+                  },
+                  {
+                    "seriesName": "NeedsAttention",
+                    "color": "orange"
+                  },
+                  {
+                    "seriesName": "InsufficientData",
+                    "color": "gray"
+                  }
                 ]
               }
             },
             "customWidth": "34",
             "name": "health-status-pie"
-          },
-          {
-            "type": 1,
-            "content": {
-              "json": "## Score Trends"
-            },
-            "name": "trends-header"
           },
           {
             "type": 3,
@@ -276,22 +369,30 @@
               "resourceType": "microsoft.operationalinsights/workspaces",
               "visualization": "linechart",
               "chartSettings": {
-                "ySettings": {"min": 0, "max": 100},
+                "ySettings": {
+                  "min": 0,
+                  "max": 100
+                },
                 "seriesLabelSettings": [
-                  {"seriesName": "AvgEndpoint", "label": "Overall", "color": "blue"},
-                  {"seriesName": "AvgStartup", "label": "Startup", "color": "green"},
-                  {"seriesName": "AvgAppReliability", "label": "App Reliability", "color": "purple"}
+                  {
+                    "seriesName": "AvgEndpoint",
+                    "label": "Overall",
+                    "color": "blue"
+                  },
+                  {
+                    "seriesName": "AvgStartup",
+                    "label": "Startup",
+                    "color": "green"
+                  },
+                  {
+                    "seriesName": "AvgAppReliability",
+                    "label": "App Reliability",
+                    "color": "purple"
+                  }
                 ]
               }
             },
             "name": "score-trends"
-          },
-          {
-            "type": 1,
-            "content": {
-              "json": "## Devices Needing Attention"
-            },
-            "name": "attention-header"
           },
           {
             "type": 3,
@@ -305,10 +406,59 @@
               "visualization": "table",
               "gridSettings": {
                 "formatters": [
-                  {"columnMatch": "HealthStatus", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "MeetsGoals", "representation": "success", "text": "{0}"}, {"operator": "==", "thresholdValue": "NeedsAttention", "representation": "warning", "text": "{0}"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}},
-                  {"columnMatch": "Overall Score", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
-                  {"columnMatch": "Startup Score", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
-                  {"columnMatch": "App Score", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}}
+                  {
+                    "columnMatch": "HealthStatus",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "MeetsGoals",
+                          "representation": "success",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "NeedsAttention",
+                          "representation": "warning",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "Default",
+                          "representation": "unknown",
+                          "text": "{0}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Overall Score",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  },
+                  {
+                    "columnMatch": "Startup Score",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  },
+                  {
+                    "columnMatch": "App Score",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  }
                 ],
                 "filter": true
               }
@@ -331,24 +481,161 @@
         "groupType": "editable",
         "items": [
           {
-            "type": 1,
+            "type": 3,
             "content": {
-              "json": "## Health Score Analysis\nDetailed breakdown of Endpoint Analytics scores across your device fleet."
+              "version": "KqlItem/1.0",
+              "query": "IntuneDeviceScores_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| summarize AvgScore = round(avg(EndpointAnalyticsScore), 1)",
+              "size": 4,
+              "title": "Avg Overall Score",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "AvgScore",
+                "colorSettings": {
+                  "mode": "thresholds",
+                  "thresholds": [
+                    {
+                      "value": 0,
+                      "color": "red"
+                    },
+                    {
+                      "value": 50,
+                      "color": "orange"
+                    },
+                    {
+                      "value": 70,
+                      "color": "green"
+                    }
+                  ]
+                }
+              }
             },
-            "name": "health-header"
+            "customWidth": "20",
+            "name": "avg-overall-tile"
           },
           {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDeviceScores_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| summarize \r\n    ['Avg Overall'] = round(avg(EndpointAnalyticsScore), 1),\r\n    ['Avg Startup'] = round(avg(StartupPerformanceScore), 1),\r\n    ['Avg App Reliability'] = round(avg(AppReliabilityScore), 1),\r\n    ['Avg Work Anywhere'] = round(avg(WorkFromAnywhereScore), 1),\r\n    ['Device Count'] = count()",
+              "query": "IntuneDeviceScores_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| summarize AvgScore = round(avg(StartupPerformanceScore), 1)",
               "size": 4,
-              "title": "Score Averages",
+              "title": "Avg Startup Score",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
-              "visualization": "table"
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "AvgScore",
+                "colorSettings": {
+                  "mode": "thresholds",
+                  "thresholds": [
+                    {
+                      "value": 0,
+                      "color": "red"
+                    },
+                    {
+                      "value": 50,
+                      "color": "orange"
+                    },
+                    {
+                      "value": 70,
+                      "color": "green"
+                    }
+                  ]
+                }
+              }
             },
-            "name": "score-averages"
+            "customWidth": "20",
+            "name": "avg-startup-tile"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDeviceScores_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| summarize AvgScore = round(avg(AppReliabilityScore), 1)",
+              "size": 4,
+              "title": "Avg App Reliability",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "AvgScore",
+                "colorSettings": {
+                  "mode": "thresholds",
+                  "thresholds": [
+                    {
+                      "value": 0,
+                      "color": "red"
+                    },
+                    {
+                      "value": 50,
+                      "color": "orange"
+                    },
+                    {
+                      "value": 70,
+                      "color": "green"
+                    }
+                  ]
+                }
+              }
+            },
+            "customWidth": "20",
+            "name": "avg-app-tile"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDeviceScores_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| summarize AvgScore = round(avg(WorkFromAnywhereScore), 1)",
+              "size": 4,
+              "title": "Avg Work Anywhere",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "AvgScore",
+                "colorSettings": {
+                  "mode": "thresholds",
+                  "thresholds": [
+                    {
+                      "value": 0,
+                      "color": "red"
+                    },
+                    {
+                      "value": 50,
+                      "color": "orange"
+                    },
+                    {
+                      "value": 70,
+                      "color": "green"
+                    }
+                  ]
+                }
+              }
+            },
+            "customWidth": "20",
+            "name": "avg-wfa-tile"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDeviceScores_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| count",
+              "size": 4,
+              "title": "Devices Assessed",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "blue"
+                }
+              }
+            },
+            "customWidth": "20",
+            "name": "devices-assessed-tile"
           },
           {
             "type": 3,
@@ -362,9 +649,33 @@
               "visualization": "table",
               "gridSettings": {
                 "formatters": [
-                  {"columnMatch": "AvgOverall", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
-                  {"columnMatch": "AvgStartup", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
-                  {"columnMatch": "AvgApp", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}}
+                  {
+                    "columnMatch": "AvgOverall",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  },
+                  {
+                    "columnMatch": "AvgStartup",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  },
+                  {
+                    "columnMatch": "AvgApp",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  }
                 ],
                 "filter": true
               }
@@ -384,57 +695,39 @@
               "visualization": "table",
               "gridSettings": {
                 "formatters": [
-                  {"columnMatch": "AvgOverall", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
-                  {"columnMatch": "AvgStartup", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
-                  {"columnMatch": "AvgApp", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}}
+                  {
+                    "columnMatch": "AvgOverall",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  },
+                  {
+                    "columnMatch": "AvgStartup",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  },
+                  {
+                    "columnMatch": "AvgApp",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  }
                 ],
                 "filter": true
               }
             },
             "customWidth": "50",
             "name": "worst-models"
-          },
-          {
-            "type": 1,
-            "content": {
-              "json": "## Score Distribution Histograms"
-            },
-            "name": "histogram-header"
-          },
-          {
-            "type": 3,
-            "content": {
-              "version": "KqlItem/1.0",
-              "query": "IntuneDeviceScores_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| extend ScoreBin = bin(EndpointAnalyticsScore, 10)\r\n| summarize Count = count() by ScoreBin\r\n| order by ScoreBin asc",
-              "size": 0,
-              "title": "Overall Score Distribution",
-              "queryType": 0,
-              "resourceType": "microsoft.operationalinsights/workspaces",
-              "visualization": "barchart"
-            },
-            "customWidth": "50",
-            "name": "overall-histogram"
-          },
-          {
-            "type": 3,
-            "content": {
-              "version": "KqlItem/1.0",
-              "query": "IntuneDeviceScores_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| extend ScoreBin = bin(StartupPerformanceScore, 10)\r\n| summarize Count = count() by ScoreBin\r\n| order by ScoreBin asc",
-              "size": 0,
-              "title": "Startup Score Distribution",
-              "queryType": 0,
-              "resourceType": "microsoft.operationalinsights/workspaces",
-              "visualization": "barchart"
-            },
-            "customWidth": "50",
-            "name": "startup-histogram"
-          },
-          {
-            "type": 1,
-            "content": {
-              "json": "## All Device Scores"
-            },
-            "name": "all-scores-header"
           },
           {
             "type": 3,
@@ -448,14 +741,76 @@
               "visualization": "table",
               "gridSettings": {
                 "formatters": [
-                  {"columnMatch": "HealthStatus", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "MeetsGoals", "representation": "success", "text": "{0}"}, {"operator": "==", "thresholdValue": "NeedsAttention", "representation": "warning", "text": "{0}"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}},
-                  {"columnMatch": "Overall", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
-                  {"columnMatch": "Startup", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
-                  {"columnMatch": "App Reliability", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
-                  {"columnMatch": "Work Anywhere", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}}
+                  {
+                    "columnMatch": "HealthStatus",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "MeetsGoals",
+                          "representation": "success",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "NeedsAttention",
+                          "representation": "warning",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "Default",
+                          "representation": "unknown",
+                          "text": "{0}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Overall",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  },
+                  {
+                    "columnMatch": "Startup",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  },
+                  {
+                    "columnMatch": "App Reliability",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  },
+                  {
+                    "columnMatch": "Work Anywhere",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  }
                 ],
                 "filter": true,
-                "sortBy": [{"itemKey": "$gen_heatmap_Overall_4", "sortOrder": 1}]
+                "sortBy": [
+                  {
+                    "itemKey": "$gen_heatmap_Overall_4",
+                    "sortOrder": 1
+                  }
+                ]
               }
             },
             "name": "all-scores-table"
@@ -476,24 +831,109 @@
         "groupType": "editable",
         "items": [
           {
-            "type": 1,
+            "type": 3,
             "content": {
-              "json": "## Sync Status Analysis\nTrack device sync activity and identify stale devices that may need attention."
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\r\n| where DaysSinceSync <= 1\r\n| count",
+              "size": 4,
+              "title": "Active Today",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "green"
+                }
+              }
             },
-            "name": "sync-header"
+            "customWidth": "20",
+            "name": "sync-active-tile"
           },
           {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\r\n| summarize \r\n    ['Today'] = countif(DaysSinceSync <= 1),\r\n    ['2-7 Days'] = countif(DaysSinceSync > 1 and DaysSinceSync <= 7),\r\n    ['8-14 Days'] = countif(DaysSinceSync > 7 and DaysSinceSync <= 14),\r\n    ['15-30 Days'] = countif(DaysSinceSync > 14 and DaysSinceSync <= 30),\r\n    ['>30 Days'] = countif(DaysSinceSync > 30)",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\r\n| where DaysSinceSync > 1 and DaysSinceSync <= 7\r\n| count",
               "size": 4,
-              "title": "Sync Freshness Summary",
+              "title": "2-7 Days",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
-              "visualization": "table"
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "blue"
+                }
+              }
             },
-            "name": "sync-summary"
+            "customWidth": "20",
+            "name": "sync-week-tile"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\r\n| where DaysSinceSync > 7 and DaysSinceSync <= 14\r\n| count",
+              "size": 4,
+              "title": "8-14 Days",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "yellow"
+                }
+              }
+            },
+            "customWidth": "20",
+            "name": "sync-twoweek-tile"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\r\n| where DaysSinceSync > 14 and DaysSinceSync <= 30\r\n| count",
+              "size": 4,
+              "title": "15-30 Days",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "orange"
+                }
+              }
+            },
+            "customWidth": "20",
+            "name": "sync-month-tile"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\r\n| where DaysSinceSync > 30\r\n| count",
+              "size": 4,
+              "title": "Very Stale (>30d)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "red"
+                }
+              }
+            },
+            "customWidth": "20",
+            "name": "sync-stale-tile"
           },
           {
             "type": 3,
@@ -529,13 +969,6 @@
             "name": "sync-by-os"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "## Stale Devices (>7 Days Since Sync)"
-            },
-            "name": "stale-header"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
@@ -547,9 +980,45 @@
               "visualization": "table",
               "gridSettings": {
                 "formatters": [
-                  {"columnMatch": "Days Since Sync", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 7, "max": 60}},
-                  {"columnMatch": "Last Sync", "formatter": 6},
-                  {"columnMatch": "ComplianceState", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "compliant", "representation": "success", "text": "{0}"}, {"operator": "==", "thresholdValue": "noncompliant", "representation": "failed", "text": "{0}"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}}
+                  {
+                    "columnMatch": "Days Since Sync",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 7,
+                      "max": 60
+                    }
+                  },
+                  {
+                    "columnMatch": "Last Sync",
+                    "formatter": 6
+                  },
+                  {
+                    "columnMatch": "ComplianceState",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "compliant",
+                          "representation": "success",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "noncompliant",
+                          "representation": "failed",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "Default",
+                          "representation": "unknown",
+                          "text": "{0}"
+                        }
+                      ]
+                    }
+                  }
                 ],
                 "filter": true
               }
@@ -557,18 +1026,11 @@
             "name": "stale-devices-table"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "## Very Stale Devices (>30 Days)\nThese devices may need to be retired or investigated."
-            },
-            "name": "very-stale-header"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)\r\n| where DaysSinceSync > 30\r\n| summarize Count = count() by OperatingSystem\r\n| order by Count desc",
-              "size": 2,
+              "size": 1,
               "title": "Very Stale by OS",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -589,9 +1051,23 @@
               "visualization": "table",
               "gridSettings": {
                 "formatters": [
-                  {"columnMatch": "Days Stale", "formatter": 8, "formatOptions": {"palette": "red", "min": 30, "max": 90}},
-                  {"columnMatch": "Last Sync", "formatter": 6},
-                  {"columnMatch": "Enrolled", "formatter": 6}
+                  {
+                    "columnMatch": "Days Stale",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "red",
+                      "min": 30,
+                      "max": 90
+                    }
+                  },
+                  {
+                    "columnMatch": "Last Sync",
+                    "formatter": 6
+                  },
+                  {
+                    "columnMatch": "Enrolled",
+                    "formatter": 6
+                  }
                 ],
                 "filter": true
               }
@@ -615,24 +1091,109 @@
         "groupType": "editable",
         "items": [
           {
-            "type": 1,
+            "type": 3,
             "content": {
-              "json": "## Startup Performance\nAnalyze boot and login times to identify slow devices.\n\n**Note:** This data comes from `IntuneStartupPerformance_CL` which tracks individual boot events. If no data appears, the Endpoint Analytics startup performance collection may not be enabled."
+              "version": "KqlItem/1.0",
+              "query": "IntuneStartupPerformance_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize AvgBoot = round(avg(TotalBootTimeInMs) / 1000, 1)",
+              "size": 4,
+              "title": "Avg Boot (sec)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "AvgBoot",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "blue"
+                }
+              }
             },
-            "name": "startup-header"
+            "customWidth": "20",
+            "name": "avg-boot-tile"
           },
           {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneStartupPerformance_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize \r\n    ['Avg Boot (sec)'] = round(avg(TotalBootTimeInMs) / 1000, 1),\r\n    ['Avg Login (sec)'] = round(avg(TotalLoginTimeInMs) / 1000, 1),\r\n    ['Avg Core Boot (sec)'] = round(avg(CoreBootTimeInMs) / 1000, 1),\r\n    ['Avg GP Boot (sec)'] = round(avg(GroupPolicyBootTimeInMs) / 1000, 1),\r\n    ['Boot Events'] = count()",
+              "query": "IntuneStartupPerformance_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize AvgLogin = round(avg(TotalLoginTimeInMs) / 1000, 1)",
               "size": 4,
-              "title": "Startup Time Averages",
+              "title": "Avg Login (sec)",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
-              "visualization": "table"
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "AvgLogin",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "blue"
+                }
+              }
             },
-            "name": "startup-averages"
+            "customWidth": "20",
+            "name": "avg-login-tile"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneStartupPerformance_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize AvgGP = round(avg(GroupPolicyBootTimeInMs) / 1000, 1)",
+              "size": 4,
+              "title": "Avg GP Time (sec)",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "AvgGP",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "blue"
+                }
+              }
+            },
+            "customWidth": "20",
+            "name": "avg-gp-tile"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneStartupPerformance_CL\r\n| where TimeGenerated {TimeRange}\r\n| count",
+              "size": 4,
+              "title": "Boot Events",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "blue"
+                }
+              }
+            },
+            "customWidth": "20",
+            "name": "boot-events-tile"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneStartupPerformance_CL\r\n| where TimeGenerated {TimeRange}\r\n| where RestartCategory == 'blueScreen'\r\n| count",
+              "size": 4,
+              "title": "Blue Screens",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "red"
+                }
+              }
+            },
+            "customWidth": "20",
+            "name": "bsod-tile"
           },
           {
             "type": 3,
@@ -646,8 +1207,16 @@
               "visualization": "linechart",
               "chartSettings": {
                 "seriesLabelSettings": [
-                  {"seriesName": "AvgBootSec", "label": "Boot Time (sec)", "color": "blue"},
-                  {"seriesName": "AvgLoginSec", "label": "Login Time (sec)", "color": "green"}
+                  {
+                    "seriesName": "AvgBootSec",
+                    "label": "Boot Time (sec)",
+                    "color": "blue"
+                  },
+                  {
+                    "seriesName": "AvgLoginSec",
+                    "label": "Login Time (sec)",
+                    "color": "green"
+                  }
                 ]
               }
             },
@@ -659,29 +1228,34 @@
             "content": {
               "version": "KqlItem/1.0",
               "query": "IntuneStartupPerformance_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize Count = count() by RestartCategory\r\n| order by Count desc",
-              "size": 2,
+              "size": 1,
               "title": "Restart Types",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
               "visualization": "piechart",
               "chartSettings": {
                 "seriesLabelSettings": [
-                  {"seriesName": "normalBoot", "color": "green"},
-                  {"seriesName": "updateInitiated", "color": "blue"},
-                  {"seriesName": "blueScreen", "color": "red"},
-                  {"seriesName": "unknown", "color": "gray"}
+                  {
+                    "seriesName": "normalBoot",
+                    "color": "green"
+                  },
+                  {
+                    "seriesName": "updateInitiated",
+                    "color": "blue"
+                  },
+                  {
+                    "seriesName": "blueScreen",
+                    "color": "red"
+                  },
+                  {
+                    "seriesName": "unknown",
+                    "color": "gray"
+                  }
                 ]
               }
             },
             "customWidth": "50",
             "name": "restart-types"
-          },
-          {
-            "type": 1,
-            "content": {
-              "json": "## Slowest Boot Devices"
-            },
-            "name": "slowest-header"
           },
           {
             "type": 3,
@@ -695,21 +1269,38 @@
               "visualization": "table",
               "gridSettings": {
                 "formatters": [
-                  {"columnMatch": "Avg Boot", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 120}},
-                  {"columnMatch": "Avg Login", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 60}},
-                  {"columnMatch": "Avg GP Boot", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 30}}
+                  {
+                    "columnMatch": "Avg Boot",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 120
+                    }
+                  },
+                  {
+                    "columnMatch": "Avg Login",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 60
+                    }
+                  },
+                  {
+                    "columnMatch": "Avg GP Boot",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 30
+                    }
+                  }
                 ],
                 "filter": true
               }
             },
             "name": "slowest-devices"
-          },
-          {
-            "type": 1,
-            "content": {
-              "json": "## Blue Screen Events"
-            },
-            "name": "bsod-header"
           },
           {
             "type": 3,
@@ -723,7 +1314,10 @@
               "visualization": "table",
               "gridSettings": {
                 "formatters": [
-                  {"columnMatch": "BSOD Time", "formatter": 6}
+                  {
+                    "columnMatch": "BSOD Time",
+                    "formatter": 6
+                  }
                 ],
                 "filter": true
               }
@@ -746,40 +1340,134 @@
         "groupType": "editable",
         "items": [
           {
-            "type": 1,
+            "type": 3,
             "content": {
-              "json": "## Application Reliability\nMonitor application health, crashes, and hangs across your device fleet.\n\n**Note:** This data is aggregated at the application level, not per-device. It shows which applications are experiencing reliability issues."
+              "version": "KqlItem/1.0",
+              "query": "IntuneAppReliability_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by AppName\r\n| count",
+              "size": 4,
+              "title": "Total Apps",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "blue"
+                }
+              }
             },
-            "name": "apps-header"
+            "customWidth": "20",
+            "name": "total-apps-tile"
           },
           {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneAppReliability_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by AppName\r\n| summarize \r\n    ['Total Apps'] = count(),\r\n    ['Apps Meeting Goals'] = countif(AppHealthStatus == 'MeetsGoals'),\r\n    ['Apps Needing Attention'] = countif(AppHealthStatus == 'NeedsAttention'),\r\n    ['Total Crashes'] = sum(AppCrashCount),\r\n    ['Total Hangs'] = sum(AppHangCount)",
+              "query": "IntuneAppReliability_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by AppName\r\n| where AppHealthStatus == 'MeetsGoals'\r\n| count",
               "size": 4,
-              "title": "App Reliability Summary",
+              "title": "Meeting Goals",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
-              "visualization": "table"
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "green"
+                }
+              }
             },
-            "name": "app-summary"
+            "customWidth": "20",
+            "name": "apps-healthy-tile"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneAppReliability_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by AppName\r\n| where AppHealthStatus == 'NeedsAttention'\r\n| count",
+              "size": 4,
+              "title": "Needs Attention",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "Count",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "orange"
+                }
+              }
+            },
+            "customWidth": "20",
+            "name": "apps-attention-tile"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneAppReliability_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by AppName\r\n| summarize TotalCrashes = sum(AppCrashCount)",
+              "size": 4,
+              "title": "Total Crashes",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "TotalCrashes",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "red"
+                }
+              }
+            },
+            "customWidth": "20",
+            "name": "total-crashes-tile"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "IntuneAppReliability_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by AppName\r\n| summarize TotalHangs = sum(AppHangCount)",
+              "size": 4,
+              "title": "Total Hangs",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "stat",
+              "statSettings": {
+                "valueColumn": "TotalHangs",
+                "colorSettings": {
+                  "mode": "default",
+                  "palette": "orange"
+                }
+              }
+            },
+            "customWidth": "20",
+            "name": "total-hangs-tile"
           },
           {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "IntuneAppReliability_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by AppName\r\n| summarize Count = count() by AppHealthStatus\r\n| order by Count desc",
-              "size": 2,
+              "size": 1,
               "title": "Apps by Health Status",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
               "visualization": "piechart",
               "chartSettings": {
                 "seriesLabelSettings": [
-                  {"seriesName": "MeetsGoals", "color": "green"},
-                  {"seriesName": "NeedsAttention", "color": "orange"},
-                  {"seriesName": "InsufficientData", "color": "gray"}
+                  {
+                    "seriesName": "MeetsGoals",
+                    "color": "green"
+                  },
+                  {
+                    "seriesName": "NeedsAttention",
+                    "color": "orange"
+                  },
+                  {
+                    "seriesName": "InsufficientData",
+                    "color": "gray"
+                  }
                 ]
               }
             },
@@ -801,13 +1489,6 @@
             "name": "top-problematic-apps"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "## Apps Needing Attention"
-            },
-            "name": "attention-apps-header"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
@@ -819,22 +1500,62 @@
               "visualization": "table",
               "gridSettings": {
                 "formatters": [
-                  {"columnMatch": "Health Status", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "MeetsGoals", "representation": "success", "text": "{0}"}, {"operator": "==", "thresholdValue": "NeedsAttention", "representation": "warning", "text": "{0}"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}},
-                  {"columnMatch": "Health Score", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
-                  {"columnMatch": "Crashes", "formatter": 8, "formatOptions": {"palette": "red", "min": 0}},
-                  {"columnMatch": "Hangs", "formatter": 8, "formatOptions": {"palette": "orange", "min": 0}}
+                  {
+                    "columnMatch": "Health Status",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "MeetsGoals",
+                          "representation": "success",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "NeedsAttention",
+                          "representation": "warning",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "Default",
+                          "representation": "unknown",
+                          "text": "{0}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Health Score",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  },
+                  {
+                    "columnMatch": "Crashes",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "red",
+                      "min": 0
+                    }
+                  },
+                  {
+                    "columnMatch": "Hangs",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "orange",
+                      "min": 0
+                    }
+                  }
                 ],
                 "filter": true
               }
             },
             "name": "attention-apps-table"
-          },
-          {
-            "type": 1,
-            "content": {
-              "json": "## All Applications"
-            },
-            "name": "all-apps-header"
           },
           {
             "type": 3,
@@ -848,10 +1569,57 @@
               "visualization": "table",
               "gridSettings": {
                 "formatters": [
-                  {"columnMatch": "Health Status", "formatter": 18, "formatOptions": {"thresholdsOptions": "icons", "thresholdsGrid": [{"operator": "==", "thresholdValue": "MeetsGoals", "representation": "success", "text": "{0}"}, {"operator": "==", "thresholdValue": "NeedsAttention", "representation": "warning", "text": "{0}"}, {"operator": "Default", "representation": "unknown", "text": "{0}"}]}},
-                  {"columnMatch": "Health Score", "formatter": 8, "formatOptions": {"palette": "redGreen", "min": 0, "max": 100}},
-                  {"columnMatch": "Crashes", "formatter": 8, "formatOptions": {"palette": "red", "min": 0}},
-                  {"columnMatch": "Hangs", "formatter": 8, "formatOptions": {"palette": "orange", "min": 0}}
+                  {
+                    "columnMatch": "Health Status",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "MeetsGoals",
+                          "representation": "success",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "NeedsAttention",
+                          "representation": "warning",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "Default",
+                          "representation": "unknown",
+                          "text": "{0}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Health Score",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen",
+                      "min": 0,
+                      "max": 100
+                    }
+                  },
+                  {
+                    "columnMatch": "Crashes",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "red",
+                      "min": 0
+                    }
+                  },
+                  {
+                    "columnMatch": "Hangs",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "orange",
+                      "min": 0
+                    }
+                  }
                 ],
                 "filter": true
               }
