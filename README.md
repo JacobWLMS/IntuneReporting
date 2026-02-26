@@ -1,256 +1,305 @@
-# Intune Analytics Platform
+# Intune Reporting
 
-Export Microsoft Intune data to Azure for compliance monitoring, endpoint analytics, and custom alerting using **Azure Automation Account** with Python 3.10 runbooks.
+Export Microsoft Intune data to Azure Log Analytics for compliance monitoring, endpoint analytics, and custom alerting using **Azure Functions**.
 
-## 🚀 One-Click Deploy
+## Quick Start
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FJacobWLMS%2FIntuneReporting%2Fmain%2Fdeployment%2Fautomation-account%2Fazuredeploy.json)
+### Prerequisites
 
-> ☝️ This single deployment creates **everything you need** - just select your backend and go!
+- [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
+- [Azure Functions Core Tools v4](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local)
+- [Az PowerShell Module](https://docs.microsoft.com/en-us/powershell/azure/install-az-ps) (for permission scripts)
 
-### What Gets Deployed
+```powershell
+# Windows - Install prerequisites
+winget install Microsoft.Azure.FunctionsCoreTools
+Install-Module -Name Az -Scope CurrentUser -Force
+Install-Module -Name Microsoft.Graph -Scope CurrentUser -Force
 
-| Backend | Created Resources |
-|---------|-------------------|
-| **Log Analytics** | Workspace + DCE + DCR (with all table schemas) + Automation Account + Role assignments |
-| **ADX** | Optional free-tier cluster + Database + Automation Account + Role assignments |
+# macOS
+brew tap azure/functions && brew install azure-functions-core-tools@4
+```
 
-### Which Backend Should I Choose?
+### Deploy
 
-| Feature | Azure Data Explorer | Log Analytics |
-|---------|---------------------|---------------|
-| **Cost** | Free dev tier (1 cluster/subscription) | ~$2.76/GB ingested |
-| **Query Language** | KQL (full power) | KQL (subset) |
-| **Materialized Views** | ✅ Yes | ❌ No |
-| **Azure Monitor Alerts** | Via export | ✅ Native |
-| **Sentinel Integration** | Via export | ✅ Native |
-| **Setup Complexity** | Run schema script | ✅ Fully automated |
+```powershell
+# Clone the repo
+git clone https://github.com/JacobWLMS/IntuneReporting.git
+cd IntuneReporting
 
-**Recommendation**: Start with **Log Analytics** for easiest setup, or **ADX** for powerful analytics.
+# Login to Azure
+az login
+Connect-AzAccount
 
-## 🎯 Why This Exists
+# Deploy everything (creates all Azure resources)
+.\deploy.ps1 -Name "intune-reports" -Location "uksouth"
+```
 
-Microsoft Intune portal is great for day-to-day management, but limited for:
-- **Custom alerting** - Get notified when devices become non-compliant
-- **Historical trends** - Track compliance rates over time  
-- **Cross-data analysis** - Correlate compliance with endpoint health
-- **Flexible reporting** - Build exactly the reports you need
+The script creates:
+- Resource Group
+- Log Analytics Workspace with 9 custom tables
+- Data Collection Endpoint & Rule (DCE/DCR)
+- Function App (Flex Consumption, Python 3.11)
+- App Registration with client secret
 
-## 📊 What Data Is Collected
+### Post-Deployment: Grant Permissions
 
-| Runbook | Data | Schedule |
-|---------|------|----------|
-| **Export-IntuneDevices** | Device inventory (core table all others reference) | Every 4 hours |
-| **Export-IntuneCompliance** | Compliance policies and per-device states | Every 6 hours |
-| **Export-EndpointAnalytics** | Health scores, startup performance, app reliability | Daily |
-| **Export-Autopilot** | Autopilot devices and deployment profiles | Daily |
+After deployment, grant the required permissions:
 
-## 🏗️ Architecture
+```powershell
+# Option 1: Use the permissions script (recommended)
+.\scripts\Grant-GraphPermissions.ps1 -ServicePrincipalObjectId "<object-id-from-deploy-output>"
+
+# Option 2: Quick script for Managed Identity
+.\scripts\Configure-Permissions.ps1
+```
+
+**Required Graph API Permissions:**
+| Permission | Purpose |
+|------------|---------|
+| `DeviceManagementManagedDevices.Read.All` | Read device inventory |
+| `DeviceManagementConfiguration.Read.All` | Read compliance policies & endpoint analytics |
+| `DeviceManagementServiceConfig.Read.All` | Read Autopilot devices & profiles |
+
+**Required Azure Role:**
+| Role | Scope | Purpose |
+|------|-------|---------|
+| `Monitoring Metrics Publisher` | Data Collection Rule | Ingest data to Log Analytics |
+
+---
+
+## Manual Export API
+
+Trigger exports on-demand without waiting for scheduled timers. Useful for testing and initial data population.
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET/POST` | `/api/export` | List available export types |
+| `GET/POST` | `/api/export/devices` | Export device inventory |
+| `GET/POST` | `/api/export/compliance` | Export compliance policies & states |
+| `GET/POST` | `/api/export/analytics` | Export endpoint analytics scores |
+| `GET/POST` | `/api/export/autopilot` | Export Autopilot devices & profiles |
+| `GET/POST` | `/api/export/all` | Run all exports sequentially |
+
+### Authentication
+
+All endpoints require a function key. Get it from Azure Portal or CLI:
+
+```powershell
+# Get function key
+az functionapp keys list -g <resource-group> -n <function-app> --query "functionKeys.default" -o tsv
+```
+
+### Usage Examples
+
+**PowerShell:**
+```powershell
+$functionKey = "<your-function-key>"
+$baseUrl = "https://<function-app>.azurewebsites.net/api/export"
+
+# Run single export
+$response = Invoke-RestMethod -Uri "$baseUrl/devices?code=$functionKey" -Method POST -TimeoutSec 300
+$response | Format-List
+
+# Run all exports
+$response = Invoke-RestMethod -Uri "$baseUrl/all?code=$functionKey" -Method POST -TimeoutSec 600
+$response.results | Format-Table
+```
+
+**curl:**
+```bash
+# Run device export
+curl -X POST "https://<function-app>.azurewebsites.net/api/export/devices?code=<function-key>"
+
+# Run all exports
+curl -X POST "https://<function-app>.azurewebsites.net/api/export/all?code=<function-key>"
+```
+
+### Response Format
+
+```json
+{
+  "message": "Export Devices completed",
+  "export_type": "devices",
+  "records": 8656,
+  "duration_seconds": 45.23
+}
+```
+
+For `/api/export/all`:
+```json
+{
+  "message": "All exports completed",
+  "results": [
+    {"export_type": "devices", "records": 8656, "status": "success"},
+    {"export_type": "compliance", "records": 13070, "status": "success"},
+    {"export_type": "analytics", "records": 4046, "status": "success"},
+    {"export_type": "autopilot", "records": 0, "status": "error", "error": "..."}
+  ],
+  "total_duration_seconds": 120.5
+}
+```
+
+---
+
+## Data Collection
+
+| Function | Schedule | Tables | Data |
+|----------|----------|--------|------|
+| `export_devices` | Every 4 hours | `IntuneDevices_CL` | Device inventory, hardware, compliance state |
+| `export_compliance` | Every 6 hours | `IntuneCompliancePolicies_CL`, `IntuneComplianceStates_CL` | Policies & per-device compliance |
+| `export_endpoint_analytics` | Daily 8 AM | `IntuneDeviceScores_CL`, `IntuneStartupPerformance_CL`, `IntuneAppReliability_CL` | Health scores, performance metrics |
+| `export_autopilot` | Daily 6 AM | `IntuneAutopilotDevices_CL`, `IntuneAutopilotProfiles_CL` | Autopilot enrollment status |
+
+### Log Analytics Tables
+
+| Table | Key Fields |
+|-------|------------|
+| `IntuneDevices_CL` | DeviceId, DeviceName, UserPrincipalName, ComplianceState, OperatingSystem, LastSyncDateTime |
+| `IntuneCompliancePolicies_CL` | PolicyId, PolicyName, PolicyType, CreatedDateTime |
+| `IntuneComplianceStates_CL` | DeviceId, PolicyId, Status, LastContact |
+| `IntuneDeviceScores_CL` | DeviceId, EndpointAnalyticsScore, StartupPerformanceScore, AppReliabilityScore |
+| `IntuneStartupPerformance_CL` | DeviceId, CoreBootTimeInMs, TotalBootTimeInMs |
+| `IntuneAppReliability_CL` | AppName, AppCrashCount, AppHealthScore |
+| `IntuneAutopilotDevices_CL` | SerialNumber, EnrollmentState, GroupTag |
+| `IntuneAutopilotProfiles_CL` | ProfileId, DisplayName, DeviceNameTemplate |
+
+---
+
+## Architecture
 
 ```
 ┌──────────────────┐     ┌────────────────────┐     ┌──────────────────┐
-│   Microsoft      │     │  Azure Automation  │     │   Log Analytics  │
-│   Graph API      │────▶│  Python 3.10       │────▶│   Workspace      │
-│   (Intune Data)  │     │  Runbooks          │     │   (or ADX)       │
+│   Microsoft      │     │   Azure Functions  │     │   Log Analytics  │
+│   Graph API      │────▶│   (Python 3.11)    │────▶│   Workspace      │
+│   (Intune Data)  │     │   Flex Consumption │     │   (DCE/DCR)      │
 └──────────────────┘     └────────────────────┘     └──────────────────┘
         │                         │                          │
         │                         ▼                          ▼
-        │               ┌────────────────────┐     ┌──────────────────┐
-        │               │  DCE + DCR         │     │  Azure Workbooks │
-        │               │  (auto-created)    │     │  + Alerts        │
-        └──────────────▶└────────────────────┘     └──────────────────┘
+        │                ┌────────────────────┐     ┌──────────────────┐
+        │                │  Timer Triggers    │     │  Azure Workbooks │
+        │                │  HTTP Triggers     │     │  + Alerts        │
+        │                └────────────────────┘     └──────────────────┘
+        │
+        ▼
+┌──────────────────┐
+│ App Registration │
+│ (Graph Perms)    │
+└──────────────────┘
 ```
 
-**Cost**: ~$0/month with free tiers
+**Cost**: ~$0/month on Flex Consumption (pay per execution, scales to zero)
 
-## 🚀 Quick Start
+---
 
-### 1. Deploy Infrastructure (One-Click)
+## Workbooks
 
-1. Click the **Deploy to Azure** button above
-2. Fill in required parameters:
-   - **baseName**: Short prefix for resources (max 11 chars)
-   - **analyticsBackend**: Choose `LogAnalytics` or `ADX`
-3. Optional parameters:
-   - **graphClientId/Secret**: App Registration credentials (leave empty to use Managed Identity)
-   - **createAdxCluster**: Set to `true` to create a free-tier ADX cluster
-   - **logAnalyticsRetentionDays**: Data retention (default 90 days)
-4. Click **Review + create** → **Create**
-5. ⏳ Wait 5-10 minutes
+Import Azure Monitor workbooks for visualization. In Azure Portal:
 
-### 2. Install Python Packages (Required)
-
-After deployment, run the setup script to create a Runtime Environment and install packages from PyPI:
-
-```powershell
-# Get values from deployment outputs
-./scripts/Setup-RuntimeEnvironment.ps1 `
-    -AutomationAccountName "<automationAccountName>" `
-    -ResourceGroupName "<resourceGroupName>" `
-    -AnalyticsBackend "LogAnalytics"  # or "ADX"
-```
-
-This script:
-- Creates a Python 3.10 Runtime Environment
-- Installs packages dynamically from PyPI (never stale URLs!)
-- Links all runbooks to the Runtime Environment
-
-> ℹ️ The script fetches the latest package versions from PyPI at runtime.
-
-### 3. Grant Graph API Permissions
-
-The Automation Account's **Managed Identity** needs Microsoft Graph permissions.
-
-Run the provided script (requires Azure AD admin rights):
-
-```powershell
-# Get the managed identity object ID from deployment outputs, then run:
-./scripts/Grant-GraphPermissions.ps1 -ManagedIdentityObjectId "<managedIdentityPrincipalId>"
-```
-
-This grants:
-| Permission | Purpose |
-|------------|---------|
-| `DeviceManagementManagedDevices.Read.All` | Read devices and compliance |
-| `DeviceManagementConfiguration.Read.All` | Read endpoint analytics |
-| `DeviceManagementServiceConfig.Read.All` | Read Autopilot data |
-
-> **Alternative**: Use an App Registration by providing `graphClientId` and `graphClientSecret` during deployment.
-
-### 4. Backend Permissions (Auto-Configured!)
-
-**Log Analytics**: ✅ Monitoring Metrics Publisher role is automatically assigned to the Managed Identity on the DCR.
-
-**ADX (new cluster)**: ✅ Database Ingestor role is automatically assigned. Just run `database/Schema-Focused.kql` to create tables.
-
-**ADX (existing cluster)**: Manually grant Database Ingestor role to the Managed Identity.
-
-### 5. Test the Runbooks
-
-1. Azure Portal → **Automation Account** → **Runbooks**
-2. Select `Export-IntuneDevices` → **Start**
-3. Monitor the job output for success/errors
-
-## 📁 Project Structure
-
-```
-├── runbooks/
-│   ├── export_devices.py             # Device inventory (run first - core table)
-│   ├── export_compliance.py          # Compliance policies and states
-│   ├── export_endpoint_analytics.py  # Health scores, startup perf
-│   └── export_autopilot.py           # Autopilot devices and profiles
-├── database/
-│   └── Schema-Focused.kql            # ADX schema + views + functions
-├── dashboards/                       # ADX dashboard definitions
-│   ├── ComplianceOverview.json
-│   ├── DeviceHealth.json
-│   ├── EndpointAnalyticsDeep.json
-│   └── AutopilotOverview.json
-├── workbooks/                        # Azure Monitor workbook definitions
-│   ├── compliance-overview.workbook
-│   ├── device-health.workbook
-│   └── autopilot-deployment.workbook
-├── deployment/
-│   └── automation-account/
-│       ├── main.bicep                # Bicep template (source)
-│       └── azuredeploy.json          # ARM template (one-click deploy)
-├── scripts/
-│   ├── Grant-GraphPermissions.ps1    # Grants Graph API permissions to MI
-│   ├── Setup-RuntimeEnvironment.ps1  # Creates Runtime Environment + installs packages
-│   └── Install-PythonPackages.ps1    # Helper for package installation
-└── README.md
-```
-
-## ⚙️ Configuration Variables
-
-The Automation Account stores configuration in encrypted variables:
-
-| Variable | Purpose | Required |
-|----------|---------|----------|
-| `AZURE_TENANT_ID` | Azure AD tenant | Yes |
-| `AZURE_CLIENT_ID` | App Registration client ID | If using App Reg |
-| `AZURE_CLIENT_SECRET` | App Registration secret | If using App Reg |
-| `ANALYTICS_BACKEND` | `ADX` or `LogAnalytics` | Yes |
-| `ADX_CLUSTER_URI` | ADX cluster URL | If using ADX |
-| `ADX_DATABASE` | ADX database name | If using ADX |
-| `LOG_ANALYTICS_DCE` | Data Collection Endpoint | If using LA |
-| `LOG_ANALYTICS_DCR_ID` | Data Collection Rule ID | If using LA |
-
-## 📈 Dashboards
-
-Import these ADX dashboard definitions:
-
-| Dashboard | Purpose |
-|-----------|---------|
-| [ComplianceOverview.json](dashboards/ComplianceOverview.json) | Compliance rates, non-compliant devices |
-| [DeviceHealth.json](dashboards/DeviceHealth.json) | Device inventory, stale devices |
-| [EndpointAnalyticsDeep.json](dashboards/EndpointAnalyticsDeep.json) | Startup times, app reliability |
-| [AutopilotOverview.json](dashboards/AutopilotOverview.json) | Autopilot enrollment, profiles, failures |
-
-### Azure Workbooks
-
-For Azure Monitor/Log Analytics, import these workbook templates:
+1. Go to **Log Analytics workspace** → **Workbooks**
+2. Click **New** → **Advanced Editor**
+3. Paste the JSON from any workbook file
+4. Click **Apply** then **Done Editing**
 
 | Workbook | Purpose |
 |----------|---------|
-| [compliance-overview.workbook](workbooks/compliance-overview.workbook) | Compliance monitoring |
-| [device-health.workbook](workbooks/device-health.workbook) | Device health metrics |
-| [autopilot-deployment.workbook](workbooks/autopilot-deployment.workbook) | Autopilot deployment tracking |
+| [device-inventory.workbook](workbooks/device-inventory.workbook) | Complete device fleet overview with filtering |
+| [compliance-overview.workbook](workbooks/compliance-overview.workbook) | Compliance rates, policy analysis, non-compliant devices |
+| [device-health.workbook](workbooks/device-health.workbook) | Health scores, sync freshness, devices needing attention |
+| [autopilot-deployment.workbook](workbooks/autopilot-deployment.workbook) | Autopilot enrollment tracking and failures |
 
-## 🔔 Alerting
+---
 
-Query alert functions from Logic Apps, Power Automate, or ADX alerts:
+## Configuration
 
-```kql
-// New non-compliant devices in last 6 hours
-AlertNewNonCompliant()
+Environment variables (set automatically by deploy script):
 
-// Devices with health score drop >20 points  
-AlertHealthScoreDrop(20.0)
+| Variable | Description |
+|----------|-------------|
+| `AZURE_TENANT_ID` | Entra ID tenant ID |
+| `AZURE_CLIENT_ID` | App registration client ID |
+| `AZURE_CLIENT_SECRET` | App registration secret |
+| `LOG_ANALYTICS_DCE` | Data Collection Endpoint URL |
+| `LOG_ANALYTICS_DCR_ID` | Data Collection Rule immutable ID (starts with `dcr-`) |
 
-// Autopilot enrollment failures in last 24 hours
-AlertAutopilotFailures()
+---
 
-// Devices pending enrollment (for proactive tracking)
-AutopilotPendingEnrollment()
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `deploy.ps1` | Full deployment (resources + code) |
+| `scripts/Grant-GraphPermissions.ps1` | Grant Graph API permissions to service principal |
+| `scripts/Configure-Permissions.ps1` | Quick permission setup for Managed Identity |
+| `scripts/Update-DCRSchema.ps1` | Update DCR schema if tables change |
+
+---
+
+## Troubleshooting
+
+### No data in Log Analytics
+
+1. Check function executed: Azure Portal → Function App → Functions → Monitor
+2. Check for errors in logs: `func azure functionapp logstream <function-app>`
+3. Verify DCR permissions: Managed Identity needs `Monitoring Metrics Publisher` on DCR
+4. Data ingestion delay: Allow 5-10 minutes for data to appear
+
+### Authentication errors (401/403)
+
+1. Verify App Registration has correct Graph API permissions
+2. Ensure **admin consent** was granted (Enterprise Applications → Permissions)
+3. Check client secret hasn't expired
+
+### Function timeout
+
+- Default timeout: 10 minutes
+- For large tenants (10k+ devices), consider:
+  - Flex Consumption with higher timeout
+  - Split exports into smaller batches
+
+### Rate limiting (429)
+
+- Built-in retry with exponential backoff handles this automatically
+- Check logs for retry messages
+- Reduce schedule frequency if persistent
+
+---
+
+## Updating
+
+**Redeploy code only** (after making changes):
+```powershell
+cd functions
+func azure functionapp publish <function-app-name> --python
 ```
 
-## 🔧 Handling Duplicates
-
-ADX doesn't have UPSERT. We solve this with:
-
-1. **Raw tables** - 7-day retention, receives all ingested data
-2. **Materialized views** - `arg_max(IngestionTime, *)` returns latest record
-
-**Always query `_Current` views**, not raw tables:
-
-```kql
-// ✅ Do this - gets latest state per device
-ManagedDevices_Current | where ComplianceState == "noncompliant"
-
-// ❌ Not this - returns duplicates
-ManagedDevices | where ComplianceState == "noncompliant"
+**Update DCR schema** (if table columns change):
+```powershell
+.\scripts\Update-DCRSchema.ps1
 ```
 
-## 🔐 Security
+---
 
-- **Managed Identity** - Automation Account uses system-assigned identity
-- **Encrypted Variables** - Client secrets stored encrypted
-- **Least Privilege** - Only read permissions for Graph, ingest-only for ADX
+## Local Development
 
-## 🐛 Troubleshooting
+```powershell
+cd functions
 
-**Runbook fails with "No Graph credential configured"**
-- Check that `AZURE_CLIENT_ID` and `AZURE_CLIENT_SECRET` variables are set in the Automation Account
+# Create local settings
+cp local.settings.json.example local.settings.json
+# Edit local.settings.json with your values
 
-**401 Unauthorized from Graph API**
-- Verify the App Registration has the required Graph API permissions
-- Ensure admin consent was granted for the permissions
+# Run locally
+func start
 
-**ADX ingestion fails**
-- Verify the App Registration/Managed Identity has Database Ingestor role on the ADX database
-- Check the `ADX_CLUSTER_URI` and `ADX_DATABASE` variables are correct
+# Test
+curl http://localhost:7071/api/export/devices
+```
 
-## 📝 License
+---
+
+## License
 
 MIT

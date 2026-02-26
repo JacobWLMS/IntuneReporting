@@ -1,15 +1,4 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "Build Bicep",
-			"type": "shell",
-			"command": "bicep build deployment/automation-account/main.bicep --outfile deployment/automation-account/azuredeploy.json",
-			"problemMatcher": [],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			}
-		}
-	]
+    "version": "2.0.0",
+    "tasks": []
 }
