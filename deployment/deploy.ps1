@@ -733,7 +733,7 @@ function Publish-FunctionCode {
 
     $scriptDir = $PSScriptRoot
     if (-not $scriptDir) { $scriptDir = Get-Location }
-    $functionsDir = Join-Path $scriptDir "functions"
+    $functionsDir = Join-Path (Split-Path $scriptDir -Parent) "functions"
 
     if (-not (Test-Path $functionsDir)) {
         Write-Log "Functions directory not found: $functionsDir" -Level ERROR
@@ -897,7 +897,7 @@ function Show-Summary {
 
     Write-Host ""
     Write-Host "   Or use the helper script:" -ForegroundColor Gray
-    Write-Host "   .\\scripts\\Grant-GraphPermissions.ps1 -ServicePrincipalObjectId `"$($script:FunctionAppPrincipalId)`"" -ForegroundColor White
+    Write-Host "   .\\deployment\\scripts\\Grant-GraphPermissions.ps1 -ServicePrincipalObjectId `"$($script:FunctionAppPrincipalId)`"" -ForegroundColor White
 
     Write-Host ""
     Write-Host "==============================================" -ForegroundColor Green

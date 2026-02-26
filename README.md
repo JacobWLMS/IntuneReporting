@@ -32,7 +32,7 @@ az login
 Connect-AzAccount
 
 # Deploy everything (creates all Azure resources)
-.\deploy.ps1 -Name "intune-reports" -Location "uksouth"
+.\deployment\deploy.ps1 -Name "intune-reports" -Location "uksouth"
 ```
 
 The script creates:
@@ -48,10 +48,10 @@ After deployment, grant the required permissions:
 
 ```powershell
 # Option 1: Use the permissions script (recommended)
-.\scripts\Grant-GraphPermissions.ps1 -ServicePrincipalObjectId "<object-id-from-deploy-output>"
+.\deployment\scripts\Grant-GraphPermissions.ps1 -ServicePrincipalObjectId "<object-id-from-deploy-output>"
 
 # Option 2: Quick script for Managed Identity
-.\scripts\Configure-Permissions.ps1
+.\deployment\scripts\Configure-Permissions.ps1
 ```
 
 **Required Graph API Permissions:**
@@ -205,10 +205,10 @@ Import Azure Monitor workbooks for visualization. In Azure Portal:
 
 | Workbook | Purpose |
 |----------|---------|
-| [device-inventory.workbook](workbooks/device-inventory.workbook) | Complete device fleet overview with filtering |
-| [compliance-overview.workbook](workbooks/compliance-overview.workbook) | Compliance rates, policy analysis, non-compliant devices |
-| [device-health.workbook](workbooks/device-health.workbook) | Health scores, sync freshness, devices needing attention |
-| [autopilot-deployment.workbook](workbooks/autopilot-deployment.workbook) | Autopilot enrollment tracking and failures |
+| [device-inventory.workbook](deployment/workbooks/device-inventory.workbook) | Complete device fleet overview with filtering |
+| [compliance-overview.workbook](deployment/workbooks/compliance-overview.workbook) | Compliance rates, policy analysis, non-compliant devices |
+| [device-health.workbook](deployment/workbooks/device-health.workbook) | Health scores, sync freshness, devices needing attention |
+| [autopilot-deployment.workbook](deployment/workbooks/autopilot-deployment.workbook) | Autopilot enrollment tracking and failures |
 
 ---
 
@@ -230,10 +230,10 @@ Environment variables (set automatically by deploy script):
 
 | Script | Purpose |
 |--------|---------|
-| `deploy.ps1` | Full deployment (resources + code) |
-| `scripts/Grant-GraphPermissions.ps1` | Grant Graph API permissions to service principal |
-| `scripts/Configure-Permissions.ps1` | Quick permission setup for Managed Identity |
-| `scripts/Update-DCRSchema.ps1` | Update DCR schema if tables change |
+| `deployment/deploy.ps1` | Full deployment (resources + code) |
+| `deployment/scripts/Grant-GraphPermissions.ps1` | Grant Graph API permissions to service principal |
+| `deployment/scripts/Configure-Permissions.ps1` | Quick permission setup for Managed Identity |
+| `deployment/scripts/Update-DCRSchema.ps1` | Update DCR schema if tables change |
 
 ---
 
@@ -277,7 +277,7 @@ func azure functionapp publish <function-app-name> --python
 
 **Update DCR schema** (if table columns change):
 ```powershell
-.\scripts\Update-DCRSchema.ps1
+.\deployment\scripts\Update-DCRSchema.ps1
 ```
 
 ---

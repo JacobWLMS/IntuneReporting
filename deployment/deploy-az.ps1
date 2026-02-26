@@ -675,7 +675,7 @@ function Publish-FunctionCode {
 
     $scriptDir = $PSScriptRoot
     if (-not $scriptDir) { $scriptDir = Get-Location }
-    $functionsDir = Join-Path $scriptDir "functions"
+    $functionsDir = Join-Path (Split-Path $scriptDir -Parent) "functions"
 
     if (-not (Test-Path $functionsDir)) {
         Write-Log "Functions directory not found: $functionsDir" -Level ERROR

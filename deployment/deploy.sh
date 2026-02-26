@@ -832,7 +832,7 @@ deploy_function_code() {
     log_step "Deploying Function Code"
 
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    FUNCTIONS_DIR="$SCRIPT_DIR/functions"
+    FUNCTIONS_DIR="$(dirname "$SCRIPT_DIR")/functions"
 
     if [[ ! -d "$FUNCTIONS_DIR" ]]; then
         log_error "Functions directory not found: $FUNCTIONS_DIR"
