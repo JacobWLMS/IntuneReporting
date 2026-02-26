@@ -4,8 +4,5 @@
     "azureFunctions.pythonVenv": ".venv",
     "azureFunctions.projectLanguage": "Python",
     "azureFunctions.projectRuntime": "~4",
-    "debug.internalConsoleOptions": "neverOpen",
-    "python.analysis.extraPaths": [
-        "c:\\Users\\09063555\\.vscode\\extensions\\ms-security.ms-sentinel-1.1.1\\python"
-    ]
+    "debug.internalConsoleOptions": "neverOpen"
 }

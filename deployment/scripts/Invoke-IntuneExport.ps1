@@ -51,7 +51,7 @@ param(
     [string]$ResourceGroup = "ancIntuneReporting-Dev",
 
     [Parameter(Mandatory = $false)]
-    [ValidateSet("devices", "compliance", "analytics", "autopilot", "all")]
+    [ValidateSet("devices", "compliance", "analytics", "autopilot", "users", "all")]
     [string[]]$Export,
 
     [Parameter(Mandatory = $false)]
@@ -66,6 +66,7 @@ $ExportInfo = @{
     compliance = @{ Name = "Compliance States"; Table = "IntuneCompliancePolicies_CL, IntuneComplianceStates_CL"; Description = "Compliance policies and per-device status" }
     analytics  = @{ Name = "Endpoint Analytics"; Table = "IntuneDeviceScores_CL, IntuneStartupPerformance_CL, IntuneAppReliability_CL"; Description = "Device scores, startup performance, app reliability" }
     autopilot  = @{ Name = "Autopilot"; Table = "IntuneAutopilotDevices_CL, IntuneAutopilotProfiles_CL"; Description = "Autopilot devices and deployment profiles" }
+    users      = @{ Name = "Entra ID Users"; Table = "IntuneUsers_CL"; Description = "User profiles with department, location, account status for device enrichment" }
 }
 
 function Get-FunctionKey {
@@ -103,11 +104,12 @@ function Show-Menu {
     Write-Host "  [2] Compliance   - Policies & device compliance (~13,000+ records)" -ForegroundColor White
     Write-Host "  [3] Analytics    - Endpoint analytics scores & performance" -ForegroundColor White
     Write-Host "  [4] Autopilot    - Autopilot devices & profiles" -ForegroundColor White
+    Write-Host "  [5] Users        - Entra ID user profiles (department, location, status)" -ForegroundColor White
     Write-Host ""
     Write-Host "  [A] All          - Run all exports sequentially" -ForegroundColor Green
     Write-Host "  [Q] Quit         - Exit without running" -ForegroundColor DarkGray
     Write-Host ""
-    
+
     $selection = Read-Host "Enter selection (e.g., 1,2 or A)"
     return $selection
 }
@@ -197,7 +199,7 @@ $exportsToRun = @()
 if ($Export) {
     # Use command line parameter
     if ($Export -contains "all") {
-        $exportsToRun = @("devices", "compliance", "analytics", "autopilot")
+        $exportsToRun = @("devices", "compliance", "analytics", "autopilot", "users")
     } else {
         $exportsToRun = $Export
     }
@@ -211,12 +213,12 @@ if ($Export) {
             exit 0
         }
         "^A$" {
-            $exportsToRun = @("devices", "compliance", "analytics", "autopilot")
+            $exportsToRun = @("devices", "compliance", "analytics", "autopilot", "users")
         }
         default {
             # Parse numeric selections (e.g., "1,2" or "1 2" or "12")
-            $nums = $selection -replace '[^1-4]', '' -split '' | Where-Object { $_ }
-            $mapping = @{ "1" = "devices"; "2" = "compliance"; "3" = "analytics"; "4" = "autopilot" }
+            $nums = $selection -replace '[^1-5]', '' -split '' | Where-Object { $_ }
+            $mapping = @{ "1" = "devices"; "2" = "compliance"; "3" = "analytics"; "4" = "autopilot"; "5" = "users" }
             foreach ($n in $nums) {
                 if ($mapping.ContainsKey($n)) {
                     $exportsToRun += $mapping[$n]

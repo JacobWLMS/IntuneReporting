@@ -1,9 +1,8 @@
 # Intune Analytics Platform
 
-# Environment & Secrets
+# Secrets & local config
 .env
 local.settings.json
-!function-app/local.settings.json
 
 # Python
 .venv/
@@ -18,8 +17,13 @@ bin/
 obj/
 .python_packages/
 
-# IDE
+# Node (not used - gitignored to prevent accidental commits)
+node_modules/
+package.json
+package-lock.json
+.prettierrc
 
+# IDE
 .vs/
 *.code-workspace
 .VSCodeCounter/
@@ -28,7 +32,7 @@ obj/
 .DS_Store
 Thumbs.db
 
-# Logs & Output
+# Logs & output
 *.log
 output/
 
@@ -36,5 +40,6 @@ output/
 release-*.zip
 *.zip
 
+# Claude
 CLAUDE.md
 .claude/

@@ -10,12 +10,7 @@
     "AZURE_CLIENT_ID": "<your-app-registration-client-id>",
     "AZURE_CLIENT_SECRET": "<your-app-registration-client-secret>",
 
-    "ANALYTICS_BACKEND": "LogAnalytics",
-
     "LOG_ANALYTICS_DCE": "https://<your-dce>.uksouth-1.ingest.monitor.azure.com",
-    "LOG_ANALYTICS_DCR_ID": "dcr-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-
-    "ADX_CLUSTER_URI": "https://<your-cluster>.uksouth.kusto.windows.net",
-    "ADX_DATABASE": "IntuneAnalytics"
+    "LOG_ANALYTICS_DCR_ID": "dcr-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
   }
 }

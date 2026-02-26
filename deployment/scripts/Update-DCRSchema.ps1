@@ -27,37 +27,97 @@ $streamDeclarations = @{
             @{name="TimeGenerated"; type="datetime"}
             @{name="IngestionTime"; type="datetime"}
             @{name="SourceSystem"; type="string"}
+            # Identity
             @{name="DeviceId"; type="string"}
             @{name="DeviceName"; type="string"}
-            @{name="UserPrincipalName"; type="string"}
-            @{name="UserDisplayName"; type="string"}
-            @{name="OperatingSystem"; type="string"}
-            @{name="OSVersion"; type="string"}
-            @{name="ComplianceState"; type="string"}
-            @{name="ManagementState"; type="string"}
-            @{name="EnrolledDateTime"; type="datetime"}
-            @{name="LastSyncDateTime"; type="datetime"}
-            @{name="Manufacturer"; type="string"}
-            @{name="Model"; type="string"}
+            @{name="ManagedDeviceName"; type="string"}
+            @{name="AzureADDeviceId"; type="string"}
             @{name="SerialNumber"; type="string"}
             @{name="IMEI"; type="string"}
-            @{name="ManagementAgent"; type="string"}
-            @{name="OwnerType"; type="string"}
-            @{name="DeviceEnrollmentType"; type="string"}
+            # Primary user
+            @{name="UserPrincipalName"; type="string"}
+            @{name="UserDisplayName"; type="string"}
             @{name="EmailAddress"; type="string"}
-            @{name="AzureADRegistered"; type="string"}
-            @{name="AzureADDeviceId"; type="string"}
-            @{name="DeviceRegistrationState"; type="string"}
-            @{name="IsEncrypted"; type="string"}
-            @{name="IsSupervised"; type="string"}
-            @{name="JailBroken"; type="string"}
-            @{name="AutopilotEnrolled"; type="string"}
-            @{name="DeviceCategory"; type="string"}
+            # Last logged-on user (key for stale device detection)
+            @{name="LastLoggedOnUserId"; type="string"}
+            @{name="LastLoggedOnDateTime"; type="datetime"}
+            @{name="UsersLoggedOnCount"; type="int"}
+            @{name="UsersLoggedOnJson"; type="string"}
+            # OS & hardware
+            @{name="OperatingSystem"; type="string"}
+            @{name="OSVersion"; type="string"}
+            @{name="Manufacturer"; type="string"}
+            @{name="Model"; type="string"}
+            @{name="ChassisType"; type="string"}
+            @{name="ProcessorArchitecture"; type="string"}
+            @{name="SkuFamily"; type="string"}
             @{name="TotalStorageGB"; type="real"}
             @{name="FreeStorageGB"; type="real"}
             @{name="PhysicalMemoryGB"; type="real"}
             @{name="WiFiMacAddress"; type="string"}
             @{name="EthernetMacAddress"; type="string"}
+            # Enrollment & management
+            @{name="EnrolledDateTime"; type="datetime"}
+            @{name="LastSyncDateTime"; type="datetime"}
+            @{name="ManagementState"; type="string"}
+            @{name="ManagementAgent"; type="string"}
+            @{name="ManagementFeatures"; type="string"}
+            @{name="ManagementCertificateExpirationDate"; type="datetime"}
+            @{name="RetireAfterDateTime"; type="datetime"}
+            @{name="OwnerType"; type="string"}
+            @{name="DeviceEnrollmentType"; type="string"}
+            @{name="EnrollmentProfileName"; type="string"}
+            @{name="AutopilotEnrolled"; type="string"}
+            @{name="JoinType"; type="string"}
+            # Registration & compliance
+            @{name="AzureADRegistered"; type="string"}
+            @{name="DeviceRegistrationState"; type="string"}
+            @{name="ComplianceState"; type="string"}
+            @{name="DeviceCategory"; type="string"}
+            # Security
+            @{name="IsEncrypted"; type="string"}
+            @{name="IsSupervised"; type="string"}
+            @{name="JailBroken"; type="string"}
+            @{name="LostModeState"; type="string"}
+            @{name="PartnerReportedThreatState"; type="string"}
+            @{name="WindowsActiveMalwareCount"; type="int"}
+            @{name="WindowsRemediatedMalwareCount"; type="int"}
+            # Notes
+            @{name="Notes"; type="string"}
+        )
+    }
+    "Custom-IntuneUsers_CL" = @{
+        columns = @(
+            @{name="TimeGenerated"; type="datetime"}
+            @{name="IngestionTime"; type="datetime"}
+            @{name="SourceSystem"; type="string"}
+            # Identity
+            @{name="UserId"; type="string"}
+            @{name="UserPrincipalName"; type="string"}
+            @{name="DisplayName"; type="string"}
+            @{name="GivenName"; type="string"}
+            @{name="Surname"; type="string"}
+            @{name="Mail"; type="string"}
+            # Role & org
+            @{name="JobTitle"; type="string"}
+            @{name="Department"; type="string"}
+            @{name="EmployeeId"; type="string"}
+            @{name="EmployeeType"; type="string"}
+            # Location
+            @{name="OfficeLocation"; type="string"}
+            @{name="City"; type="string"}
+            @{name="State"; type="string"}
+            @{name="Country"; type="string"}
+            @{name="UsageLocation"; type="string"}
+            # Account status
+            @{name="AccountEnabled"; type="boolean"}
+            @{name="CreatedDateTime"; type="datetime"}
+            # Hybrid identity
+            @{name="OnPremisesSyncEnabled"; type="boolean"}
+            @{name="OnPremisesDistinguishedName"; type="string"}
+            # Sign-in activity (requires AuditLog.Read.All)
+            @{name="LastSignInDateTime"; type="datetime"}
+            @{name="LastNonInteractiveSignInDateTime"; type="datetime"}
         )
     }
     "Custom-IntuneCompliancePolicies_CL" = @{

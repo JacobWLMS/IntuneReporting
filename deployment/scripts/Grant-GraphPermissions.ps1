@@ -57,7 +57,7 @@ $RequiredPermissions = @(
     @{
         Name = "DeviceManagementManagedDevices.Read.All"
         Id = "dc377aa6-52d8-4e23-b271-2a7ae04cedf3"
-        Description = "Read Intune device information"
+        Description = "Read Intune managed device information"
     },
     @{
         Name = "DeviceManagementConfiguration.Read.All"
@@ -68,6 +68,16 @@ $RequiredPermissions = @(
         Name = "DeviceManagementServiceConfig.Read.All"
         Id = "06a5fe6d-c49d-46a7-b082-56b1b14103c7"
         Description = "Read Autopilot deployment profiles and device identities"
+    },
+    @{
+        Name = "User.Read.All"
+        Id = "df021288-bdef-4463-88db-98f22de89214"
+        Description = "Read user profiles for device enrichment (department, location, account status)"
+    },
+    @{
+        Name = "AuditLog.Read.All"
+        Id = "b0afded3-3588-46d8-8b3d-9842eff778da"
+        Description = "Read sign-in activity (LastSignInDateTime) for stale user/device detection"
     }
 )
 

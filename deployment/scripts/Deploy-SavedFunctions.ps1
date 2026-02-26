@@ -94,16 +94,56 @@ IntuneComplianceStates_CL
 "@
     },
     @{
+        Name = "LatestUsers"
+        DisplayName = "Latest Users"
+        Description = "Returns the most recent user record for each user (deduplicates IntuneUsers_CL)"
+        Category = "Intune"
+        Query = @"
+IntuneUsers_CL
+| summarize arg_max(TimeGenerated, *) by UserPrincipalName
+"@
+    },
+    @{
         Name = "StaleDevices"
         DisplayName = "Stale Devices (14+ days)"
-        Description = "Returns devices that haven't synced in 14 or more days"
+        Description = "Returns devices with no Intune sync AND no interactive user logon in 14+ days"
         Category = "Intune"
         Query = @"
 IntuneDevices_CL
 | summarize arg_max(TimeGenerated, *) by DeviceId
 | extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))
+| extend LastLogonDaysAgo = iff(isnotempty(LastLoggedOnDateTime),
+    datetime_diff('day', now(), todatetime(LastLoggedOnDateTime)),
+    int(null))
+| extend StalestActivityDaysAgo = coalesce(
+    iff(isnotempty(LastLoggedOnDateTime), LastLogonDaysAgo, int(null)),
+    LastSyncDaysAgo)
 | where LastSyncDaysAgo > 14
-| project DeviceId, DeviceName, UserPrincipalName, LastSyncDateTime, LastSyncDaysAgo, Model, OperatingSystem
+| project DeviceId, DeviceName, UserPrincipalName, LastSyncDateTime, LastSyncDaysAgo,
+          LastLoggedOnDateTime, LastLogonDaysAgo, StalestActivityDaysAgo,
+          Model, OperatingSystem, ComplianceState, JoinType
+| order by StalestActivityDaysAgo desc
+"@
+    },
+    @{
+        Name = "OrphanedDevices"
+        DisplayName = "Orphaned Devices"
+        Description = "Returns devices whose primary user account is disabled in Entra ID - likely candidates for decommission"
+        Category = "Intune"
+        Query = @"
+IntuneDevices_CL
+| summarize arg_max(TimeGenerated, *) by DeviceId
+| where isnotempty(UserPrincipalName)
+| join kind=inner (
+    IntuneUsers_CL
+    | summarize arg_max(TimeGenerated, *) by UserPrincipalName
+    | where AccountEnabled == false
+    | project UserPrincipalName, Department, JobTitle, AccountEnabled
+) on UserPrincipalName
+| extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))
+| project DeviceId, DeviceName, UserPrincipalName, Department, JobTitle,
+          LastSyncDateTime, LastSyncDaysAgo, Model, OperatingSystem, ComplianceState
+| order by LastSyncDaysAgo desc
 "@
     },
     @{

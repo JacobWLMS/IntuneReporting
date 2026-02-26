@@ -11,9 +11,5 @@ msgraph-beta-sdk>=1.12.0
 # Log Analytics ingestion
 azure-monitor-ingestion==1.0.4
 
-# Azure Data Explorer (optional - for ADX backend)
-azure-kusto-data==4.6.1
-azure-kusto-ingest==4.6.1
-
 # Note: Versions pinned for reproducibility (Jan 2026)
 # Run `pip list --outdated` to check for updates

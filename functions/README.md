@@ -139,9 +139,6 @@ Environment variables (set automatically by deploy script):
 | `AZURE_CLIENT_SECRET` | App registration secret | Yes |
 | `LOG_ANALYTICS_DCE` | Data Collection Endpoint URL | Yes |
 | `LOG_ANALYTICS_DCR_ID` | Data Collection Rule immutable ID (`dcr-...`) | Yes |
-| `ANALYTICS_BACKEND` | `LogAnalytics` or `ADX` | No (default: LogAnalytics) |
-| `ADX_CLUSTER_URI` | ADX cluster URL | If using ADX |
-| `ADX_DATABASE` | ADX database name | If using ADX |
 
 ## Local Development
 

@@ -52,6 +52,7 @@ param(
     [Parameter(Mandatory = $false)]
     [string[]]$Tables = @(
         "IntuneDevices_CL",
+        "IntuneUsers_CL",
         "IntuneCompliancePolicies_CL",
         "IntuneComplianceStates_CL",
         "IntuneDeviceScores_CL",

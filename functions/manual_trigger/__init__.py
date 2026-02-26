@@ -27,6 +27,7 @@ from export_devices import run as run_devices
 from export_compliance import run as run_compliance
 from export_endpoint_analytics import run as run_analytics
 from export_autopilot import run as run_autopilot
+from export_users import run as run_users
 from shared import validate_config, get_credential, get_graph_client, DataIngester, add_metadata
 
 EXPORTS = {
@@ -34,6 +35,7 @@ EXPORTS = {
     'compliance': ('Export Compliance Policies & States', run_compliance),
     'analytics': ('Export Endpoint Analytics', run_analytics),
     'autopilot': ('Export Autopilot Devices & Profiles', run_autopilot),
+    'users': ('Export Entra ID Users', run_users),
 }
 
 
@@ -152,6 +154,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                     '/api/export/compliance',
                     '/api/export/analytics',
                     '/api/export/autopilot',
+                    '/api/export/users',
                     '/api/export/all',
                     '/api/export/test',
                     '/api/export/health',

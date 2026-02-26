@@ -223,7 +223,6 @@ Environment variables (set automatically by deploy script):
 | `AZURE_CLIENT_SECRET` | App registration secret |
 | `LOG_ANALYTICS_DCE` | Data Collection Endpoint URL |
 | `LOG_ANALYTICS_DCR_ID` | Data Collection Rule immutable ID (starts with `dcr-`) |
-| `ANALYTICS_BACKEND` | `LogAnalytics` (default) or `ADX` |
 
 ---
 
