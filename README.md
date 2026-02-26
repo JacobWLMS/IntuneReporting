@@ -36,6 +36,7 @@ Connect-AzAccount
 ```
 
 The script creates:
+
 - Resource Group
 - Log Analytics Workspace with 9 custom tables
 - Data Collection Endpoint & Rule (DCE/DCR)
@@ -55,15 +56,17 @@ After deployment, grant the required permissions:
 ```
 
 **Required Graph API Permissions:**
+
 | Permission | Purpose |
-|------------|---------|
+| ------------ | --------- |
 | `DeviceManagementManagedDevices.Read.All` | Read device inventory |
 | `DeviceManagementConfiguration.Read.All` | Read compliance policies & endpoint analytics |
 | `DeviceManagementServiceConfig.Read.All` | Read Autopilot devices & profiles |
 
 **Required Azure Role:**
+
 | Role | Scope | Purpose |
-|------|-------|---------|
+| ------ | ------- | --------- |
 | `Monitoring Metrics Publisher` | Data Collection Rule | Ingest data to Log Analytics |
 
 ---
@@ -75,7 +78,7 @@ Trigger exports on-demand without waiting for scheduled timers. Useful for testi
 ### Endpoints
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| -------- | ---------- | ------------- |
 | `GET/POST` | `/api/export` | List available export types |
 | `GET/POST` | `/api/export/devices` | Export device inventory |
 | `GET/POST` | `/api/export/compliance` | Export compliance policies & states |
@@ -95,6 +98,7 @@ az functionapp keys list -g <resource-group> -n <function-app> --query "function
 ### Usage Examples
 
 **PowerShell:**
+
 ```powershell
 $functionKey = "<your-function-key>"
 $baseUrl = "https://<function-app>.azurewebsites.net/api/export"
@@ -109,6 +113,7 @@ $response.results | Format-Table
 ```
 
 **curl:**
+
 ```bash
 # Run device export
 curl -X POST "https://<function-app>.azurewebsites.net/api/export/devices?code=<function-key>"
@@ -129,6 +134,7 @@ curl -X POST "https://<function-app>.azurewebsites.net/api/export/all?code=<func
 ```
 
 For `/api/export/all`:
+
 ```json
 {
   "message": "All exports completed",
@@ -147,7 +153,7 @@ For `/api/export/all`:
 ## Data Collection
 
 | Function | Schedule | Tables | Data |
-|----------|----------|--------|------|
+| ---------- | ---------- | -------- | ------ |
 | `export_devices` | Every 4 hours | `IntuneDevices_CL` | Device inventory, hardware, compliance state |
 | `export_compliance` | Every 6 hours | `IntuneCompliancePolicies_CL`, `IntuneComplianceStates_CL` | Policies & per-device compliance |
 | `export_endpoint_analytics` | Daily 8 AM | `IntuneDeviceScores_CL`, `IntuneStartupPerformance_CL`, `IntuneAppReliability_CL` | Health scores, performance metrics |
@@ -156,7 +162,7 @@ For `/api/export/all`:
 ### Log Analytics Tables
 
 | Table | Key Fields |
-|-------|------------|
+| ------- | ------------ |
 | `IntuneDevices_CL` | DeviceId, DeviceName, UserPrincipalName, ComplianceState, OperatingSystem, LastSyncDateTime |
 | `IntuneCompliancePolicies_CL` | PolicyId, PolicyName, PolicyType, CreatedDateTime |
 | `IntuneComplianceStates_CL` | DeviceId, PolicyId, Status, LastContact |
@@ -204,7 +210,7 @@ Import Azure Monitor workbooks for visualization. In Azure Portal:
 4. Click **Apply** then **Done Editing**
 
 | Workbook | Purpose |
-|----------|---------|
+| ---------- | --------- |
 | [device-inventory.workbook](deployment/workbooks/device-inventory.workbook) | Complete device fleet overview with filtering |
 | [compliance-overview.workbook](deployment/workbooks/compliance-overview.workbook) | Compliance rates, policy analysis, non-compliant devices |
 | [device-health.workbook](deployment/workbooks/device-health.workbook) | Health scores, sync freshness, devices needing attention |
@@ -217,7 +223,7 @@ Import Azure Monitor workbooks for visualization. In Azure Portal:
 Environment variables (set automatically by deploy script):
 
 | Variable | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | `AZURE_TENANT_ID` | Entra ID tenant ID |
 | `AZURE_CLIENT_ID` | App registration client ID |
 | `AZURE_CLIENT_SECRET` | App registration secret |
@@ -229,7 +235,7 @@ Environment variables (set automatically by deploy script):
 ## Scripts
 
 | Script | Purpose |
-|--------|---------|
+| -------- | --------- |
 | `deployment/deploy.ps1` | Full deployment (resources + code) |
 | `deployment/scripts/Grant-GraphPermissions.ps1` | Grant Graph API permissions to service principal |
 | `deployment/scripts/Configure-Permissions.ps1` | Quick permission setup for Managed Identity |
@@ -270,12 +276,14 @@ Environment variables (set automatically by deploy script):
 ## Updating
 
 **Redeploy code only** (after making changes):
+
 ```powershell
 cd functions
 func azure functionapp publish <function-app-name> --python
 ```
 
 **Update DCR schema** (if table columns change):
+
 ```powershell
 .\deployment\scripts\Update-DCRSchema.ps1
 ```
