@@ -87,8 +87,8 @@ async def get_autopilot_profiles(graph_client) -> list:
                 oobe = json.dumps({
                     'hidePrivacySettings': p.out_of_box_experience_settings.hide_privacy_settings,
                     'hideEULA': p.out_of_box_experience_settings.hide_e_u_l_a,
-                    'userType': str(p.out_of_box_experience_settings.user_type) if p.out_of_box_experience_settings.user_type else None,
-                    'deviceUsageType': str(p.out_of_box_experience_settings.device_usage_type) if p.out_of_box_experience_settings.device_usage_type else None,
+                    'userType': p.out_of_box_experience_settings.user_type.value if p.out_of_box_experience_settings.user_type else None,
+                    'deviceUsageType': p.out_of_box_experience_settings.device_usage_type.value if p.out_of_box_experience_settings.device_usage_type else None,
                     'skipKeyboardSelectionPage': p.out_of_box_experience_settings.skip_keyboard_selection_page,
                     'hideEscapeLink': p.out_of_box_experience_settings.hide_escape_link,
                 })
@@ -101,7 +101,7 @@ async def get_autopilot_profiles(graph_client) -> list:
                 'LastModifiedDateTime': p.last_modified_date_time.isoformat() if p.last_modified_date_time else None,
                 'Language': p.language,
                 'DeviceNameTemplate': p.device_name_template,
-                'DeviceType': str(p.device_type) if p.device_type else None,
+                'DeviceType': p.device_type.value if p.device_type else None,
                 'EnableWhiteGlove': getattr(p, 'enable_white_glove', None),
                 'ExtractHardwareHash': getattr(p, 'extract_hardware_hash', None),
                 'OutOfBoxExperienceSettings': oobe,

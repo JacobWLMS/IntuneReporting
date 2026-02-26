@@ -27,7 +27,7 @@ async def get_device_scores(graph_client) -> list:
                 'DeviceName': d.device_name,
                 'Model': d.model,
                 'Manufacturer': d.manufacturer,
-                'HealthStatus': str(d.health_status) if d.health_status else None,
+                'HealthStatus': d.health_status.value if d.health_status else None,
                 'EndpointAnalyticsScore': d.endpoint_analytics_score,
                 'StartupPerformanceScore': d.startup_performance_score,
                 'AppReliabilityScore': d.app_reliability_score,

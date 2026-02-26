@@ -8,6 +8,6 @@ New-AzRoleAssignment -ObjectId $MI -RoleDefinitionName "Monitoring Metrics Publi
 
 Connect-MgGraph -Scopes "AppRoleAssignment.ReadWrite.All","Application.Read.All" -NoWelcome
 $Graph = (Get-MgServicePrincipal -Filter "appId eq '00000003-0000-0000-c000-000000000000'").Id
-"dc377aa6-52d8-4e23-b271-2a7ae04cedf3","5ac13192-7ace-4fcf-b828-1a26f28068ee","06a5fe6d-c49d-46a7-b082-56b1b14103c7" | % {
+"dc377aa6-52d8-4e23-b271-2a7ae04cedf3","5ac13192-7ace-4fcf-b828-1a26f28068ee","06a5fe6d-c49d-46a7-b082-56b1b14103c7","df021288-bdef-4463-88db-98f22de89214","b0afded3-3588-46d8-8b3d-9842eff778da" | % {
     New-MgServicePrincipalAppRoleAssignment -ServicePrincipalId $MI -PrincipalId $MI -ResourceId $Graph -AppRoleId $_ -ErrorAction SilentlyContinue
 }

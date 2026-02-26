@@ -86,8 +86,8 @@ async def run_health_check():
         error_msg = str(e)
         if 'Authorization' in error_msg or '403' in error_msg:
             results['graph_api'] = {
-                'status': 'ok',
-                'note': 'Connected but missing Intune permissions (expected for test tenant)',
+                'status': 'warning',
+                'note': 'Connected but missing Intune permissions — grant Graph API permissions to the managed identity or app registration',
             }
         else:
             results['graph_api'] = {'status': 'error', 'error': error_msg}

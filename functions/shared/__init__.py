@@ -222,7 +222,12 @@ class DataIngester:
         batch_size = 500
         for i in range(0, len(data), batch_size):
             batch = data[i:i + batch_size]
-            self._client.upload(rule_id=self.dcr_id, stream_name=stream_name, logs=batch)
-            logger.info(f"  Uploaded batch {i // batch_size + 1} ({len(batch)} records)")
+            batch_num = i // batch_size + 1
+            try:
+                self._client.upload(rule_id=self.dcr_id, stream_name=stream_name, logs=batch)
+                logger.info(f"  Uploaded batch {batch_num} ({len(batch)} records)")
+            except Exception as e:
+                logger.error(f"  Ingestion failed for batch {batch_num} of {table} ({len(batch)} records): {e}")
+                raise
 
         return len(data)

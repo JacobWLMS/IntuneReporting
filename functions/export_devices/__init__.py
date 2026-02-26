@@ -89,18 +89,18 @@ async def get_managed_devices(graph_client) -> list:
                 'OwnerType': device.owner_type.value if device.owner_type else None,
                 'DeviceEnrollmentType': device.device_enrollment_type.value if device.device_enrollment_type else None,
                 'EnrollmentProfileName': device.enrollment_profile_name,
-                'AutopilotEnrolled': device.autopilot_enrolled,
+                'AutopilotEnrolled': str(device.autopilot_enrolled).lower() if device.autopilot_enrolled is not None else None,
                 'JoinType': device.join_type.value if device.join_type else None,
 
                 # --- Registration & compliance ---
-                'AzureADRegistered': device.azure_a_d_registered,
+                'AzureADRegistered': str(device.azure_a_d_registered).lower() if device.azure_a_d_registered is not None else None,
                 'DeviceRegistrationState': device.device_registration_state.value if device.device_registration_state else None,
                 'ComplianceState': device.compliance_state.value if device.compliance_state else None,
                 'DeviceCategory': device.device_category_display_name,
 
                 # --- Security ---
-                'IsEncrypted': device.is_encrypted,
-                'IsSupervised': device.is_supervised,
+                'IsEncrypted': str(device.is_encrypted).lower() if device.is_encrypted is not None else None,
+                'IsSupervised': str(device.is_supervised).lower() if device.is_supervised is not None else None,
                 'JailBroken': device.jail_broken,
                 'LostModeState': device.lost_mode_state.value if device.lost_mode_state else None,
                 'PartnerReportedThreatState': device.partner_reported_threat_state.value if device.partner_reported_threat_state else None,
