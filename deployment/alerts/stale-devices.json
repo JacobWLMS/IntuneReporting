@@ -55,7 +55,7 @@
         "criteria": {
           "allOf": [
             {
-              "query": "[concat('let staleDays = ', parameters('staleDaysThreshold'), ';\nIntuneDevices_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| extend DaysSinceSync = datetime_diff(''day'', now(), LastSyncDateTime)\n| where DaysSinceSync > staleDays\n| summarize StaleCount = count()\n| where StaleCount > 0')]",
+              "query": "[concat('let staleDays = ', parameters('staleDaysThreshold'), ';\nIntuneManagedDevices_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| extend DaysSinceSync = datetime_diff(''day'', now(), LastSyncDateTime)\n| where DaysSinceSync > staleDays\n| summarize StaleCount = count()\n| where StaleCount > 0')]",
               "timeAggregation": "Count",
               "dimensions": [],
               "operator": "GreaterThan",

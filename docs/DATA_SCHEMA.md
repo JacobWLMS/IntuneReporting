@@ -7,7 +7,7 @@ This document defines the complete schema for all Log Analytics tables populated
 ## Table of Contents
 
 - [Common Metadata Fields](#common-metadata-fields)
-- [IntuneDevices_CL](#intunedevices_cl)
+- [IntuneManagedDevices_CL](#intunemanageddevices_cl)
 - [IntuneCompliancePolicies_CL](#intunecompliancepolicies_cl)
 - [IntuneComplianceStates_CL](#intunecompliancestates_cl)
 - [IntuneDeviceScores_CL](#intunedevicescores_cl)
@@ -34,7 +34,7 @@ These fields are automatically added to every record in all tables:
 
 ---
 
-## IntuneDevices_CL
+## IntuneManagedDevices_CL
 
 **Description:** Managed device inventory from Intune  
 **Update Frequency:** Every 4 hours  
@@ -130,7 +130,7 @@ These fields are automatically added to every record in all tables:
 | `LastNonInteractiveSignInDateTime` | datetime | Last non-interactive sign-in | `2024-03-20T10:00:00Z` |
 
 ### Key Relationships
-- Join to `IntuneDevices_CL` on `UserPrincipalName` for orphaned device detection and org filtering
+- Join to `IntuneManagedDevices_CL` on `UserPrincipalName` for orphaned device detection and org filtering
 
 ---
 
@@ -186,7 +186,7 @@ These fields are automatically added to every record in all tables:
 | 7 | notApplicable |
 
 ### Key Relationships
-- Join to `IntuneDevices_CL` on `DeviceId`
+- Join to `IntuneManagedDevices_CL` on `DeviceId`
 - Join to `IntuneCompliancePolicies_CL` on `PolicyId`
 
 ---
@@ -221,7 +221,7 @@ These fields are automatically added to every record in all tables:
 | 0-19 | Critical |
 
 ### Key Relationships
-- Join to `IntuneDevices_CL` on `DeviceName` (note: use DeviceName, not DeviceId)
+- Join to `IntuneManagedDevices_CL` on `DeviceName` (note: use DeviceName, not DeviceId)
 
 ---
 
@@ -248,7 +248,7 @@ These fields are automatically added to every record in all tables:
 | `RestartFaultBucket` | string | Fault bucket for crashes | (crash identifier if applicable) |
 
 ### Key Relationships
-- Join to `IntuneDevices_CL` on `DeviceId`
+- Join to `IntuneManagedDevices_CL` on `DeviceId`
 
 ---
 
@@ -272,7 +272,7 @@ These fields are automatically added to every record in all tables:
 
 ### Key Relationships
 - This table contains aggregate app data, not per-device records
-- Cross-reference with `IntuneDevices_CL` for device counts
+- Cross-reference with `IntuneManagedDevices_CL` for device counts
 
 ---
 
@@ -324,7 +324,7 @@ These fields are automatically added to every record in all tables:
 | 6 | failed |
 
 ### Key Relationships
-- Join to `IntuneDevices_CL` on `ManagedDeviceId` = `DeviceId` (for enrolled devices)
+- Join to `IntuneManagedDevices_CL` on `ManagedDeviceId` = `DeviceId` (for enrolled devices)
 - Join to `IntuneAutopilotProfiles_CL` for profile information
 
 ---
@@ -384,7 +384,7 @@ These fields are automatically added to every record in all tables:
 
 ```
 ┌─────────────────────────┐     ┌─────────────────────────┐
-│   IntuneDevices_CL      │────▶│   IntuneUsers_CL        │
+│   IntuneManagedDevices_CL      │────▶│   IntuneUsers_CL        │
 │   (DeviceId)            │     │   (UserPrincipalName)   │
 └───────────┬─────────────┘     └─────────────────────────┘
             │
@@ -413,12 +413,12 @@ These fields are automatically added to every record in all tables:
 
 | From Table | To Table | Join Columns |
 |------------|----------|--------------|
-| IntuneDevices_CL | IntuneComplianceStates_CL | DeviceId = DeviceId |
-| IntuneDevices_CL | IntuneDeviceScores_CL | DeviceName = DeviceName |
-| IntuneDevices_CL | IntuneStartupPerformance_CL | DeviceId = DeviceId |
-| IntuneDevices_CL | IntuneUsers_CL | UserPrincipalName = UserPrincipalName |
+| IntuneManagedDevices_CL | IntuneComplianceStates_CL | DeviceId = DeviceId |
+| IntuneManagedDevices_CL | IntuneDeviceScores_CL | DeviceName = DeviceName |
+| IntuneManagedDevices_CL | IntuneStartupPerformance_CL | DeviceId = DeviceId |
+| IntuneManagedDevices_CL | IntuneUsers_CL | UserPrincipalName = UserPrincipalName |
 | IntuneComplianceStates_CL | IntuneCompliancePolicies_CL | PolicyId = PolicyId |
-| IntuneAutopilotDevices_CL | IntuneDevices_CL | ManagedDeviceId = DeviceId |
+| IntuneAutopilotDevices_CL | IntuneManagedDevices_CL | ManagedDeviceId = DeviceId |
 
 ---
 
@@ -426,7 +426,7 @@ These fields are automatically added to every record in all tables:
 
 ### Device Overview with Compliance
 ```kusto
-IntuneDevices_CL
+IntuneManagedDevices_CL
 | where TimeGenerated > ago(1d)
 | summarize arg_max(TimeGenerated, *) by DeviceId
 | join kind=leftouter (
@@ -448,7 +448,7 @@ IntuneDeviceScores_CL
 | where TimeGenerated > ago(1d)
 | summarize arg_max(TimeGenerated, *) by DeviceName
 | join kind=inner (
-    IntuneDevices_CL
+    IntuneManagedDevices_CL
     | where TimeGenerated > ago(1d)
     | summarize arg_max(TimeGenerated, *) by DeviceId
     | project DeviceId, DeviceName, UserPrincipalName, OperatingSystem
@@ -474,7 +474,7 @@ IntuneComplianceStates_CL
 
 ### Stale Devices
 ```kusto
-IntuneDevices_CL
+IntuneManagedDevices_CL
 | where TimeGenerated > ago(1d)
 | summarize arg_max(TimeGenerated, *) by DeviceId
 | extend DaysSinceSync = datetime_diff('day', now(), LastSyncDateTime)
@@ -514,7 +514,7 @@ All custom tables are configured with **30-day retention** by default. This can 
 
 | Table | Schedule | Typical Records |
 |-------|----------|-----------------|
-| IntuneDevices_CL | Every 4 hours | 8,000+ |
+| IntuneManagedDevices_CL | Every 4 hours | 8,000+ |
 | IntuneCompliancePolicies_CL | Every 6 hours | 10-50 |
 | IntuneComplianceStates_CL | Every 6 hours | 13,000+ |
 | IntuneDeviceScores_CL | Daily 8 AM UTC | 4,000+ |

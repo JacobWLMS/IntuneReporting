@@ -4,7 +4,7 @@
 // Reusable functions for Log Analytics dashboards, workbooks, and ad-hoc queries
 //
 // Tables:
-//   - IntuneDevices_CL (device inventory)
+//   - IntuneManagedDevices_CL (device inventory)
 //   - IntuneComplianceStates_CL (per-device per-policy compliance)
 //   - IntuneCompliancePolicies_CL (policy definitions)
 //   - IntuneDeviceScores_CL (Endpoint Analytics scores)
@@ -19,7 +19,7 @@
 // WORKBOOK NOTE: Azure Workbooks can use these functions directly. However,
 // for time-filtered queries, workbooks should apply TimeRange BEFORE arg_max
 // for better performance:
-//   IntuneDevices_CL | where TimeGenerated {TimeRange} | summarize arg_max(...)
+//   IntuneManagedDevices_CL | where TimeGenerated {TimeRange} | summarize arg_max(...)
 // ============================================================================
 
 
@@ -35,7 +35,7 @@
 
 // Function name: LatestDevices
 // Get latest device record per device
-IntuneDevices_CL
+IntuneManagedDevices_CL
 | summarize arg_max(TimeGenerated, *) by DeviceId
 
 // Function name: LatestComplianceStates
@@ -484,7 +484,7 @@ LatestDevices
 
 // Data freshness check
 union 
-    (IntuneDevices_CL | summarize LastRecord = max(TimeGenerated), RecordCount = count() | extend Table = 'IntuneDevices_CL'),
+    (IntuneManagedDevices_CL | summarize LastRecord = max(TimeGenerated), RecordCount = count() | extend Table = 'IntuneManagedDevices_CL'),
     (IntuneComplianceStates_CL | summarize LastRecord = max(TimeGenerated), RecordCount = count() | extend Table = 'IntuneComplianceStates_CL'),
     (IntuneCompliancePolicies_CL | summarize LastRecord = max(TimeGenerated), RecordCount = count() | extend Table = 'IntuneCompliancePolicies_CL'),
     (IntuneDeviceScores_CL | summarize LastRecord = max(TimeGenerated), RecordCount = count() | extend Table = 'IntuneDeviceScores_CL'),

@@ -56,7 +56,7 @@
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "IntuneDevices_CL\r\n| where TimeGenerated > ago(30d)\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| distinct OperatingSystem\r\n| where isnotempty(OperatingSystem)\r\n| order by OperatingSystem asc",
+            "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated > ago(30d)\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| distinct OperatingSystem\r\n| where isnotempty(OperatingSystem)\r\n| order by OperatingSystem asc",
             "typeSettings": {
               "additionalResourceOptions": [
                 "value::all"
@@ -80,7 +80,7 @@
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "IntuneDevices_CL\r\n| where TimeGenerated > ago(30d)\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| distinct ComplianceState\r\n| where isnotempty(ComplianceState)\r\n| order by ComplianceState asc",
+            "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated > ago(30d)\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| distinct ComplianceState\r\n| where isnotempty(ComplianceState)\r\n| order by ComplianceState asc",
             "typeSettings": {
               "additionalResourceOptions": [
                 "value::all"
@@ -104,7 +104,7 @@
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "IntuneDevices_CL\r\n| where TimeGenerated > ago(30d)\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| distinct Manufacturer\r\n| where isnotempty(Manufacturer)\r\n| order by Manufacturer asc",
+            "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated > ago(30d)\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| distinct Manufacturer\r\n| where isnotempty(Manufacturer)\r\n| order by Manufacturer asc",
             "typeSettings": {
               "additionalResourceOptions": [
                 "value::all"
@@ -194,7 +194,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| count",
               "size": 4,
               "title": "Total Devices",
               "queryType": 0,
@@ -215,7 +215,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where ComplianceState == 'compliant'\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where ComplianceState == 'compliant'\r\n| count",
               "size": 4,
               "title": "Compliant",
               "queryType": 0,
@@ -236,7 +236,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where ComplianceState == 'noncompliant'\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where ComplianceState == 'noncompliant'\r\n| count",
               "size": 4,
               "title": "Non-Compliant",
               "queryType": 0,
@@ -257,7 +257,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where IsEncrypted == true\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where IsEncrypted == true\r\n| count",
               "size": 4,
               "title": "Encrypted",
               "queryType": 0,
@@ -278,7 +278,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where OwnerType == 'company'\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where OwnerType == 'company'\r\n| count",
               "size": 4,
               "title": "Corporate",
               "queryType": 0,
@@ -299,7 +299,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where OwnerType == 'personal'\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where OwnerType == 'personal'\r\n| count",
               "size": 4,
               "title": "Personal (BYOD)",
               "queryType": 0,
@@ -320,7 +320,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by OperatingSystem\r\n| order by Count desc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by OperatingSystem\r\n| order by Count desc",
               "size": 1,
               "title": "By Operating System",
               "queryType": 0,
@@ -334,7 +334,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by ComplianceState\r\n| order by Count desc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by ComplianceState\r\n| order by Count desc",
               "size": 1,
               "title": "By Compliance State",
               "queryType": 0,
@@ -368,7 +368,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by Manufacturer\r\n| top 10 by Count desc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by Manufacturer\r\n| top 10 by Count desc",
               "size": 1,
               "title": "Top 10 Manufacturers",
               "queryType": 0,
@@ -382,7 +382,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by OwnerType\r\n| order by Count desc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by OwnerType\r\n| order by Count desc",
               "size": 1,
               "title": "By Ownership",
               "queryType": 0,
@@ -410,7 +410,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by bin(EnrolledDateTime, 1d)\r\n| order by EnrolledDateTime asc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by bin(EnrolledDateTime, 1d)\r\n| order by EnrolledDateTime asc",
               "size": 0,
               "title": "Device Enrollments Over Time",
               "color": "grayBlue",
@@ -439,7 +439,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| extend EnrollmentAge = datetime_diff('month', now(), EnrolledDateTime)\r\n| extend AgeBucket = case(\r\n    EnrollmentAge <= 3, '0-3 months',\r\n    EnrollmentAge <= 6, '3-6 months',\r\n    EnrollmentAge <= 12, '6-12 months',\r\n    EnrollmentAge <= 24, '1-2 years',\r\n    EnrollmentAge <= 36, '2-3 years',\r\n    '>3 years')\r\n| summarize Count = count() by AgeBucket\r\n| order by AgeBucket asc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| extend EnrollmentAge = datetime_diff('month', now(), EnrolledDateTime)\r\n| extend AgeBucket = case(\r\n    EnrollmentAge <= 3, '0-3 months',\r\n    EnrollmentAge <= 6, '3-6 months',\r\n    EnrollmentAge <= 12, '6-12 months',\r\n    EnrollmentAge <= 24, '1-2 years',\r\n    EnrollmentAge <= 36, '2-3 years',\r\n    '>3 years')\r\n| summarize Count = count() by AgeBucket\r\n| order by AgeBucket asc",
               "size": 1,
               "title": "Devices by Enrollment Age",
               "queryType": 0,
@@ -481,7 +481,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| extend EnrollmentAge = datetime_diff('month', now(), EnrolledDateTime)\r\n| extend AgeBucket = case(\r\n    EnrollmentAge <= 3, '0-3 months',\r\n    EnrollmentAge <= 6, '3-6 months',\r\n    EnrollmentAge <= 12, '6-12 months',\r\n    EnrollmentAge <= 24, '1-2 years',\r\n    EnrollmentAge <= 36, '2-3 years',\r\n    '>3 years')\r\n| summarize Count = count() by OperatingSystem, AgeBucket\r\n| order by OperatingSystem asc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| extend EnrollmentAge = datetime_diff('month', now(), EnrolledDateTime)\r\n| extend AgeBucket = case(\r\n    EnrollmentAge <= 3, '0-3 months',\r\n    EnrollmentAge <= 6, '3-6 months',\r\n    EnrollmentAge <= 12, '6-12 months',\r\n    EnrollmentAge <= 24, '1-2 years',\r\n    EnrollmentAge <= 36, '2-3 years',\r\n    '>3 years')\r\n| summarize Count = count() by OperatingSystem, AgeBucket\r\n| order by OperatingSystem asc",
               "size": 0,
               "title": "Age by Operating System",
               "queryType": 0,
@@ -507,7 +507,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize \r\n    Count = count(),\r\n    Compliant = countif(ComplianceState == 'compliant'),\r\n    Encrypted = countif(IsEncrypted == true)\r\n  by Manufacturer\r\n| extend ComplianceRate = round(100.0 * Compliant / Count, 1)\r\n| extend EncryptionRate = round(100.0 * Encrypted / Count, 1)\r\n| order by Count desc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize \r\n    Count = count(),\r\n    Compliant = countif(ComplianceState == 'compliant'),\r\n    Encrypted = countif(IsEncrypted == true)\r\n  by Manufacturer\r\n| extend ComplianceRate = round(100.0 * Compliant / Count, 1)\r\n| extend EncryptionRate = round(100.0 * Encrypted / Count, 1)\r\n| order by Count desc",
               "size": 0,
               "title": "Devices by Manufacturer",
               "queryType": 0,
@@ -550,7 +550,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize \r\n    Count = count(),\r\n    Compliant = countif(ComplianceState == 'compliant'),\r\n    AvgStorageGB = round(avg(TotalStorageGB), 1)\r\n  by Manufacturer, Model\r\n| extend ComplianceRate = round(100.0 * Compliant / Count, 1)\r\n| order by Count desc\r\n| take 25",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize \r\n    Count = count(),\r\n    Compliant = countif(ComplianceState == 'compliant'),\r\n    AvgStorageGB = round(avg(TotalStorageGB), 1)\r\n  by Manufacturer, Model\r\n| extend ComplianceRate = round(100.0 * Compliant / Count, 1)\r\n| order by Count desc\r\n| take 25",
               "size": 0,
               "title": "Top 25 Device Models",
               "queryType": 0,
@@ -599,7 +599,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by OperatingSystem\r\n| order by Count desc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by OperatingSystem\r\n| order by Count desc",
               "size": 0,
               "title": "Devices by OS",
               "queryType": 0,
@@ -613,7 +613,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize \r\n    Total = count(),\r\n    Compliant = countif(ComplianceState == 'compliant'),\r\n    NonCompliant = countif(ComplianceState == 'noncompliant'),\r\n    Encrypted = countif(IsEncrypted == true)\r\n  by OperatingSystem\r\n| extend ComplianceRate = round(100.0 * Compliant / Total, 1)\r\n| extend EncryptionRate = round(100.0 * Encrypted / Total, 1)\r\n| order by Total desc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize \r\n    Total = count(),\r\n    Compliant = countif(ComplianceState == 'compliant'),\r\n    NonCompliant = countif(ComplianceState == 'noncompliant'),\r\n    Encrypted = countif(IsEncrypted == true)\r\n  by OperatingSystem\r\n| extend ComplianceRate = round(100.0 * Compliant / Total, 1)\r\n| extend EncryptionRate = round(100.0 * Encrypted / Total, 1)\r\n| order by Total desc",
               "size": 0,
               "title": "OS Summary",
               "queryType": 0,
@@ -670,7 +670,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by OperatingSystem, OSVersion\r\n| order by OperatingSystem asc, Count desc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| summarize Count = count() by OperatingSystem, OSVersion\r\n| order by OperatingSystem asc, Count desc",
               "size": 0,
               "title": "OS Version Distribution",
               "queryType": 0,
@@ -717,7 +717,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0\r\n| summarize AvgTotal = round(avg(TotalStorageGB), 0)",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0\r\n| summarize AvgTotal = round(avg(TotalStorageGB), 0)",
               "size": 4,
               "title": "Avg Storage (GB)",
               "queryType": 0,
@@ -738,7 +738,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(FreeStorageGB) and FreeStorageGB > 0\r\n| summarize AvgFree = round(avg(FreeStorageGB), 0)",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(FreeStorageGB) and FreeStorageGB > 0\r\n| summarize AvgFree = round(avg(FreeStorageGB), 0)",
               "size": 4,
               "title": "Avg Free (GB)",
               "queryType": 0,
@@ -759,7 +759,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0\r\n| extend UsedPercent = 100.0 * (TotalStorageGB - FreeStorageGB) / TotalStorageGB\r\n| where UsedPercent >= 85\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0\r\n| extend UsedPercent = 100.0 * (TotalStorageGB - FreeStorageGB) / TotalStorageGB\r\n| where UsedPercent >= 85\r\n| count",
               "size": 4,
               "title": "High Usage (>85%)",
               "queryType": 0,
@@ -780,7 +780,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0\r\n| extend UsedPercent = 100.0 * (TotalStorageGB - FreeStorageGB) / TotalStorageGB\r\n| where UsedPercent >= 95\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0\r\n| extend UsedPercent = 100.0 * (TotalStorageGB - FreeStorageGB) / TotalStorageGB\r\n| where UsedPercent >= 95\r\n| count",
               "size": 4,
               "title": "Critical (>95%)",
               "queryType": 0,
@@ -801,7 +801,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0\r\n| count",
               "size": 4,
               "title": "Devices Reporting",
               "queryType": 0,
@@ -822,7 +822,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0 and isnotnull(FreeStorageGB)\r\n| extend UsedPercent = round(100.0 * (TotalStorageGB - FreeStorageGB) / TotalStorageGB, 0)\r\n| extend StorageBucket = case(\r\n    UsedPercent < 50, '0-50% Used',\r\n    UsedPercent < 70, '50-70% Used',\r\n    UsedPercent < 85, '70-85% Used',\r\n    UsedPercent < 95, '85-95% Used',\r\n    '>95% Used (Critical)')\r\n| summarize Count = count() by StorageBucket\r\n| order by StorageBucket asc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0 and isnotnull(FreeStorageGB)\r\n| extend UsedPercent = round(100.0 * (TotalStorageGB - FreeStorageGB) / TotalStorageGB, 0)\r\n| extend StorageBucket = case(\r\n    UsedPercent < 50, '0-50% Used',\r\n    UsedPercent < 70, '50-70% Used',\r\n    UsedPercent < 85, '70-85% Used',\r\n    UsedPercent < 95, '85-95% Used',\r\n    '>95% Used (Critical)')\r\n| summarize Count = count() by StorageBucket\r\n| order by StorageBucket asc",
               "size": 1,
               "title": "Devices by Storage Usage",
               "queryType": 0,
@@ -860,7 +860,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0\r\n| extend TotalBucket = case(\r\n    TotalStorageGB < 64, '<64 GB',\r\n    TotalStorageGB < 128, '64-127 GB',\r\n    TotalStorageGB < 256, '128-255 GB',\r\n    TotalStorageGB < 512, '256-511 GB',\r\n    TotalStorageGB < 1024, '512-1023 GB',\r\n    '>= 1 TB')\r\n| summarize Count = count() by TotalBucket\r\n| order by TotalBucket asc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0\r\n| extend TotalBucket = case(\r\n    TotalStorageGB < 64, '<64 GB',\r\n    TotalStorageGB < 128, '64-127 GB',\r\n    TotalStorageGB < 256, '128-255 GB',\r\n    TotalStorageGB < 512, '256-511 GB',\r\n    TotalStorageGB < 1024, '512-1023 GB',\r\n    '>= 1 TB')\r\n| summarize Count = count() by TotalBucket\r\n| order by TotalBucket asc",
               "size": 0,
               "title": "Devices by Total Storage",
               "queryType": 0,
@@ -881,7 +881,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0 and isnotnull(FreeStorageGB)\r\n| extend UsedPercent = round(100.0 * (TotalStorageGB - FreeStorageGB) / TotalStorageGB, 1)\r\n| where UsedPercent > 85\r\n| project \r\n    DeviceName,\r\n    User = UserDisplayName,\r\n    OS = OperatingSystem,\r\n    ['Total GB'] = round(TotalStorageGB, 1),\r\n    ['Free GB'] = round(FreeStorageGB, 1),\r\n    ['Used %'] = UsedPercent\r\n| order by ['Used %'] desc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotnull(TotalStorageGB) and TotalStorageGB > 0 and isnotnull(FreeStorageGB)\r\n| extend UsedPercent = round(100.0 * (TotalStorageGB - FreeStorageGB) / TotalStorageGB, 1)\r\n| where UsedPercent > 85\r\n| project \r\n    DeviceName,\r\n    User = UserDisplayName,\r\n    OS = OperatingSystem,\r\n    ['Total GB'] = round(TotalStorageGB, 1),\r\n    ['Free GB'] = round(FreeStorageGB, 1),\r\n    ['Used %'] = UsedPercent\r\n| order by ['Used %'] desc",
               "size": 0,
               "title": "Devices with Low Storage",
               "queryType": 0,
@@ -932,7 +932,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize DeviceCount = count() by UserDisplayName\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize DeviceCount = count() by UserDisplayName\r\n| count",
               "size": 4,
               "title": "Total Users",
               "queryType": 0,
@@ -953,7 +953,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize DeviceCount = count() by UserDisplayName\r\n| where DeviceCount == 1\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize DeviceCount = count() by UserDisplayName\r\n| where DeviceCount == 1\r\n| count",
               "size": 4,
               "title": "1 Device",
               "queryType": 0,
@@ -974,7 +974,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize DeviceCount = count() by UserDisplayName\r\n| where DeviceCount == 2\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize DeviceCount = count() by UserDisplayName\r\n| where DeviceCount == 2\r\n| count",
               "size": 4,
               "title": "2 Devices",
               "queryType": 0,
@@ -995,7 +995,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize DeviceCount = count() by UserDisplayName\r\n| where DeviceCount >= 3\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize DeviceCount = count() by UserDisplayName\r\n| where DeviceCount >= 3\r\n| count",
               "size": 4,
               "title": "3+ Devices",
               "queryType": 0,
@@ -1016,7 +1016,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isempty(UserDisplayName)\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isempty(UserDisplayName)\r\n| count",
               "size": 4,
               "title": "Unassigned",
               "queryType": 0,
@@ -1037,7 +1037,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize DeviceCount = count() by UserDisplayName\r\n| summarize \r\n    ['Total Users'] = count(),\r\n    ['Users with 1 Device'] = countif(DeviceCount == 1),\r\n    ['Users with 2 Devices'] = countif(DeviceCount == 2),\r\n    ['Users with 3+ Devices'] = countif(DeviceCount >= 3)",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize DeviceCount = count() by UserDisplayName\r\n| summarize \r\n    ['Total Users'] = count(),\r\n    ['Users with 1 Device'] = countif(DeviceCount == 1),\r\n    ['Users with 2 Devices'] = countif(DeviceCount == 2),\r\n    ['Users with 3+ Devices'] = countif(DeviceCount >= 3)",
               "size": 4,
               "title": "User Summary",
               "queryType": 0,
@@ -1050,7 +1050,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize DeviceCount = count() by UserDisplayName\r\n| summarize Count = count() by DeviceCount\r\n| order by DeviceCount asc\r\n| project ['Devices per User'] = DeviceCount, ['User Count'] = Count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize DeviceCount = count() by UserDisplayName\r\n| summarize Count = count() by DeviceCount\r\n| order by DeviceCount asc\r\n| project ['Devices per User'] = DeviceCount, ['User Count'] = Count",
               "size": 0,
               "title": "Devices per User Distribution",
               "queryType": 0,
@@ -1064,7 +1064,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize \r\n    DeviceCount = count(),\r\n    Devices = make_list(DeviceName)\r\n  by UserDisplayName\r\n| where DeviceCount >= 3\r\n| order by DeviceCount desc\r\n| take 20\r\n| project User = UserDisplayName, ['Device Count'] = DeviceCount, Devices = strcat_array(Devices, ', ')",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isnotempty(UserDisplayName)\r\n| summarize \r\n    DeviceCount = count(),\r\n    Devices = make_list(DeviceName)\r\n  by UserDisplayName\r\n| where DeviceCount >= 3\r\n| order by DeviceCount desc\r\n| take 20\r\n| project User = UserDisplayName, ['Device Count'] = DeviceCount, Devices = strcat_array(Devices, ', ')",
               "size": 0,
               "title": "Users with 3+ Devices",
               "queryType": 0,
@@ -1090,7 +1090,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isempty(UserDisplayName) or UserDisplayName == ''\r\n| project \r\n    DeviceName,\r\n    OS = OperatingSystem,\r\n    Model,\r\n    Manufacturer,\r\n    OwnerType,\r\n    ComplianceState,\r\n    ['Enrolled'] = EnrolledDateTime\r\n| order by Enrolled desc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isempty(UserDisplayName) or UserDisplayName == ''\r\n| project \r\n    DeviceName,\r\n    OS = OperatingSystem,\r\n    Model,\r\n    Manufacturer,\r\n    OwnerType,\r\n    ComplianceState,\r\n    ['Enrolled'] = EnrolledDateTime\r\n| order by Enrolled desc",
               "size": 0,
               "title": "Devices Without Assigned User",
               "queryType": 0,
@@ -1153,7 +1153,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| count",
               "size": 4,
               "title": "Total Devices",
               "queryType": 0,
@@ -1174,7 +1174,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where ComplianceState == 'compliant'\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where ComplianceState == 'compliant'\r\n| count",
               "size": 4,
               "title": "Compliant",
               "queryType": 0,
@@ -1195,7 +1195,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where ComplianceState == 'noncompliant'\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where ComplianceState == 'noncompliant'\r\n| count",
               "size": 4,
               "title": "Non-Compliant",
               "queryType": 0,
@@ -1216,7 +1216,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where IsEncrypted == true\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where IsEncrypted == true\r\n| count",
               "size": 4,
               "title": "Encrypted",
               "queryType": 0,
@@ -1237,7 +1237,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where OwnerType == 'company'\r\n| count",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where OwnerType == 'company'\r\n| count",
               "size": 4,
               "title": "Corporate",
               "queryType": 0,
@@ -1278,7 +1278,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "IntuneDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isempty('{DeviceSearch}') or DeviceName contains '{DeviceSearch}'\r\n| project \r\n    DeviceName,\r\n    User = UserDisplayName,\r\n    OS = OperatingSystem,\r\n    ['OS Version'] = OSVersion,\r\n    Manufacturer,\r\n    Model,\r\n    ComplianceState,\r\n    IsEncrypted,\r\n    OwnerType,\r\n    ['Total GB'] = round(TotalStorageGB, 1),\r\n    ['Free GB'] = round(FreeStorageGB, 1),\r\n    ['Last Sync'] = LastSyncDateTime,\r\n    ['Enrolled'] = EnrolledDateTime,\r\n    DeviceId\r\n| order by DeviceName asc",
+              "query": "IntuneManagedDevices_CL\r\n| where TimeGenerated {TimeRange}\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where '*' in ({OSFilter}) or OperatingSystem in ({OSFilter})\r\n| where '*' in ({ComplianceFilter}) or ComplianceState in ({ComplianceFilter})\r\n| where '*' in ({ManufacturerFilter}) or Manufacturer in ({ManufacturerFilter})\r\n| where isempty('{DeviceSearch}') or DeviceName contains '{DeviceSearch}'\r\n| project \r\n    DeviceName,\r\n    User = UserDisplayName,\r\n    OS = OperatingSystem,\r\n    ['OS Version'] = OSVersion,\r\n    Manufacturer,\r\n    Model,\r\n    ComplianceState,\r\n    IsEncrypted,\r\n    OwnerType,\r\n    ['Total GB'] = round(TotalStorageGB, 1),\r\n    ['Free GB'] = round(FreeStorageGB, 1),\r\n    ['Last Sync'] = LastSyncDateTime,\r\n    ['Enrolled'] = EnrolledDateTime,\r\n    DeviceId\r\n| order by DeviceName asc",
               "size": 0,
               "title": "Complete Device Inventory",
               "showExportToExcel": true,

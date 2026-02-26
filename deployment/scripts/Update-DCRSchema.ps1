@@ -22,7 +22,7 @@ Write-Host "Got existing DCR, preserving DCE and workspace settings..."
 
 # Build complete stream declarations
 $streamDeclarations = @{
-    "Custom-IntuneDevices_CL" = @{
+    "Custom-IntuneManagedDevices_CL" = @{
         columns = @(
             @{name="TimeGenerated"; type="datetime"}
             @{name="IngestionTime"; type="datetime"}

@@ -179,7 +179,7 @@ def add_metadata(records: list, source: str) -> list:
 
 # Log Analytics stream mappings (table name → DCR stream name)
 LOG_ANALYTICS_STREAMS = {
-    'ManagedDevices': 'Custom-IntuneDevices_CL',
+    'ManagedDevices': 'Custom-IntuneManagedDevices_CL',
     'Users': 'Custom-IntuneUsers_CL',
     'CompliancePolicies': 'Custom-IntuneCompliancePolicies_CL',
     'DeviceComplianceStates': 'Custom-IntuneComplianceStates_CL',

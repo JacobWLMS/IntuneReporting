@@ -348,7 +348,7 @@ function New-CustomTables {
     Write-Log "Creating Custom Tables" -Level STEP
 
     $tableNames = @(
-        "IntuneDevices_CL",
+        "IntuneManagedDevices_CL",
         "IntuneUsers_CL",
         "IntuneCompliancePolicies_CL",
         "IntuneComplianceStates_CL",
@@ -431,7 +431,7 @@ function New-DataCollectionRule {
 
     # Define complete schemas for each stream based on Python export fields
     $streamSchemas = @{
-        "Custom-IntuneDevices_CL" = @(
+        "Custom-IntuneManagedDevices_CL" = @(
             @{name="TimeGenerated"; type="datetime"}
             @{name="IngestionTime"; type="datetime"}
             @{name="SourceSystem"; type="string"}

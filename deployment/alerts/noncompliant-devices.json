@@ -48,7 +48,7 @@
         "criteria": {
           "allOf": [
             {
-              "query": "IntuneDevices_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ComplianceState == 'noncompliant'\n| summarize NonCompliantCount = count()\n| where NonCompliantCount > 0",
+              "query": "IntuneManagedDevices_CL\n| summarize arg_max(TimeGenerated, *) by DeviceId\n| where ComplianceState == 'noncompliant'\n| summarize NonCompliantCount = count()\n| where NonCompliantCount > 0",
               "timeAggregation": "Count",
               "dimensions": [],
               "operator": "GreaterThan",

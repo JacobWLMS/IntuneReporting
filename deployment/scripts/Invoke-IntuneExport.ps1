@@ -62,7 +62,7 @@ $ErrorActionPreference = "Stop"
 
 # Export descriptions
 $ExportInfo = @{
-    devices    = @{ Name = "Device Inventory"; Table = "IntuneDevices_CL"; Description = "Managed device details from Intune" }
+    devices    = @{ Name = "Device Inventory"; Table = "IntuneManagedDevices_CL"; Description = "Managed device details from Intune" }
     compliance = @{ Name = "Compliance States"; Table = "IntuneCompliancePolicies_CL, IntuneComplianceStates_CL"; Description = "Compliance policies and per-device status" }
     analytics  = @{ Name = "Endpoint Analytics"; Table = "IntuneDeviceScores_CL, IntuneStartupPerformance_CL, IntuneAppReliability_CL"; Description = "Device scores, startup performance, app reliability" }
     autopilot  = @{ Name = "Autopilot"; Table = "IntuneAutopilotDevices_CL, IntuneAutopilotProfiles_CL"; Description = "Autopilot devices and deployment profiles" }

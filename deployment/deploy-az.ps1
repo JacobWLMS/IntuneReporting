@@ -330,7 +330,7 @@ function New-CustomTables {
     Write-Log "Creating Custom Tables" -Level STEP
 
     $tableNames = @(
-        "IntuneDevices_CL",
+        "IntuneManagedDevices_CL",
         "IntuneCompliancePolicies_CL",
         "IntuneComplianceStates_CL",
         "IntuneDeviceScores_CL",
@@ -422,7 +422,7 @@ function New-DataCollectionRule {
     }
 
     $tableNames = @(
-        "IntuneDevices_CL",
+        "IntuneManagedDevices_CL",
         "IntuneCompliancePolicies_CL",
         "IntuneComplianceStates_CL",
         "IntuneDeviceScores_CL",

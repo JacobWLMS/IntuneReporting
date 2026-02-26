@@ -34,10 +34,10 @@ $functions = @(
     @{
         Name = "LatestDevices"
         DisplayName = "Latest Devices"
-        Description = "Returns the most recent record for each device (deduplicates IntuneDevices_CL)"
+        Description = "Returns the most recent record for each device (deduplicates IntuneManagedDevices_CL)"
         Category = "Intune"
         Query = @"
-IntuneDevices_CL
+IntuneManagedDevices_CL
 | summarize arg_max(TimeGenerated, *) by DeviceId
 "@
     },
@@ -109,7 +109,7 @@ IntuneUsers_CL
         Description = "Returns devices with no Intune sync AND no interactive user logon in 14+ days"
         Category = "Intune"
         Query = @"
-IntuneDevices_CL
+IntuneManagedDevices_CL
 | summarize arg_max(TimeGenerated, *) by DeviceId
 | extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))
 | extend LastLogonDaysAgo = iff(isnotempty(LastLoggedOnDateTime),
@@ -131,7 +131,7 @@ IntuneDevices_CL
         Description = "Returns devices whose primary user account is disabled in Entra ID - likely candidates for decommission"
         Category = "Intune"
         Query = @"
-IntuneDevices_CL
+IntuneManagedDevices_CL
 | summarize arg_max(TimeGenerated, *) by DeviceId
 | where isnotempty(UserPrincipalName)
 | join kind=inner (

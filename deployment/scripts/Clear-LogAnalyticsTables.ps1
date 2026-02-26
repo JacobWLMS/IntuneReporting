@@ -34,7 +34,7 @@
 
 .EXAMPLE
     # Clear specific tables only (with confirmation prompt)
-    .\Clear-LogAnalyticsTables.ps1 -ResourceGroup "rg-intune" -Workspace "law-intune" -Tables @("IntuneDevices_CL", "IntuneComplianceStates_CL")
+    .\Clear-LogAnalyticsTables.ps1 -ResourceGroup "rg-intune" -Workspace "law-intune" -Tables @("IntuneManagedDevices_CL", "IntuneComplianceStates_CL")
 
 .EXAMPLE
     # Skip confirmation (for automation)
@@ -51,7 +51,7 @@ param(
 
     [Parameter(Mandatory = $false)]
     [string[]]$Tables = @(
-        "IntuneDevices_CL",
+        "IntuneManagedDevices_CL",
         "IntuneUsers_CL",
         "IntuneCompliancePolicies_CL",
         "IntuneComplianceStates_CL",
@@ -233,7 +233,7 @@ if ($operations.Count -gt 0) {
         Write-Host "Delete operations initiated. Use -WaitForCompletion to track status." -ForegroundColor Yellow
         Write-Host ""
         Write-Host "To verify later, run this query in Log Analytics:" -ForegroundColor Cyan
-        Write-Host "  IntuneDevices_CL | count" -ForegroundColor White
+        Write-Host "  IntuneManagedDevices_CL | count" -ForegroundColor White
         Write-Host ""
         exit 0
     }

@@ -158,7 +158,7 @@ For `/api/export/all`:
 
 | Function | Schedule | Tables | Data |
 | --- | --- | --- | --- |
-| `export_devices` | Every 4 hours | `IntuneDevices_CL` | Device inventory, hardware, compliance state |
+| `export_devices` | Every 4 hours | `IntuneManagedDevices_CL` | Device inventory, hardware, compliance state |
 | `export_compliance` | Every 6 hours | `IntuneCompliancePolicies_CL`, `IntuneComplianceStates_CL` | Policies & per-device compliance |
 | `export_endpoint_analytics` | Daily 8 AM | `IntuneDeviceScores_CL`, `IntuneStartupPerformance_CL`, `IntuneAppReliability_CL` | Health scores, performance metrics |
 | `export_autopilot` | Daily 6 AM | `IntuneAutopilotDevices_CL`, `IntuneAutopilotProfiles_CL` | Autopilot enrollment status |
@@ -168,7 +168,7 @@ For `/api/export/all`:
 
 | Table | Key Fields |
 | --- | --- |
-| `IntuneDevices_CL` | DeviceId, DeviceName, UserPrincipalName, ComplianceState, OperatingSystem, LastSyncDateTime, JoinType, ChassisType |
+| `IntuneManagedDevices_CL` | DeviceId, DeviceName, UserPrincipalName, ComplianceState, OperatingSystem, LastSyncDateTime, JoinType, ChassisType |
 | `IntuneUsers_CL` | UserId, UserPrincipalName, Department, AccountEnabled, LastSignInDateTime |
 | `IntuneCompliancePolicies_CL` | PolicyId, PolicyName, PolicyType, CreatedDateTime |
 | `IntuneComplianceStates_CL` | DeviceId, PolicyId, Status, LastContact |

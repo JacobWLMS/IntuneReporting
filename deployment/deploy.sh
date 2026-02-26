@@ -254,10 +254,10 @@ create_custom_tables() {
 
     declare -A TABLES
 
-    TABLES["IntuneDevices_CL"]='{
+    TABLES["IntuneManagedDevices_CL"]='{
         "properties": {
             "schema": {
-                "name": "IntuneDevices_CL",
+                "name": "IntuneManagedDevices_CL",
                 "columns": [
                     {"name": "TimeGenerated", "type": "datetime"},
                     {"name": "IngestionTime", "type": "datetime"},
@@ -523,7 +523,7 @@ create_dcr() {
     "properties": {
         "dataCollectionEndpointId": "$DCE_RESOURCE_ID",
         "streamDeclarations": {
-            "Custom-IntuneDevices_CL": {
+            "Custom-IntuneManagedDevices_CL": {
                 "columns": [
                     {"name": "TimeGenerated", "type": "datetime"},
                     {"name": "IngestionTime", "type": "datetime"},
@@ -674,7 +674,7 @@ create_dcr() {
             ]
         },
         "dataFlows": [
-            {"streams": ["Custom-IntuneDevices_CL"], "destinations": ["logAnalyticsWorkspace"], "transformKql": "source", "outputStream": "Custom-IntuneDevices_CL"},
+            {"streams": ["Custom-IntuneManagedDevices_CL"], "destinations": ["logAnalyticsWorkspace"], "transformKql": "source", "outputStream": "Custom-IntuneManagedDevices_CL"},
             {"streams": ["Custom-IntuneCompliancePolicies_CL"], "destinations": ["logAnalyticsWorkspace"], "transformKql": "source", "outputStream": "Custom-IntuneCompliancePolicies_CL"},
             {"streams": ["Custom-IntuneComplianceStates_CL"], "destinations": ["logAnalyticsWorkspace"], "transformKql": "source", "outputStream": "Custom-IntuneComplianceStates_CL"},
             {"streams": ["Custom-IntuneDeviceScores_CL"], "destinations": ["logAnalyticsWorkspace"], "transformKql": "source", "outputStream": "Custom-IntuneDeviceScores_CL"},

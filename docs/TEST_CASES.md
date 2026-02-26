@@ -18,7 +18,7 @@ Before testing:
 | INF-01 | Resource Group exists | `az group show --name rg-{name}` | Returns resource group details |
 | INF-02 | Storage Account exists | `az storage account show -g rg-{name} -n {name}stor` | Returns storage account details |
 | INF-03 | Log Analytics Workspace exists | `az monitor log-analytics workspace show -g rg-{name} -n {name}-law` | Returns workspace with 30-day retention |
-| INF-04 | Custom tables created | Query: `IntuneDevices_CL \| take 1` | Query executes (may return 0 rows) |
+| INF-04 | Custom tables created | Query: `IntuneManagedDevices_CL \| take 1` | Query executes (may return 0 rows) |
 | INF-05 | DCE exists | `az monitor data-collection endpoint show -g rg-{name} -n {name}-dce` | Returns DCE with ingestion endpoint |
 | INF-06 | DCR exists with 10 streams | `az monitor data-collection rule show -g rg-{name} -n {name}-dcr` | Returns DCR with 10 stream declarations |
 | INF-07 | Function App exists | `az functionapp show -g rg-{name} -n {name}-func` | Returns function app details |

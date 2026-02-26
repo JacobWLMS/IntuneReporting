@@ -10,7 +10,7 @@ When comparing compliance counts between data sources, numbers don't match:
 
 | Source | Noncompliant Count |
 |--------|-------------------|
-| `IntuneDevices_CL.ComplianceState` | 2,064 |
+| `IntuneManagedDevices_CL.ComplianceState` | 2,064 |
 | `IntuneComplianceStates_CL` (StatusRaw=4) | 1,261 |
 | **Gap** | **803 devices** |
 
@@ -18,7 +18,7 @@ When comparing compliance counts between data sources, numbers don't match:
 
 ## Data Sources Explained
 
-### IntuneDevices_CL
+### IntuneManagedDevices_CL
 - **API**: `deviceManagement/managedDevices`
 - **Field**: `ComplianceState`
 - **Values**: `compliant`, `noncompliant`, `unknown`, `inGracePeriod`, `configManager`
@@ -37,7 +37,7 @@ When comparing compliance counts between data sources, numbers don't match:
 
 ### 1. Devices Without Policy Records (231 devices)
 
-Some devices in `IntuneDevices_CL` have **no entries** in `IntuneComplianceStates_CL`:
+Some devices in `IntuneManagedDevices_CL` have **no entries** in `IntuneComplianceStates_CL`:
 
 | OS | Count |
 |----|-------|
@@ -103,7 +103,7 @@ The `Status` field from the compliance report API may have inconsistent formatti
 ## Recommendations
 
 ### Short-term (Implemented)
-1. Use `IntuneDevices_CL.ComplianceState` for accurate device counts (matches portal)
+1. Use `IntuneManagedDevices_CL.ComplianceState` for accurate device counts (matches portal)
 2. Use `StatusRaw` instead of `Status` for policy-level queries
 3. Added Diagnostics tab to identify and explain discrepancies
 
@@ -134,7 +134,7 @@ The `Status` field from the compliance report API may have inconsistent formatti
 
 ### Find devices without policy records
 ```kql
-let LatestDevices = IntuneDevices_CL
+let LatestDevices = IntuneManagedDevices_CL
 | where TimeGenerated > ago(7d)
 | summarize arg_max(TimeGenerated, *) by DeviceId;
 let DevicesWithStates = IntuneComplianceStates_CL
@@ -147,7 +147,7 @@ LatestDevices
 
 ### Find noncompliant devices with no policy failures
 ```kql
-let LatestDevices = IntuneDevices_CL
+let LatestDevices = IntuneManagedDevices_CL
 | where TimeGenerated > ago(7d)
 | summarize arg_max(TimeGenerated, *) by DeviceId
 | where tolower(ComplianceState) == 'noncompliant';
