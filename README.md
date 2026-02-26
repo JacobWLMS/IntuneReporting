@@ -38,10 +38,9 @@ Connect-AzAccount
 The script creates:
 
 - Resource Group
-- Log Analytics Workspace with 9 custom tables
+- Log Analytics Workspace with 10 custom tables
 - Data Collection Endpoint & Rule (DCE/DCR)
-- Function App (Flex Consumption, Python 3.11)
-- App Registration with client secret
+- Function App (Flex Consumption, Python 3.11) with system-assigned managed identity
 
 ### Post-Deployment: Grant Permissions
 
@@ -58,10 +57,12 @@ After deployment, grant the required permissions:
 **Required Graph API Permissions:**
 
 | Permission | Purpose |
-| ------------ | --------- |
-| `DeviceManagementManagedDevices.Read.All` | Read device inventory |
-| `DeviceManagementConfiguration.Read.All` | Read compliance policies & endpoint analytics |
+| --- | --- |
+| `DeviceManagementManagedDevices.Read.All` | Read device inventory & endpoint analytics |
+| `DeviceManagementConfiguration.Read.All` | Read compliance policies & device status reports |
 | `DeviceManagementServiceConfig.Read.All` | Read Autopilot devices & profiles |
+| `User.Read.All` | Read Entra ID user profiles |
+| `AuditLog.Read.All` | Read user sign-in activity (last sign-in dates) |
 
 **Required Azure Role:**
 
@@ -78,13 +79,16 @@ Trigger exports on-demand without waiting for scheduled timers. Useful for testi
 ### Endpoints
 
 | Method | Endpoint | Description |
-| -------- | ---------- | ------------- |
+| --- | --- | --- |
 | `GET/POST` | `/api/export` | List available export types |
 | `GET/POST` | `/api/export/devices` | Export device inventory |
 | `GET/POST` | `/api/export/compliance` | Export compliance policies & states |
 | `GET/POST` | `/api/export/analytics` | Export endpoint analytics scores |
 | `GET/POST` | `/api/export/autopilot` | Export Autopilot devices & profiles |
+| `GET/POST` | `/api/export/users` | Export Entra ID user profiles |
 | `GET/POST` | `/api/export/all` | Run all exports sequentially |
+| `GET/POST` | `/api/export/test` | Send a test record to Log Analytics |
+| `GET/POST` | `/api/export/health` | Check auth, Graph API, and ingestion connectivity |
 
 ### Authentication
 
@@ -153,17 +157,19 @@ For `/api/export/all`:
 ## Data Collection
 
 | Function | Schedule | Tables | Data |
-| ---------- | ---------- | -------- | ------ |
+| --- | --- | --- | --- |
 | `export_devices` | Every 4 hours | `IntuneDevices_CL` | Device inventory, hardware, compliance state |
 | `export_compliance` | Every 6 hours | `IntuneCompliancePolicies_CL`, `IntuneComplianceStates_CL` | Policies & per-device compliance |
 | `export_endpoint_analytics` | Daily 8 AM | `IntuneDeviceScores_CL`, `IntuneStartupPerformance_CL`, `IntuneAppReliability_CL` | Health scores, performance metrics |
 | `export_autopilot` | Daily 6 AM | `IntuneAutopilotDevices_CL`, `IntuneAutopilotProfiles_CL` | Autopilot enrollment status |
+| `export_users` | Daily 2 AM | `IntuneUsers_CL` | Entra ID user profiles, department, sign-in activity |
 
 ### Log Analytics Tables
 
 | Table | Key Fields |
-| ------- | ------------ |
-| `IntuneDevices_CL` | DeviceId, DeviceName, UserPrincipalName, ComplianceState, OperatingSystem, LastSyncDateTime |
+| --- | --- |
+| `IntuneDevices_CL` | DeviceId, DeviceName, UserPrincipalName, ComplianceState, OperatingSystem, LastSyncDateTime, JoinType, ChassisType |
+| `IntuneUsers_CL` | UserId, UserPrincipalName, Department, AccountEnabled, LastSignInDateTime |
 | `IntuneCompliancePolicies_CL` | PolicyId, PolicyName, PolicyType, CreatedDateTime |
 | `IntuneComplianceStates_CL` | DeviceId, PolicyId, Status, LastContact |
 | `IntuneDeviceScores_CL` | DeviceId, EndpointAnalyticsScore, StartupPerformanceScore, AppReliabilityScore |
@@ -171,12 +177,13 @@ For `/api/export/all`:
 | `IntuneAppReliability_CL` | AppName, AppCrashCount, AppHealthScore |
 | `IntuneAutopilotDevices_CL` | SerialNumber, EnrollmentState, GroupTag |
 | `IntuneAutopilotProfiles_CL` | ProfileId, DisplayName, DeviceNameTemplate |
+| `IntuneSyncState_CL` | ExportType, RecordCount, DurationSeconds, Status |
 
 ---
 
 ## Architecture
 
-```
+```text
 ┌──────────────────┐     ┌────────────────────┐     ┌──────────────────┐
 │   Microsoft      │     │   Azure Functions  │     │   Log Analytics  │
 │   Graph API      │────▶│   (Python 3.11)    │────▶│   Workspace      │
@@ -220,26 +227,35 @@ Import Azure Monitor workbooks for visualization. In Azure Portal:
 
 ## Configuration
 
-Environment variables (set automatically by deploy script):
+**Set automatically by `deploy.ps1`** (managed identity mode):
 
 | Variable | Description |
-| ---------- | ------------- |
+| --- | --- |
+| `USE_MANAGED_IDENTITY` | Set to `true` — uses the Function App's managed identity for all auth |
 | `AZURE_TENANT_ID` | Entra ID tenant ID |
-| `AZURE_CLIENT_ID` | App registration client ID |
-| `AZURE_CLIENT_SECRET` | App registration secret |
 | `LOG_ANALYTICS_DCE` | Data Collection Endpoint URL |
 | `LOG_ANALYTICS_DCR_ID` | Data Collection Rule immutable ID (starts with `dcr-`) |
+
+**For app registration / local development** (set `USE_MANAGED_IDENTITY=false`):
+
+| Variable | Description |
+| --- | --- |
+| `AZURE_CLIENT_ID` | App registration client ID |
+| `AZURE_CLIENT_SECRET` | App registration client secret |
+
+When all three of `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET` are present and `USE_MANAGED_IDENTITY` is not `true`, `ClientSecretCredential` is used for both Graph API and Log Analytics ingestion. The app registration's service principal must have `Monitoring Metrics Publisher` on the DCR.
 
 ---
 
 ## Scripts
 
 | Script | Purpose |
-| -------- | --------- |
+| --- | --- |
+| `setup-local.ps1` | Set up local development environment (venv, dependencies, settings file) |
 | `deployment/deploy.ps1` | Full deployment (resources + code) |
-| `deployment/scripts/Grant-GraphPermissions.ps1` | Grant Graph API permissions to service principal |
+| `deployment/scripts/Grant-GraphPermissions.ps1` | Grant Graph API permissions to service principal or managed identity |
 | `deployment/scripts/Configure-Permissions.ps1` | Quick permission setup for Managed Identity |
-| `deployment/scripts/Update-DCRSchema.ps1` | Update DCR schema if tables change |
+| `deployment/scripts/Update-DCRSchema.ps1` | Update DCR schema when adding tables or columns |
 
 ---
 
@@ -275,36 +291,114 @@ Environment variables (set automatically by deploy script):
 
 ## Updating
 
-**Redeploy code only** (after making changes):
+### Adding a new column to an existing table
+
+1. Add the field to the Python export dict in `functions/export_*/`
+2. Add the column to `deployment/scripts/Update-DCRSchema.ps1`
+3. Run the schema update, then deploy the code:
+
+```powershell
+.\deployment\scripts\Update-DCRSchema.ps1
+cd functions && func azure functionapp publish <function-app-name> --python
+```
+
+Schema update must go first — if the code deploys before the column exists in the DCR, Log Analytics silently drops that field.
+
+### Adding a new table
+
+The Log Analytics table must exist before the DCR will accept a new stream referencing it. Create the table first, then update the schema:
+
+```powershell
+# 1. Create the table (see New-CustomTables pattern in deploy.ps1)
+# 2. Update DCR schema
+.\deployment\scripts\Update-DCRSchema.ps1
+# 3. Deploy code
+cd functions && func azure functionapp publish <function-app-name> --python
+```
+
+### Redeploy code only
 
 ```powershell
 cd functions
 func azure functionapp publish <function-app-name> --python
 ```
 
-**Update DCR schema** (if table columns change):
-
-```powershell
-.\deployment\scripts\Update-DCRSchema.ps1
-```
-
 ---
 
 ## Local Development
 
+### Local prerequisites
+
+- Python 3.11 (`winget install Python.Python.3.11`)
+- [Azure Functions Core Tools v4](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local) (`winget install Microsoft.Azure.FunctionsCoreTools`)
+- [Azurite](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite) — local Azure Storage emulator (`npm install -g azurite`)
+
+### Automated setup
+
+```powershell
+.\setup-local.ps1
+```
+
+This checks prerequisites, creates a Python virtual environment at `functions/.venv/`, installs dependencies, and copies `local.settings.json.example` → `local.settings.json`.
+
+### Manual setup (if preferred)
+
 ```powershell
 cd functions
-
-# Create local settings
+python3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 cp local.settings.json.example local.settings.json
-# Edit local.settings.json with your values
-
-# Run locally
-func start
-
-# Test
-curl http://localhost:7071/api/export/devices
 ```
+
+### Configure credentials
+
+Edit `functions/local.settings.json` and fill in:
+
+| Setting | Value |
+| ------- | ----- |
+| `AZURE_TENANT_ID` | Your Entra tenant ID |
+| `AZURE_CLIENT_ID` | App registration client ID |
+| `AZURE_CLIENT_SECRET` | App registration client secret |
+| `LOG_ANALYTICS_DCE` | Data Collection Endpoint URL |
+| `LOG_ANALYTICS_DCR_ID` | DCR immutable ID (starts with `dcr-`) |
+
+The app registration needs `Monitoring Metrics Publisher` on the DCR and the Graph API permissions listed above.
+
+### Run
+
+Start Azurite in one terminal (required for `AzureWebJobsStorage`):
+
+```powershell
+azurite --location .azurite
+```
+
+Start the Functions host in another terminal:
+
+```powershell
+cd functions
+.\.venv\Scripts\Activate.ps1
+func start
+```
+
+### Verify
+
+```powershell
+# Check auth + Graph API connectivity
+curl http://localhost:7071/api/export/health
+
+# Send a test record to Log Analytics
+curl -X POST http://localhost:7071/api/export/test
+
+# Trigger a full export
+curl -X POST http://localhost:7071/api/export/devices
+```
+
+No function key is required locally — Core Tools accepts requests without one by default.
+
+### VS Code debugging
+
+Install the [Azure Functions](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-azurefunctions) extension, then press **F5**. This starts the Functions host and attaches the Python debugger so you can set breakpoints in any export function.
 
 ---
 

@@ -349,6 +349,7 @@ function New-CustomTables {
 
     $tableNames = @(
         "IntuneDevices_CL",
+        "IntuneUsers_CL",
         "IntuneCompliancePolicies_CL",
         "IntuneComplianceStates_CL",
         "IntuneDeviceScores_CL",

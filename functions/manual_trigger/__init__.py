@@ -53,7 +53,6 @@ async def run_health_check():
         config = validate_config()
         results['config'] = {
             'status': 'ok',
-            'backend': config.get('backend'),
             'auth_method': config.get('auth_method'),
         }
     except Exception as e:
@@ -98,8 +97,7 @@ async def run_health_check():
         ingester = DataIngester()
         results['log_analytics'] = {
             'status': 'ok',
-            'backend': ingester.backend,
-            'dce': ingester.dce if hasattr(ingester, 'dce') else None,
+            'dce': ingester.dce,
         }
     except Exception as e:
         results['log_analytics'] = {'status': 'error', 'error': str(e)}

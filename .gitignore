@@ -6,7 +6,6 @@ local.settings.json
 
 # Python
 .venv/
-.venv311/
 __pycache__/
 *.pyc
 *.pyo
@@ -16,6 +15,7 @@ __pycache__/
 bin/
 obj/
 .python_packages/
+.azurite/
 
 # Node (not used - gitignored to prevent accidental commits)
 node_modules/
