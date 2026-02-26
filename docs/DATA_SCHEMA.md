@@ -15,6 +15,7 @@ This document defines the complete schema for all Log Analytics tables populated
 - [IntuneAppReliability_CL](#intuneappreliability_cl)
 - [IntuneAutopilotDevices_CL](#intuneautopilotdevices_cl)
 - [IntuneAutopilotProfiles_CL](#intuneautopilotprofiles_cl)
+- [IntuneUsers_CL](#intuneusers_cl)
 - [IntuneSyncState_CL](#intunesyncstate_cl)
 - [Data Relationships](#data-relationships)
 - [Sample Queries](#sample-queries)
@@ -59,23 +60,77 @@ These fields are automatically added to every record in all tables:
 | `OwnerType` | string | Device ownership type | `company`, `personal`, `unknown` |
 | `DeviceEnrollmentType` | string | How the device was enrolled | `userEnrollment`, `deviceEnrollment`, `autopilot` |
 | `EmailAddress` | string | Associated email address | `user@contoso.com` |
-| `AzureADRegistered` | bool | Whether registered in Azure AD | `true`, `false` |
+| `AzureADRegistered` | string | Whether registered in Azure AD | `"true"`, `"false"` |
 | `AzureADDeviceId` | string | Azure AD device object ID | `abcd1234-5678-...` |
 | `DeviceRegistrationState` | string | Azure AD registration state | `registered`, `notRegistered` |
-| `IsEncrypted` | bool | Whether device storage is encrypted | `true`, `false` |
-| `IsSupervised` | bool | Whether device is supervised (iOS) | `true`, `false` |
-| `JailBroken` | string | Jailbreak/root status | `False`, `True`, `Unknown` |
-| `AutopilotEnrolled` | bool | Whether enrolled via Autopilot | `true`, `false` |
+| `IsEncrypted` | string | Whether device storage is encrypted | `"true"`, `"false"` |
+| `IsSupervised` | string | Whether device is supervised (iOS) | `"true"`, `"false"` |
+| `JailBroken` | string | Jailbreak/root status | `notJailBroken`, `jailBroken`, `unknown` |
+| `AutopilotEnrolled` | string | Whether enrolled via Autopilot | `"true"`, `"false"` |
 | `DeviceCategory` | string | Assigned device category | `Corporate`, `Kiosk`, `Shared` |
 | `TotalStorageGB` | real | Total storage in GB | `512.00` |
 | `FreeStorageGB` | real | Free storage in GB | `234.56` |
 | `PhysicalMemoryGB` | real | RAM in GB | `16.00` |
 | `WiFiMacAddress` | string | WiFi MAC address | `00:11:22:33:44:55` |
 | `EthernetMacAddress` | string | Ethernet MAC address | `00:11:22:33:44:66` |
+| `ManagedDeviceName` | string | Intune-assigned display name | `DESKTOP-ABC123_12345` |
+| `LastLoggedOnUserId` | string | User ID of the most-recent logged-on user | `abcd1234-5678-...` |
+| `LastLoggedOnDateTime` | datetime | Datetime of the most-recent logon | `2024-03-20T08:00:00Z` |
+| `UsersLoggedOnCount` | int | Number of users in the logon history array | `1` |
+| `UsersLoggedOnJson` | string | JSON array of recent logon records | `[{"userId":"...","lastLogOnDateTime":"..."}]` |
+| `ChassisType` | string | Device form factor | `laptop`, `desktop`, `tablet` |
+| `ProcessorArchitecture` | string | CPU architecture | `x64`, `arm64` |
+| `SkuFamily` | string | Windows SKU family | `Professional` |
+| `ManagementFeatures` | string | Additional management feature flags | `microsoftManagedDesktop` |
+| `ManagementCertificateExpirationDate` | datetime | When the management certificate expires | `2025-01-15T00:00:00Z` |
+| `RetireAfterDateTime` | datetime | Scheduled device retirement date | `2026-06-01T00:00:00Z` |
+| `EnrollmentProfileName` | string | Autopilot/enrollment profile name | `Standard Corporate` |
+| `JoinType` | string | How the device joined Azure AD | `azureADJoined`, `hybridAzureADJoined` |
+| `LostModeState` | string | Lost mode status (iOS only) | `disabled`, `enabled` |
+| `PartnerReportedThreatState` | string | Threat state reported by Defender/partner | `activated`, `deactivated` |
+| `WindowsActiveMalwareCount` | int | Number of active malware detections | `0` |
+| `WindowsRemediatedMalwareCount` | int | Number of remediated malware detections | `0` |
+| `Notes` | string | Admin notes on the device | `Loaner device` |
 
 ### Key Relationships
 - Join to `IntuneComplianceStates_CL` on `DeviceId`
 - Join to `IntuneDeviceScores_CL` on `DeviceName` (note: scores use device name)
+- Join to `IntuneUsers_CL` on `UserPrincipalName`
+
+---
+
+## IntuneUsers_CL
+
+**Description:** Entra ID user profiles for device enrichment
+**Update Frequency:** Daily at 2 AM UTC
+**Source API:** `users`
+
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `UserId` | string | Entra ID object ID | `abcd1234-5678-...` |
+| `UserPrincipalName` | string | User UPN | `user@contoso.com` |
+| `DisplayName` | string | Display name | `John Smith` |
+| `GivenName` | string | First name | `John` |
+| `Surname` | string | Last name | `Smith` |
+| `Mail` | string | Email address | `john.smith@contoso.com` |
+| `JobTitle` | string | Job title | `Senior Engineer` |
+| `Department` | string | Department | `Engineering` |
+| `EmployeeId` | string | Employee ID | `E12345` |
+| `EmployeeType` | string | Employee type | `Employee`, `Contractor` |
+| `OfficeLocation` | string | Office location | `London HQ` |
+| `City` | string | City | `London` |
+| `State` | string | State/region | `England` |
+| `Country` | string | Country | `United Kingdom` |
+| `UsageLocation` | string | Usage location (2-letter code) | `GB` |
+| `AccountEnabled` | bool | Whether the account is active | `true`, `false` |
+| `CreatedDateTime` | datetime | Account creation date | `2022-06-01T09:00:00Z` |
+| `OnPremisesSyncEnabled` | bool | Synced from on-premises AD | `true`, `false` |
+| `OnPremisesDistinguishedName` | string | AD distinguished name | `CN=John Smith,OU=Users,DC=contoso,DC=com` |
+| `LastSignInDateTime` | datetime | Last interactive sign-in (requires AuditLog.Read.All) | `2024-03-20T09:00:00Z` |
+| `LastNonInteractiveSignInDateTime` | datetime | Last non-interactive sign-in | `2024-03-20T10:00:00Z` |
+
+### Key Relationships
+- Join to `IntuneDevices_CL` on `UserPrincipalName` for orphaned device detection and org filtering
 
 ---
 
@@ -317,22 +372,21 @@ These fields are automatically added to every record in all tables:
 
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
-| `SyncId` | string | Unique sync operation identifier | `12345678-abcd-...` |
-| `SyncType` | string | Type of sync operation | `devices`, `compliance`, `analytics` |
-| `Status` | string | Sync status | `success`, `failed`, `running` |
-| `RecordCount` | int | Number of records synced | `8656` |
-| `DurationSeconds` | real | Sync duration in seconds | `45.23` |
-| `ErrorMessage` | string | Error details (if failed) | `null` or error text |
+| `ExportType` | string | Type of export operation | `TestIngestion`, `devices`, `compliance` |
+| `RecordCount` | int | Number of records in the operation | `1` |
+| `Status` | string | Result status | `Success`, `Failed` |
+| `DurationSeconds` | real | Operation duration in seconds | `0.5` |
+| `ErrorMessage` | string | Error details if failed, null otherwise | `null` or error text |
 
 ---
 
 ## Data Relationships
 
 ```
-┌─────────────────────────┐
-│   IntuneDevices_CL      │
-│   (DeviceId)            │
-└───────────┬─────────────┘
+┌─────────────────────────┐     ┌─────────────────────────┐
+│   IntuneDevices_CL      │────▶│   IntuneUsers_CL        │
+│   (DeviceId)            │     │   (UserPrincipalName)   │
+└───────────┬─────────────┘     └─────────────────────────┘
             │
     ┌───────┴───────┬──────────────────┐
     │               │                  │
@@ -362,6 +416,7 @@ These fields are automatically added to every record in all tables:
 | IntuneDevices_CL | IntuneComplianceStates_CL | DeviceId = DeviceId |
 | IntuneDevices_CL | IntuneDeviceScores_CL | DeviceName = DeviceName |
 | IntuneDevices_CL | IntuneStartupPerformance_CL | DeviceId = DeviceId |
+| IntuneDevices_CL | IntuneUsers_CL | UserPrincipalName = UserPrincipalName |
 | IntuneComplianceStates_CL | IntuneCompliancePolicies_CL | PolicyId = PolicyId |
 | IntuneAutopilotDevices_CL | IntuneDevices_CL | ManagedDeviceId = DeviceId |
 
@@ -467,3 +522,4 @@ All custom tables are configured with **30-day retention** by default. This can 
 | IntuneAppReliability_CL | Daily 8 AM UTC | 100-500 |
 | IntuneAutopilotDevices_CL | Daily 6 AM UTC | Varies |
 | IntuneAutopilotProfiles_CL | Daily 6 AM UTC | 5-20 |
+| IntuneUsers_CL | Daily 2 AM UTC | Varies |

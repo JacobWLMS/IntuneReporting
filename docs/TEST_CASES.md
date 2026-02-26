@@ -20,7 +20,7 @@ Before testing:
 | INF-03 | Log Analytics Workspace exists | `az monitor log-analytics workspace show -g rg-{name} -n {name}-law` | Returns workspace with 30-day retention |
 | INF-04 | Custom tables created | Query: `IntuneDevices_CL \| take 1` | Query executes (may return 0 rows) |
 | INF-05 | DCE exists | `az monitor data-collection endpoint show -g rg-{name} -n {name}-dce` | Returns DCE with ingestion endpoint |
-| INF-06 | DCR exists with 9 streams | `az monitor data-collection rule show -g rg-{name} -n {name}-dcr` | Returns DCR with 9 stream declarations |
+| INF-06 | DCR exists with 10 streams | `az monitor data-collection rule show -g rg-{name} -n {name}-dcr` | Returns DCR with 10 stream declarations |
 | INF-07 | Function App exists | `az functionapp show -g rg-{name} -n {name}-func` | Returns function app details |
 | INF-08 | Function App uses Flex Consumption | Check `sku` in function app details | SKU contains "FC" or "FlexConsumption" |
 | INF-09 | App Registration exists | `az ad app list --display-name {name}-app` | Returns app registration |
@@ -30,23 +30,22 @@ Before testing:
 
 | ID | Test Case | Steps | Expected Result |
 |----|-----------|-------|-----------------|
-| FN-01 | Functions deployed | `az functionapp function list -g rg-{name} -n {name}-func` | Lists 5 functions |
+| FN-01 | Functions deployed | `az functionapp function list -g rg-{name} -n {name}-func` | Lists 6 functions |
 | FN-02 | export_devices function exists | Check function list | Function with timerTrigger |
 | FN-03 | export_compliance function exists | Check function list | Function with timerTrigger |
 | FN-04 | export_endpoint_analytics function exists | Check function list | Function with timerTrigger |
 | FN-05 | export_autopilot function exists | Check function list | Function with timerTrigger |
-| FN-06 | manual_trigger function exists | Check function list | Function with httpTrigger |
+| FN-06 | export_users function exists | Check function list | Function with timerTrigger |
+| FN-07 | manual_trigger function exists | Check function list | Function with httpTrigger |
 
 ### 3. Configuration Tests
 
 | ID | Test Case | Steps | Expected Result |
 |----|-----------|-------|-----------------|
 | CFG-01 | AZURE_TENANT_ID set | `az functionapp config appsettings list -g rg-{name} -n {name}-func` | Contains AZURE_TENANT_ID |
-| CFG-02 | AZURE_CLIENT_ID set | Check app settings | Contains AZURE_CLIENT_ID matching app registration |
-| CFG-03 | AZURE_CLIENT_SECRET set | Check app settings | Contains AZURE_CLIENT_SECRET (hidden value) |
-| CFG-04 | LOG_ANALYTICS_DCE set | Check app settings | Contains DCE endpoint URL |
-| CFG-05 | LOG_ANALYTICS_DCR_ID set | Check app settings | Contains DCR immutable ID |
-| CFG-06 | ANALYTICS_BACKEND set | Check app settings | Value is "LogAnalytics" |
+| CFG-02 | USE_MANAGED_IDENTITY set | Check app settings | Value is "true" |
+| CFG-03 | LOG_ANALYTICS_DCE set | Check app settings | Contains DCE endpoint URL |
+| CFG-04 | LOG_ANALYTICS_DCR_ID set | Check app settings | Contains DCR immutable ID starting with `dcr-` |
 
 ### 4. Functional Tests
 
@@ -122,8 +121,7 @@ IntuneSyncState_CL
   "checks": {
     "config": {
       "status": "ok",
-      "backend": "LOGANALYTICS",
-      "auth_method": "client_secret"
+      "auth_method": "managed_identity"
     },
     "authentication": {
       "status": "ok",
@@ -131,18 +129,17 @@ IntuneSyncState_CL
     },
     "graph_api": {
       "status": "ok",
-      "note": "Connected but missing Intune permissions (expected for test tenant)"
+      "organization": "Contoso Ltd"
     },
     "log_analytics": {
       "status": "ok",
-      "backend": "LOGANALYTICS",
       "dce": "https://{name}-dce-xxx.{region}.ingest.monitor.azure.com"
     }
   }
 }
 ```
 
-Note: `graph_api` may show "missing Intune permissions" if Graph API permissions haven't been granted yet. This is expected and the status should still be "ok".
+Note: If Graph API permissions haven't been granted yet, `graph_api.status` will be `"warning"` and the overall status will be `"degraded"` (HTTP 503). Grant the required permissions to the managed identity using `Grant-GraphPermissions.ps1` to resolve this.
 
 ## Troubleshooting
 
