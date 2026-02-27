@@ -943,7 +943,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nDevice\r\n| join kind=leftouter (\r\n    UsersByUPN\r\n    | project UserPrincipalName, PrimaryAccountEnabled = AccountEnabled,\r\n             Department, JobTitle, OfficeLocation, City, State, Country,\r\n             Mail, LastSignInDateTime, LastNonInteractiveSignInDateTime\r\n) on UserPrincipalName\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LastLoggedOnUserId = UserId,\r\n             LastLogonUserUPN = UserPrincipalName,\r\n             LastLogonUserName = DisplayName,\r\n             LastLogonDepartment = Department,\r\n             LastLogonJobTitle = JobTitle,\r\n             LastLogonMail = Mail,\r\n             LastLogonOffice = OfficeLocation,\r\n             LastLogonCity = City,\r\n             LastLogonCountry = Country,\r\n             LastLogonAccountEnabled = AccountEnabled,\r\n             LastLogonLastSignIn = LastSignInDateTime\r\n) on LastLoggedOnUserId\r\n| extend\r\n    BestKnownUser = coalesce(LastLogonUserUPN, UserPrincipalName, \"No Data\"),\r\n    BestKnownUserName = coalesce(LastLogonUserName, UserDisplayName, \"No Data\"),\r\n    BestKnownDept = coalesce(LastLogonDepartment, Department, \"No Data\"),\r\n    BestKnownJobTitle = coalesce(LastLogonJobTitle, JobTitle, \"No Data\"),\r\n    BestKnownMail = coalesce(LastLogonMail, Mail, EmailAddress, \"No Data\"),\r\n    BestKnownOffice = coalesce(LastLogonOffice, OfficeLocation, \"No Data\"),\r\n    BestKnownCity = coalesce(LastLogonCity, City, \"No Data\"),\r\n    BestKnownCountry = coalesce(LastLogonCountry, Country, \"No Data\"),\r\n    BestKnownAccountEnabled = coalesce(LastLogonAccountEnabled, PrimaryAccountEnabled)\r\n| project\r\n    ['Display Name'] = BestKnownUserName,\r\n    ['Email'] = BestKnownMail,\r\n    ['UPN'] = BestKnownUser,\r\n    ['Job Title'] = BestKnownJobTitle,\r\n    Department = BestKnownDept,\r\n    Office = BestKnownOffice,\r\n    City = BestKnownCity,\r\n    Country = BestKnownCountry,\r\n    ['Account Status'] = iff(BestKnownAccountEnabled == true, \"Active\", iff(BestKnownAccountEnabled == false, \"Disabled\", \"No Data\")),\r\n    ['Last Sign-In'] = iff(isnotempty(coalesce(LastLogonLastSignIn, LastSignInDateTime)),\r\n        strcat(tostring(coalesce(LastLogonLastSignIn, LastSignInDateTime)), \" (\",\r\n            datetime_diff('day', now(), todatetime(coalesce(LastLogonLastSignIn, LastSignInDateTime))), \" days ago)\"),\r\n        \"No Data\")",
+              "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nDevice\r\n| join kind=leftouter (\r\n    UsersByUPN\r\n    | project UserPrincipalName, PrimaryAccountEnabled = AccountEnabled,\r\n             Department, JobTitle, OfficeLocation, City, State, Country,\r\n             Mail, LastSignInDateTime, LastNonInteractiveSignInDateTime\r\n) on UserPrincipalName\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LastLoggedOnUserId = UserId,\r\n             LastLogonUserUPN = UserPrincipalName,\r\n             LastLogonUserName = DisplayName,\r\n             LastLogonDepartment = Department,\r\n             LastLogonJobTitle = JobTitle,\r\n             LastLogonMail = Mail,\r\n             LastLogonOffice = OfficeLocation,\r\n             LastLogonCity = City,\r\n             LastLogonCountry = Country,\r\n             LastLogonAccountEnabled = AccountEnabled,\r\n             LastLogonLastSignIn = LastSignInDateTime\r\n) on LastLoggedOnUserId\r\n| extend\r\n    BestKnownUser = coalesce(LastLogonUserUPN, UserPrincipalName, \"No Data\"),\r\n    BestKnownUserName = coalesce(LastLogonUserName, UserDisplayName, \"No Data\"),\r\n    BestKnownDept = coalesce(LastLogonDepartment, Department, \"No Data\"),\r\n    BestKnownJobTitle = coalesce(LastLogonJobTitle, JobTitle, \"No Data\"),\r\n    BestKnownMail = coalesce(LastLogonMail, Mail, EmailAddress, \"No Data\"),\r\n    BestKnownOffice = coalesce(LastLogonOffice, OfficeLocation, \"No Data\"),\r\n    BestKnownCity = coalesce(LastLogonCity, City, \"No Data\"),\r\n    BestKnownCountry = coalesce(LastLogonCountry, Country, \"No Data\"),\r\n    BestKnownAccountEnabled = coalesce(LastLogonAccountEnabled, PrimaryAccountEnabled)\r\n| extend UserSource = case(\r\n    isnotempty(LastLoggedOnUserId) and isnotempty(LastLogonUserUPN), \"Last Logon\",\r\n    isnotempty(UserPrincipalName), \"Primary (Assigned)\",\r\n    \"No Data\")\r\n| extend LastDeviceLogon = iff(isnotempty(LastLoggedOnDateTime),\r\n    strcat(format_datetime(todatetime(LastLoggedOnDateTime), 'yyyy-MM-dd HH:mm'),\r\n        \" (\", datetime_diff('day', now(), todatetime(LastLoggedOnDateTime)), \" days ago)\"),\r\n    \"No Data\")\r\n| project\r\n    Source = UserSource,\r\n    ['Display Name'] = BestKnownUserName,\r\n    ['Email'] = BestKnownMail,\r\n    ['UPN'] = BestKnownUser,\r\n    ['Job Title'] = BestKnownJobTitle,\r\n    Department = BestKnownDept,\r\n    Office = BestKnownOffice,\r\n    City = BestKnownCity,\r\n    Country = BestKnownCountry,\r\n    ['Account Status'] = iff(BestKnownAccountEnabled == true, \"Active\", iff(BestKnownAccountEnabled == false, \"Disabled\", \"No Data\")),\r\n    ['Last Sign-In'] = iff(isnotempty(coalesce(LastLogonLastSignIn, LastSignInDateTime)),\r\n        strcat(tostring(coalesce(LastLogonLastSignIn, LastSignInDateTime)), \" (\",\r\n            datetime_diff('day', now(), todatetime(coalesce(LastLogonLastSignIn, LastSignInDateTime))), \" days ago)\"),\r\n        \"No Data\"),\r\n    ['Last Device Logon'] = LastDeviceLogon",
               "size": 0,
               "title": "Most Likely User",
               "queryType": 0,
@@ -951,6 +951,33 @@
               "visualization": "table",
               "gridSettings": {
                 "formatters": [
+                  {
+                    "columnMatch": "Source",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Last Logon",
+                          "representation": "success",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Primary (Assigned)",
+                          "representation": "info",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "unknown",
+                          "text": "{0}"
+                        }
+                      ]
+                    }
+                  },
                   {
                     "columnMatch": "Account Status",
                     "formatter": 18,
@@ -992,9 +1019,172 @@
           {
             "type": 1,
             "content": {
-              "json": "*The most likely current user of this device, resolved by preferring the **last logged-on user** over the primary assigned user. Last logon is more recent and reliable as it reflects who actually used the device. If the user account is disabled, the device is likely orphaned and the user may have left the organisation.*"
+              "json": "*The most likely current user of this device. The **Source** column shows where this was determined from: \"Last Logon\" (the most recent Windows sign-in recorded by Intune — preferred) or \"Primary (Assigned)\" (the user assigned during enrollment). If the user account is disabled, the device is likely orphaned. See the breakdown below for all user evidence.*"
             },
             "name": "locate-bestuser-note",
+            "conditionalVisibility": {
+              "parameterName": "SelectedDevice",
+              "comparison": "isNotEqualTo",
+              "value": ""
+            }
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "### User Identification Breakdown"
+            },
+            "name": "locate-section-breakdown",
+            "conditionalVisibility": {
+              "parameterName": "SelectedDevice",
+              "comparison": "isNotEqualTo",
+              "value": ""
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nlet PrimaryUser = Device\r\n| where isnotempty(UserPrincipalName)\r\n| join kind=inner (UsersByUPN) on UserPrincipalName\r\n| project\r\n    Source = \"Primary (Assigned)\",\r\n    DisplayName = coalesce(DisplayName, \"No Data\"),\r\n    UPN = UserPrincipalName,\r\n    Email = coalesce(Mail, \"No Data\"),\r\n    ['Job Title'] = coalesce(JobTitle, \"No Data\"),\r\n    Department = coalesce(Department, \"No Data\"),\r\n    Office = coalesce(OfficeLocation, \"No Data\"),\r\n    ['Account Status'] = iff(AccountEnabled == true, \"Active\", iff(AccountEnabled == false, \"Disabled\", \"No Data\")),\r\n    ['Last Sign-In'] = iff(isnotempty(LastSignInDateTime),\r\n        strcat(tostring(LastSignInDateTime), \" (\", datetime_diff('day', now(), todatetime(LastSignInDateTime)), \" days ago)\"),\r\n        \"No Data\");\r\nlet LastLogonUser = Device\r\n| where isnotempty(LastLoggedOnUserId)\r\n| join kind=inner (\r\n    UsersByIdLookup\r\n    | project UserId, LogonUserUPN = UserPrincipalName, DisplayName, Mail, JobTitle, Department, OfficeLocation, AccountEnabled, LastSignInDateTime\r\n) on $left.LastLoggedOnUserId == $right.UserId\r\n| project\r\n    Source = \"Last Logon\",\r\n    DisplayName = coalesce(DisplayName, \"No Data\"),\r\n    UPN = LogonUserUPN,\r\n    Email = coalesce(Mail, \"No Data\"),\r\n    ['Job Title'] = coalesce(JobTitle, \"No Data\"),\r\n    Department = coalesce(Department, \"No Data\"),\r\n    Office = coalesce(OfficeLocation, \"No Data\"),\r\n    ['Account Status'] = iff(AccountEnabled == true, \"Active\", iff(AccountEnabled == false, \"Disabled\", \"No Data\")),\r\n    ['Last Sign-In'] = iff(isnotempty(LastSignInDateTime),\r\n        strcat(tostring(LastSignInDateTime), \" (\", datetime_diff('day', now(), todatetime(LastSignInDateTime)), \" days ago)\"),\r\n        \"No Data\");\r\nunion PrimaryUser, LastLogonUser\r\n| distinct *",
+              "size": 0,
+              "title": "Primary vs Last Logon User",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Source",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Last Logon",
+                          "representation": "success",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Primary (Assigned)",
+                          "representation": "info",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "unknown",
+                          "text": "{0}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Account Status",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Active",
+                          "representation": "success",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Disabled",
+                          "representation": "failed",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "unknown",
+                          "text": "{0}"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "filter": true
+              }
+            },
+            "name": "grid-user-sources",
+            "conditionalVisibility": {
+              "parameterName": "SelectedDevice",
+              "comparison": "isNotEqualTo",
+              "value": ""
+            }
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "*The two data sources used to identify the most likely user. \"Primary (Assigned)\" is the user set during Intune enrollment. \"Last Logon\" is the most recent Windows sign-in recorded by Intune. When these differ, the Last Logon user is preferred as the most likely current user.*"
+            },
+            "name": "locate-sources-note",
+            "conditionalVisibility": {
+              "parameterName": "SelectedDevice",
+              "comparison": "isNotEqualTo",
+              "value": ""
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nDevice\r\n| where isnotempty(UsersLoggedOnJson)\r\n| extend LoggedOnUsers = parse_json(UsersLoggedOnJson)\r\n| mv-expand LoggedOnUser = LoggedOnUsers\r\n| extend\r\n    LogonUserId = tostring(LoggedOnUser.userId),\r\n    LogonDateTime = todatetime(LoggedOnUser.lastLogOnDateTime)\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LogonUserId = UserId,\r\n             LogonDisplayName = DisplayName,\r\n             LogonUPN = UserPrincipalName,\r\n             LogonMail = Mail,\r\n             LogonDepartment = Department,\r\n             LogonJobTitle = JobTitle,\r\n             LogonOffice = OfficeLocation,\r\n             LogonAccountEnabled = AccountEnabled,\r\n             LogonEntraSignIn = LastSignInDateTime\r\n) on LogonUserId\r\n| summarize arg_max(LogonDateTime, *) by LogonUserId\r\n| order by LogonDateTime desc\r\n| extend\r\n    LogonDaysAgo = datetime_diff('day', now(), LogonDateTime),\r\n    EntraSignInDaysAgo = iff(isnotempty(LogonEntraSignIn),\r\n        datetime_diff('day', now(), todatetime(LogonEntraSignIn)), int(null))\r\n| project\r\n    ['Display Name'] = coalesce(LogonDisplayName, \"Unknown\"),\r\n    UPN = coalesce(LogonUPN, \"Unknown\"),\r\n    Email = coalesce(LogonMail, \"No Data\"),\r\n    Department = coalesce(LogonDepartment, \"No Data\"),\r\n    ['Job Title'] = coalesce(LogonJobTitle, \"No Data\"),\r\n    Office = coalesce(LogonOffice, \"No Data\"),\r\n    ['Account Status'] = iff(LogonAccountEnabled == true, \"Active\",\r\n        iff(LogonAccountEnabled == false, \"Disabled\", \"Unknown\")),\r\n    ['Last Device Logon'] = strcat(format_datetime(LogonDateTime, 'yyyy-MM-dd HH:mm'),\r\n        \" (\", LogonDaysAgo, \" days ago)\"),\r\n    ['Last Entra Sign-In'] = iff(isnotempty(LogonEntraSignIn),\r\n        strcat(tostring(LogonEntraSignIn),\r\n            \" (\", EntraSignInDaysAgo, \" days ago)\"),\r\n        \"No Data\")",
+              "size": 0,
+              "title": "Signed-In Users History",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Account Status",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Active",
+                          "representation": "success",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Disabled",
+                          "representation": "failed",
+                          "text": "{0}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "unknown",
+                          "text": "{0}"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "filter": true
+              }
+            },
+            "name": "grid-logon-history",
+            "conditionalVisibility": {
+              "parameterName": "SelectedDevice",
+              "comparison": "isNotEqualTo",
+              "value": ""
+            }
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "*All users who have signed into this device, deduplicated to show each user once with their most recent logon. Enriched with Entra ID profile data. The most recent logon user is listed first and is the one used as the \"Most Likely User\" above.*"
+            },
+            "name": "locate-logon-history-note",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
@@ -1037,7 +1227,7 @@
           {
             "type": 1,
             "content": {
-              "json": "*Location comes from the best-known user's Entra ID profile — it reflects where the **user** is assigned, not necessarily where the device physically is. Physical identifiers (serial number, MAC addresses, IMEI) can be used with asset tracking systems or network tools (DHCP/ARP tables) to locate the device on the network. Location fields require User.Read.All permission and will show \"No Data\" until granted.*"
+              "json": "*Location comes from the best-known user's Entra ID profile — it reflects where the **user** is assigned, not necessarily where the device physically is. Physical identifiers (serial number, MAC addresses, IMEI) can be used with asset tracking systems or network tools (DHCP/ARP tables) to locate the device on the network.*"
             },
             "name": "locate-location-note",
             "conditionalVisibility": {
@@ -1049,81 +1239,7 @@
           {
             "type": 1,
             "content": {
-              "json": "### All User Associations"
-            },
-            "name": "locate-section-sources",
-            "conditionalVisibility": {
-              "parameterName": "SelectedDevice",
-              "comparison": "isNotEqualTo",
-              "value": ""
-            }
-          },
-          {
-            "type": 3,
-            "content": {
-              "version": "KqlItem/1.0",
-              "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nlet PrimaryUser = Device\r\n| where isnotempty(UserPrincipalName)\r\n| join kind=inner (UsersByUPN) on UserPrincipalName\r\n| project\r\n    Source = \"Primary (Assigned)\",\r\n    DisplayName = coalesce(DisplayName, \"No Data\"),\r\n    UserPrincipalName,\r\n    Email = coalesce(Mail, \"No Data\"),\r\n    Department = coalesce(Department, \"No Data\"),\r\n    Office = coalesce(OfficeLocation, \"No Data\"),\r\n    ['Account Status'] = iff(AccountEnabled == true, \"Active\", iff(AccountEnabled == false, \"Disabled\", \"No Data\")),\r\n    ['Last Sign-In'] = iff(isnotempty(LastSignInDateTime), tostring(LastSignInDateTime), \"No Data\");\r\nlet LastLogonUser = Device\r\n| where isnotempty(LastLoggedOnUserId)\r\n| join kind=inner (UsersByIdLookup) on $left.LastLoggedOnUserId == $right.UserId\r\n| project\r\n    Source = \"Last Logon\",\r\n    DisplayName = coalesce(DisplayName, \"No Data\"),\r\n    UserPrincipalName,\r\n    Email = coalesce(Mail, \"No Data\"),\r\n    Department = coalesce(Department, \"No Data\"),\r\n    Office = coalesce(OfficeLocation, \"No Data\"),\r\n    ['Account Status'] = iff(AccountEnabled == true, \"Active\", iff(AccountEnabled == false, \"Disabled\", \"No Data\")),\r\n    ['Last Sign-In'] = iff(isnotempty(LastSignInDateTime), tostring(LastSignInDateTime), \"No Data\");\r\nunion PrimaryUser, LastLogonUser\r\n| distinct *",
-              "size": 0,
-              "title": "All User Associations",
-              "queryType": 0,
-              "resourceType": "microsoft.operationalinsights/workspaces",
-              "visualization": "table",
-              "gridSettings": {
-                "formatters": [
-                  {
-                    "columnMatch": "Account Status",
-                    "formatter": 18,
-                    "formatOptions": {
-                      "thresholdsOptions": "icons",
-                      "thresholdsGrid": [
-                        {
-                          "operator": "==",
-                          "thresholdValue": "Active",
-                          "representation": "success",
-                          "text": "{0}"
-                        },
-                        {
-                          "operator": "==",
-                          "thresholdValue": "Disabled",
-                          "representation": "failed",
-                          "text": "{0}"
-                        },
-                        {
-                          "operator": "Default",
-                          "thresholdValue": null,
-                          "representation": "unknown",
-                          "text": "{0}"
-                        }
-                      ]
-                    }
-                  }
-                ],
-                "filter": true
-              }
-            },
-            "name": "grid-user-sources",
-            "conditionalVisibility": {
-              "parameterName": "SelectedDevice",
-              "comparison": "isNotEqualTo",
-              "value": ""
-            }
-          },
-          {
-            "type": 1,
-            "content": {
-              "json": "*All known user associations for this device. \"Primary\" is the user assigned during enrollment. \"Last Logon\" is the most recent Windows logon recorded by Intune. These may be the same person. If they differ, the Last Logon user is usually more relevant for reclaim purposes.*"
-            },
-            "name": "locate-sources-note",
-            "conditionalVisibility": {
-              "parameterName": "SelectedDevice",
-              "comparison": "isNotEqualTo",
-              "value": ""
-            }
-          },
-          {
-            "type": 1,
-            "content": {
-              "json": "### Department Contacts"
+              "json": "### Nearby Contacts"
             },
             "name": "locate-section-contacts",
             "conditionalVisibility": {
@@ -1136,9 +1252,9 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nlet DeviceContext = Device\r\n| join kind=leftouter (\r\n    UsersByUPN\r\n    | project UserPrincipalName, PrimaryAccountEnabled = AccountEnabled,\r\n             Department, JobTitle, OfficeLocation, City, State, Country,\r\n             Mail, LastSignInDateTime, LastNonInteractiveSignInDateTime\r\n) on UserPrincipalName\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LastLoggedOnUserId = UserId,\r\n             LastLogonUserUPN = UserPrincipalName,\r\n             LastLogonUserName = DisplayName,\r\n             LastLogonDepartment = Department,\r\n             LastLogonJobTitle = JobTitle,\r\n             LastLogonMail = Mail,\r\n             LastLogonOffice = OfficeLocation,\r\n             LastLogonCity = City,\r\n             LastLogonCountry = Country,\r\n             LastLogonAccountEnabled = AccountEnabled,\r\n             LastLogonLastSignIn = LastSignInDateTime\r\n) on LastLoggedOnUserId\r\n| extend\r\n    BestKnownUser = coalesce(LastLogonUserUPN, UserPrincipalName, \"No Data\"),\r\n    BestKnownUserName = coalesce(LastLogonUserName, UserDisplayName, \"No Data\"),\r\n    BestKnownDept = coalesce(LastLogonDepartment, Department, \"No Data\"),\r\n    BestKnownJobTitle = coalesce(LastLogonJobTitle, JobTitle, \"No Data\"),\r\n    BestKnownMail = coalesce(LastLogonMail, Mail, EmailAddress, \"No Data\"),\r\n    BestKnownOffice = coalesce(LastLogonOffice, OfficeLocation, \"No Data\"),\r\n    BestKnownCity = coalesce(LastLogonCity, City, \"No Data\"),\r\n    BestKnownCountry = coalesce(LastLogonCountry, Country, \"No Data\"),\r\n    BestKnownAccountEnabled = coalesce(LastLogonAccountEnabled, PrimaryAccountEnabled)\r\n| project BestDept = BestKnownDept, DeviceUserUPN = coalesce(LastLogonUserUPN, UserPrincipalName, \"\");\r\nIntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName\r\n| where AccountEnabled == true\r\n| join kind=inner (DeviceContext) on $left.Department == $right.BestDept\r\n| where UserPrincipalName != DeviceUserUPN\r\n| where isnotempty(Department) and Department != \"No Data\"\r\n| project\r\n    ['Display Name'] = coalesce(DisplayName, \"No Data\"),\r\n    Email = coalesce(Mail, \"No Data\"),\r\n    ['Job Title'] = coalesce(JobTitle, \"No Data\"),\r\n    Office = coalesce(OfficeLocation, \"No Data\"),\r\n    ['Last Sign-In (days ago)'] = iff(isnotempty(LastSignInDateTime), datetime_diff('day', now(), todatetime(LastSignInDateTime)), int(null))\r\n| where ['Last Sign-In (days ago)'] < 14 or isnull(['Last Sign-In (days ago)'])\r\n| order by ['Display Name'] asc\r\n| take 10",
+              "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nlet DeviceContext = Device\r\n| join kind=leftouter (\r\n    UsersByUPN\r\n    | project UserPrincipalName, PrimaryAccountEnabled = AccountEnabled,\r\n             Department, JobTitle, OfficeLocation, City, State, Country,\r\n             Mail, LastSignInDateTime, LastNonInteractiveSignInDateTime\r\n) on UserPrincipalName\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LastLoggedOnUserId = UserId,\r\n             LastLogonUserUPN = UserPrincipalName,\r\n             LastLogonUserName = DisplayName,\r\n             LastLogonDepartment = Department,\r\n             LastLogonJobTitle = JobTitle,\r\n             LastLogonMail = Mail,\r\n             LastLogonOffice = OfficeLocation,\r\n             LastLogonCity = City,\r\n             LastLogonCountry = Country,\r\n             LastLogonAccountEnabled = AccountEnabled,\r\n             LastLogonLastSignIn = LastSignInDateTime\r\n) on LastLoggedOnUserId\r\n| extend\r\n    BestKnownDept = coalesce(LastLogonDepartment, Department, \"\"),\r\n    BestKnownOffice = coalesce(LastLogonOffice, OfficeLocation, \"\")\r\n| project\r\n    BestDept = BestKnownDept,\r\n    BestOffice = BestKnownOffice,\r\n    MatchOn = case(\r\n        isnotempty(BestKnownDept) and BestKnownDept != \" \", \"Department\",\r\n        isnotempty(BestKnownOffice), \"Office\",\r\n        \"None\"),\r\n    DeviceUserUPN = coalesce(LastLogonUserUPN, UserPrincipalName, \"\");\r\nlet MatchField = toscalar(DeviceContext | project MatchOn);\r\nlet MatchValue = toscalar(DeviceContext | project iff(MatchOn == \"Department\", BestDept, BestOffice));\r\nlet DeviceUserUPN_ = toscalar(DeviceContext | project DeviceUserUPN);\r\nIntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName\r\n| where AccountEnabled == true\r\n| where UserPrincipalName != DeviceUserUPN_\r\n| where (MatchField == \"Department\" and Department == MatchValue)\r\n     or (MatchField == \"Office\" and OfficeLocation == MatchValue)\r\n| project\r\n    ['Display Name'] = coalesce(DisplayName, \"No Data\"),\r\n    Email = coalesce(Mail, \"No Data\"),\r\n    ['Job Title'] = coalesce(JobTitle, \"No Data\"),\r\n    Department = coalesce(Department, \"No Data\"),\r\n    Office = coalesce(OfficeLocation, \"No Data\"),\r\n    ['Matched On'] = MatchField,\r\n    ['Last Sign-In (days ago)'] = iff(isnotempty(LastSignInDateTime), datetime_diff('day', now(), todatetime(LastSignInDateTime)), int(null))\r\n| where ['Last Sign-In (days ago)'] < 14 or isnull(['Last Sign-In (days ago)'])\r\n| order by ['Display Name'] asc\r\n| take 10",
               "size": 0,
-              "title": "Department Contacts (same department, active, recently signed in)",
+              "title": "Nearby Contacts (same department or office, active, recently signed in)",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
               "visualization": "table",
@@ -1156,7 +1272,7 @@
           {
             "type": 1,
             "content": {
-              "json": "*Active users in the same department who have signed in within the last 14 days. Contact them if the device owner is unreachable or has left the organisation. Only shows results when department data is available in Entra ID.*"
+              "json": "*Active users in the same department (or same office if no department data) who have signed in within the last 14 days. The \"Matched On\" column shows whether contacts were found by department or office location. Contact them if the device owner is unreachable or has left the organisation.*"
             },
             "name": "locate-contacts-note",
             "conditionalVisibility": {
@@ -1703,7 +1819,15 @@
               "title": "Total Stale Devices - Last 30 Days",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
-              "visualization": "linechart"
+              "visualization": "linechart",
+              "chartSettings": {
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "StaleCount",
+                    "label": "Stale Devices"
+                  }
+                ]
+              }
             },
             "name": "chart-stale-trend"
           },
