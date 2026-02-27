@@ -29,7 +29,7 @@
             "type": 1,
             "isRequired": true,
             "label": "Stale Threshold (days)",
-            "value": "30"
+            "value": "90"
           },
           {
             "id": "severity-filter",
@@ -67,7 +67,8 @@
             },
             "queryType": 0,
             "resourceType": "microsoft.operationalinsights/workspaces",
-            "label": "Select Device"
+            "label": "Select Device",
+            "value": "ffde6e8f-1f14-4d92-84cb-ef9bb01118ea"
           }
         ],
         "style": "pills",
@@ -363,8 +364,7 @@
                     "formatter": 5
                   }
                 ],
-                "filter": true,
-                "showExportToExcel": true
+                "filter": true
               }
             },
             "name": "grid-queue"
@@ -387,8 +387,8 @@
               "resourceType": "microsoft.operationalinsights/workspaces",
               "visualization": "piechart"
             },
-            "name": "chart-severity-pie",
-            "customWidth": "40"
+            "customWidth": "40",
+            "name": "chart-severity-pie"
           },
           {
             "type": 3,
@@ -443,8 +443,8 @@
                 "filter": true
               }
             },
-            "name": "grid-top-depts",
-            "customWidth": "60"
+            "customWidth": "60",
+            "name": "grid-top-depts"
           },
           {
             "type": 1,
@@ -455,12 +455,12 @@
           }
         ]
       },
-      "name": "queue-group",
       "conditionalVisibility": {
         "parameterName": "Tab",
         "comparison": "isEqualTo",
         "value": "Queue"
-      }
+      },
+      "name": "queue-group"
     },
     {
       "type": 12,
@@ -473,12 +473,12 @@
             "content": {
               "json": "### Select a device from the dropdown above to view its details\n\nType a device name, serial number, or username in the search box to filter the dropdown."
             },
-            "name": "details-no-device",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isEqualTo",
               "value": ""
-            }
+            },
+            "name": "details-no-device"
           },
           {
             "type": 3,
@@ -499,12 +499,12 @@
               }
             },
             "customWidth": "20",
-            "name": "stat-days-stale",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "stat-days-stale"
           },
           {
             "type": 3,
@@ -525,18 +525,18 @@
               }
             },
             "customWidth": "20",
-            "name": "stat-severity",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "stat-severity"
           },
           {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nDevice | project ComplianceState = coalesce(ComplianceState, \"No Data\")",
+              "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nDevice | project Compliant = case(\r\n    ComplianceState == \"compliant\", \"Yes\",\r\n    ComplianceState == \"noncompliant\", \"No\",\r\n    ComplianceState == \"inGracePeriod\", \"Grace Period\",\r\n    isempty(ComplianceState) or ComplianceState == \"unknown\", \"No Data\",\r\n    ComplianceState)",
               "size": 4,
               "title": "Compliance",
               "queryType": 0,
@@ -551,12 +551,12 @@
               }
             },
             "customWidth": "20",
-            "name": "stat-compliance",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "stat-compliance"
           },
           {
             "type": 3,
@@ -577,12 +577,12 @@
               }
             },
             "customWidth": "20",
-            "name": "stat-encrypted",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "stat-encrypted"
           },
           {
             "type": 3,
@@ -603,36 +603,36 @@
               }
             },
             "customWidth": "20",
-            "name": "stat-account",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "stat-account"
           },
           {
             "type": 1,
             "content": {
               "json": "*At-a-glance status of the selected device. Red or \"Disabled\" indicates issues requiring attention.*"
             },
-            "name": "details-status-note",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "details-status-note"
           },
           {
             "type": 1,
             "content": {
               "json": "### Device Identity & Hardware"
             },
-            "name": "details-section-identity",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "details-section-identity"
           },
           {
             "type": 3,
@@ -648,13 +648,13 @@
                 "filter": true
               }
             },
-            "name": "grid-device-identity",
             "customWidth": "55",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "grid-device-identity"
           },
           {
             "type": 3,
@@ -667,37 +667,37 @@
               "resourceType": "microsoft.operationalinsights/workspaces",
               "visualization": "barchart"
             },
-            "name": "chart-staleness-signals",
             "customWidth": "45",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "chart-staleness-signals"
           },
           {
             "type": 1,
             "content": {
               "json": "*Hardware and OS details come from Intune device inventory (updated every 4 hours when the device syncs). Staleness signals show how long ago each activity was last seen: Intune Sync and Device Logon come from the device record. User Sign-In comes from Entra ID (requires AuditLog.Read.All). Missing signals are omitted.*"
             },
-            "name": "details-identity-note",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "details-identity-note"
           },
           {
             "type": 1,
             "content": {
               "json": "### Compliance Policies"
             },
-            "name": "details-section-compliance",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "details-section-compliance"
           },
           {
             "type": 3,
@@ -775,36 +775,36 @@
                 "filter": true
               }
             },
-            "name": "grid-compliance-detail",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "grid-compliance-detail"
           },
           {
             "type": 1,
             "content": {
               "json": "*Compliance policy evaluation results for this device (updated every 6 hours). Non-compliant policies are listed first. If no policies appear, the device may not have been evaluated recently.*"
             },
-            "name": "details-compliance-note",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "details-compliance-note"
           },
           {
             "type": 1,
             "content": {
               "json": "### Enrollment & Management"
             },
-            "name": "details-section-enrollment",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "details-section-enrollment"
           },
           {
             "type": 3,
@@ -820,13 +820,13 @@
                 "filter": true
               }
             },
-            "name": "grid-enrollment",
             "customWidth": "50",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "grid-enrollment"
           },
           {
             "type": 3,
@@ -880,34 +880,34 @@
                 "filter": true
               }
             },
-            "name": "grid-health-scores",
             "customWidth": "50",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "grid-health-scores"
           },
           {
             "type": 1,
             "content": {
               "json": "*Enrollment details show how the device was onboarded and its management configuration. \"Retire After\" indicates if an admin has scheduled retirement. Endpoint Analytics scores come from Microsoft's device health service (updated daily). The scores table uses device name for matching, so renamed devices may not appear. Scores may be outdated since the device hasn't been checking in.*"
             },
-            "name": "details-enrollment-note",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "details-enrollment-note"
           }
         ]
       },
-      "name": "details-group",
       "conditionalVisibility": {
         "parameterName": "Tab",
         "comparison": "isEqualTo",
         "value": "Details"
-      }
+      },
+      "name": "details-group"
     },
     {
       "type": 12,
@@ -920,24 +920,24 @@
             "content": {
               "json": "### Select a device from the dropdown above to see contact information\n\nThis tab shows who had the device, where they're located, and who in their department might help you find it."
             },
-            "name": "locate-no-device",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isEqualTo",
               "value": ""
-            }
+            },
+            "name": "locate-no-device"
           },
           {
             "type": 1,
             "content": {
               "json": "### Most Likely User"
             },
-            "name": "locate-section-bestuser",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "locate-section-bestuser"
           },
           {
             "type": 3,
@@ -1009,36 +1009,36 @@
                 "filter": true
               }
             },
-            "name": "grid-best-user",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "grid-best-user"
           },
           {
             "type": 1,
             "content": {
               "json": "*The most likely current user of this device. The **Source** column shows where this was determined from: \"Last Logon\" (the most recent Windows sign-in recorded by Intune — preferred) or \"Primary (Assigned)\" (the user assigned during enrollment). If the user account is disabled, the device is likely orphaned. See the breakdown below for all user evidence.*"
             },
-            "name": "locate-bestuser-note",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "locate-bestuser-note"
           },
           {
             "type": 1,
             "content": {
               "json": "### User Identification Breakdown"
             },
-            "name": "locate-section-breakdown",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "locate-section-breakdown"
           },
           {
             "type": 3,
@@ -1110,24 +1110,24 @@
                 "filter": true
               }
             },
-            "name": "grid-user-sources",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "grid-user-sources"
           },
           {
             "type": 1,
             "content": {
               "json": "*The two data sources used to identify the most likely user. \"Primary (Assigned)\" is the user set during Intune enrollment. \"Last Logon\" is the most recent Windows sign-in recorded by Intune. When these differ, the Last Logon user is preferred as the most likely current user.*"
             },
-            "name": "locate-sources-note",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "locate-sources-note"
           },
           {
             "type": 3,
@@ -1172,36 +1172,36 @@
                 "filter": true
               }
             },
-            "name": "grid-logon-history",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "grid-logon-history"
           },
           {
             "type": 1,
             "content": {
               "json": "*All users who have signed into this device, deduplicated to show each user once with their most recent logon. Enriched with Entra ID profile data. The most recent logon user is listed first and is the one used as the \"Most Likely User\" above.*"
             },
-            "name": "locate-logon-history-note",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "locate-logon-history-note"
           },
           {
             "type": 1,
             "content": {
               "json": "### Location & Physical Identifiers"
             },
-            "name": "locate-section-location",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "locate-section-location"
           },
           {
             "type": 3,
@@ -1217,36 +1217,36 @@
                 "filter": true
               }
             },
-            "name": "grid-location",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "grid-location"
           },
           {
             "type": 1,
             "content": {
               "json": "*Location comes from the best-known user's Entra ID profile — it reflects where the **user** is assigned, not necessarily where the device physically is. Physical identifiers (serial number, MAC addresses, IMEI) can be used with asset tracking systems or network tools (DHCP/ARP tables) to locate the device on the network.*"
             },
-            "name": "locate-location-note",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "locate-location-note"
           },
           {
             "type": 1,
             "content": {
               "json": "### Nearby Contacts"
             },
-            "name": "locate-section-contacts",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "locate-section-contacts"
           },
           {
             "type": 3,
@@ -1262,33 +1262,33 @@
                 "filter": true
               }
             },
-            "name": "grid-dept-contacts",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "grid-dept-contacts"
           },
           {
             "type": 1,
             "content": {
               "json": "*Active users in the same department (or same office if no department data) who have signed in within the last 14 days. The \"Matched On\" column shows whether contacts were found by department or office location. Contact them if the device owner is unreachable or has left the organisation.*"
             },
-            "name": "locate-contacts-note",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "locate-contacts-note"
           }
         ]
       },
-      "name": "locate-group",
       "conditionalVisibility": {
         "parameterName": "Tab",
         "comparison": "isEqualTo",
         "value": "Locate"
-      }
+      },
+      "name": "locate-group"
     },
     {
       "type": 12,
@@ -1301,24 +1301,24 @@
             "content": {
               "json": "### Select a device above for a risk assessment, or scroll down for batch action lists\n\nThe batch lists below are always available regardless of device selection."
             },
-            "name": "action-no-device",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isEqualTo",
               "value": ""
-            }
+            },
+            "name": "action-no-device"
           },
           {
             "type": 1,
             "content": {
               "json": "### Risk Assessment"
             },
-            "name": "action-section-risk",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "action-section-risk"
           },
           {
             "type": 3,
@@ -1450,36 +1450,36 @@
                 "filter": true
               }
             },
-            "name": "grid-risk",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "grid-risk"
           },
           {
             "type": 1,
             "content": {
               "json": "*Automated risk assessment based on staleness duration, user account status, encryption, compliance, and malware signals. **Retire** if: user disabled + 90d stale, no user + 90d stale, or 6+ months offline. **Investigate** if: 90d+ stale, or user recently disabled. **Monitor** if: recently gone stale with an active user.*"
             },
-            "name": "action-risk-note",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "action-risk-note"
           },
           {
             "type": 1,
             "content": {
               "json": "### Other Devices from Same User"
             },
-            "name": "action-section-other",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "action-section-other"
           },
           {
             "type": 3,
@@ -1533,24 +1533,24 @@
                 "filter": true
               }
             },
-            "name": "grid-other-devices",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "grid-other-devices"
           },
           {
             "type": 1,
             "content": {
               "json": "*All devices associated with the same user. Helps identify if the user has a replacement device (suggesting this one can be retired) or if multiple devices are stale (suggesting the user may have left).*"
             },
-            "name": "action-other-note",
             "conditionalVisibility": {
               "parameterName": "SelectedDevice",
               "comparison": "isNotEqualTo",
               "value": ""
-            }
+            },
+            "name": "action-other-note"
           },
           {
             "type": 1,
@@ -1697,8 +1697,7 @@
                     "formatter": 5
                   }
                 ],
-                "filter": true,
-                "showExportToExcel": true
+                "filter": true
               }
             },
             "name": "grid-retire"
@@ -1747,8 +1746,7 @@
                     }
                   }
                 ],
-                "filter": true,
-                "showExportToExcel": true
+                "filter": true
               }
             },
             "name": "grid-investigate"
@@ -1782,20 +1780,19 @@
                     }
                   }
                 ],
-                "filter": true,
-                "showExportToExcel": true
+                "filter": true
               }
             },
             "name": "grid-monitor"
           }
         ]
       },
-      "name": "action-group",
       "conditionalVisibility": {
         "parameterName": "Tab",
         "comparison": "isEqualTo",
         "value": "Action"
-      }
+      },
+      "name": "action-group"
     },
     {
       "type": 12,
@@ -1889,8 +1886,8 @@
               "resourceType": "microsoft.operationalinsights/workspaces",
               "visualization": "barchart"
             },
-            "name": "chart-dept-bar",
-            "customWidth": "50"
+            "customWidth": "50",
+            "name": "chart-dept-bar"
           },
           {
             "type": 3,
@@ -1903,8 +1900,8 @@
               "resourceType": "microsoft.operationalinsights/workspaces",
               "visualization": "barchart"
             },
-            "name": "chart-model-bar",
-            "customWidth": "50"
+            "customWidth": "50",
+            "name": "chart-model-bar"
           },
           {
             "type": 1,
@@ -1915,12 +1912,16 @@
           }
         ]
       },
-      "name": "trends-group",
       "conditionalVisibility": {
         "parameterName": "Tab",
         "comparison": "isEqualTo",
         "value": "Trends"
-      }
+      },
+      "name": "trends-group"
     }
-  ]
+  ],
+  "fallbackResourceIds": [
+    "/subscriptions/1a51ea5e-d9ee-453e-94e5-cb61b5cd93cf/resourceGroups/ancIntuneReporting-Dev/providers/Microsoft.OperationalInsights/workspaces/graphreports-law"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
 }
