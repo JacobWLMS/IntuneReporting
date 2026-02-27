@@ -222,6 +222,7 @@ Import Azure Monitor workbooks for visualization. In Azure Portal:
 | [compliance-overview.workbook](deployment/workbooks/compliance-overview.workbook) | Compliance rates, policy analysis, non-compliant devices |
 | [device-health.workbook](deployment/workbooks/device-health.workbook) | Health scores, sync freshness, devices needing attention |
 | [autopilot-deployment.workbook](deployment/workbooks/autopilot-deployment.workbook) | Autopilot enrollment tracking and failures |
+| [stale-devices.workbook](deployment/workbooks/stale-devices.workbook) | Guided stale device investigation and cleanup workflow |
 
 ---
 
