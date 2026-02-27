@@ -873,9 +873,20 @@ function Show-Summary {
     Write-Host "     --role `"Monitoring Metrics Publisher`" ``" -ForegroundColor White
     Write-Host "     --scope `"$($script:DcrResourceId)`"" -ForegroundColor White
 
+    # LAW Role Assignment
+    Write-Host ""
+    Write-Host "2. LOG ANALYTICS ROLE ASSIGNMENT (Alert Engine KQL Queries)" -ForegroundColor Cyan
+    Write-Host "   Grants 'Log Analytics Reader' role to Managed Identity"
+    Write-Host ""
+    Write-Host "   az role assignment create ``" -ForegroundColor White
+    Write-Host "     --assignee-object-id `"$($script:FunctionAppPrincipalId)`" ``" -ForegroundColor White
+    Write-Host "     --assignee-principal-type ServicePrincipal ``" -ForegroundColor White
+    Write-Host "     --role `"Log Analytics Reader`" ``" -ForegroundColor White
+    Write-Host "     --scope `"$($script:WorkspaceResourceId)`"" -ForegroundColor White
+
     # Graph API Permissions
     Write-Host ""
-    Write-Host "2. GRAPH API PERMISSIONS (Intune Data Access)" -ForegroundColor Cyan
+    Write-Host "3. GRAPH API PERMISSIONS (Intune Data + Email Access)" -ForegroundColor Cyan
     Write-Host "   Grants Microsoft Graph permissions to Managed Identity"
     Write-Host ""
     Write-Host "   # Get Microsoft Graph service principal ID" -ForegroundColor Gray
@@ -895,6 +906,21 @@ function Show-Summary {
     Write-Host "   az rest --method POST ``" -ForegroundColor White
     Write-Host "     --uri `"https://graph.microsoft.com/v1.0/servicePrincipals/$($script:FunctionAppPrincipalId)/appRoleAssignments`" ``" -ForegroundColor White
     Write-Host "     --body `"{\`"principalId\`":\`"$($script:FunctionAppPrincipalId)\`",\`"resourceId\`":\`"`$graphSpId\`",\`"appRoleId\`":\`"06a5fe6d-c49d-46a7-b082-56b1b14103c7\`"}`"" -ForegroundColor White
+    Write-Host ""
+    Write-Host "   # User.Read.All" -ForegroundColor Gray
+    Write-Host "   az rest --method POST ``" -ForegroundColor White
+    Write-Host "     --uri `"https://graph.microsoft.com/v1.0/servicePrincipals/$($script:FunctionAppPrincipalId)/appRoleAssignments`" ``" -ForegroundColor White
+    Write-Host "     --body `"{\`"principalId\`":\`"$($script:FunctionAppPrincipalId)\`",\`"resourceId\`":\`"`$graphSpId\`",\`"appRoleId\`":\`"df021288-bdef-4463-88db-98f22de89214\`"}`"" -ForegroundColor White
+    Write-Host ""
+    Write-Host "   # AuditLog.Read.All" -ForegroundColor Gray
+    Write-Host "   az rest --method POST ``" -ForegroundColor White
+    Write-Host "     --uri `"https://graph.microsoft.com/v1.0/servicePrincipals/$($script:FunctionAppPrincipalId)/appRoleAssignments`" ``" -ForegroundColor White
+    Write-Host "     --body `"{\`"principalId\`":\`"$($script:FunctionAppPrincipalId)\`",\`"resourceId\`":\`"`$graphSpId\`",\`"appRoleId\`":\`"b0afded3-3588-46d8-8b3d-9842eff778da\`"}`"" -ForegroundColor White
+    Write-Host ""
+    Write-Host "   # Mail.Send" -ForegroundColor Gray
+    Write-Host "   az rest --method POST ``" -ForegroundColor White
+    Write-Host "     --uri `"https://graph.microsoft.com/v1.0/servicePrincipals/$($script:FunctionAppPrincipalId)/appRoleAssignments`" ``" -ForegroundColor White
+    Write-Host "     --body `"{\`"principalId\`":\`"$($script:FunctionAppPrincipalId)\`",\`"resourceId\`":\`"`$graphSpId\`",\`"appRoleId\`":\`"b633e1c5-b582-4048-a93e-9f11b44c7e96\`"}`"" -ForegroundColor White
 
     Write-Host ""
     Write-Host "   Or use the helper script:" -ForegroundColor Gray

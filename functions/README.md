@@ -38,14 +38,27 @@ The script creates everything:
 
 ### Post-Deployment
 
-1. **Grant Graph API permissions** (script provides the link):
-   - `DeviceManagementManagedDevices.Read.All`
-   - `DeviceManagementConfiguration.Read.All`
-   - `DeviceManagementServiceConfig.Read.All`
+1. **Grant Azure RBAC roles:**
 
-2. **Test manually**:
+   | Role | Scope | Purpose |
+   |------|-------|---------|
+   | `Monitoring Metrics Publisher` | Data Collection Rule | Ingest data to Log Analytics |
+   | `Log Analytics Reader` | Log Analytics Workspace | Query data for alert engine KQL rules |
+
+2. **Grant Graph API permissions** (use `Grant-GraphPermissions.ps1`):
+
+   | Permission | Purpose |
+   |------------|---------|
+   | `DeviceManagementManagedDevices.Read.All` | Read device inventory & endpoint analytics |
+   | `DeviceManagementConfiguration.Read.All` | Read compliance policies & device status |
+   | `DeviceManagementServiceConfig.Read.All` | Read Autopilot devices & profiles |
+   | `User.Read.All` | Read Entra ID user profiles |
+   | `AuditLog.Read.All` | Read user sign-in activity |
+   | `Mail.Send` | Send alert notification emails |
+
+3. **Test manually**:
    ```
-   https://<function-app>.azurewebsites.net/api/export/devices?code=<function-key>
+   https://<function-app>.azurewebsites.net/api/export/health?code=<function-key>
    ```
 
 ## Functions
@@ -138,14 +151,17 @@ Environment variables (set automatically by deploy script):
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `AZURE_TENANT_ID` | Entra ID tenant ID | Yes |
-| `AZURE_CLIENT_ID` | App registration client ID | Yes |
-| `AZURE_CLIENT_SECRET` | App registration secret | Yes |
 | `LOG_ANALYTICS_DCE` | Data Collection Endpoint URL | Yes |
 | `LOG_ANALYTICS_DCR_ID` | Data Collection Rule immutable ID (`dcr-...`) | Yes |
 | `LOG_ANALYTICS_WORKSPACE_ID` | Workspace GUID (for alert engine KQL queries) | For alerts |
 | `ALERT_SENDER_ADDRESS` | Email address (shared mailbox) for alert notifications | For alerts |
 | `ALERT_RECIPIENTS` | Comma-separated default alert recipient list | For alerts |
+| `USE_MANAGED_IDENTITY` | Set `true` to use managed identity for Graph calls | Optional |
+| `AZURE_TENANT_ID` | Entra ID tenant ID | Optional |
+| `AZURE_CLIENT_ID` | App registration client ID | Optional |
+| `AZURE_CLIENT_SECRET` | App registration secret | Optional |
+
+**Auth behaviour:** When `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET` are all set (and `USE_MANAGED_IDENTITY` is not `true`), `ClientSecretCredential` is used for Graph API and Log Analytics queries. Otherwise the Function App's system-assigned managed identity is used. DCR ingestion always uses managed identity regardless of this setting.
 
 ## Local Development
 
@@ -197,12 +213,20 @@ functions/
 - If persistent, reduce schedule frequency
 
 ### Authentication errors (401/403)
-- Verify App Registration has correct API permissions
-- Ensure admin consent was granted in Entra ID
-- Check `AZURE_*` environment variables are set
+
+- Verify App Registration has correct Graph API permissions (all 6 listed above)
+- Ensure **admin consent** was granted (Entra ID > Enterprise Applications > Permissions)
+- Check `AZURE_*` environment variables are set (if using app registration)
 
 ### No data in Log Analytics
+
 - Data can take 5-10 minutes to appear after ingestion
 - Check function logs: `func azure functionapp logstream <app-name>`
-- Verify Managed Identity has `Monitoring Metrics Publisher` role on DCR
+- Verify identity has `Monitoring Metrics Publisher` role on DCR
 - Run manual trigger to see detailed errors
+
+### Alert engine returns 0 / InsufficientAccessError
+
+- The identity (app registration or managed identity) needs `Log Analytics Reader` on the workspace
+- This is separate from the `Monitoring Metrics Publisher` role used for ingestion
+- Check App Insights traces for `InsufficientAccessError` messages
