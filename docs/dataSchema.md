@@ -16,6 +16,7 @@ This document defines the complete schema for all Log Analytics tables populated
 - [IntuneAutopilotDevices_CL](#intuneautopilotdevices_cl)
 - [IntuneAutopilotProfiles_CL](#intuneautopilotprofiles_cl)
 - [IntuneUsers_CL](#intuneusers_cl)
+- [IntuneAlertState_CL](#intunealertstate_cl)
 - [IntuneSyncState_CL](#intunesyncstate_cl)
 - [Data Relationships](#data-relationships)
 - [Sample Queries](#sample-queries)
@@ -364,10 +365,34 @@ These fields are automatically added to every record in all tables:
 
 ---
 
+## IntuneAlertState_CL
+
+**Description:** Alert state tracking and notification history
+**Update Frequency:** Daily at 9 AM UTC (via alert_engine timer trigger)
+**Source:** Internal alert engine
+
+| Column | Type | Description | Example |
+|--------|------|-------------|---------|
+| `AlertId` | string | Alert rule identifier (from alerts.json) | `stale_devices_30d` |
+| `AlertName` | string | Alert rule display name | `Stale Device Alert (30+ days)` |
+| `EntityId` | string | ID of the alerted entity (e.g., DeviceId) | `12345678-abcd-...` |
+| `EntityName` | string | Human-readable entity name (e.g., DeviceName) | `DESKTOP-ABC123` |
+| `State` | string | Alert state | `active`, `resolved` |
+| `Severity` | string | Alert severity level | `critical`, `high`, `medium`, `low` |
+| `AlertedAt` | datetime | When the alert was first triggered | `2026-02-27T09:00:00Z` |
+| `ResolvedAt` | datetime | When the alert was resolved (null if active) | `2026-02-28T09:00:00Z` |
+| `Details` | string | JSON of entity data at alert time | `{"DeviceName":"...","LastSyncDateTime":"..."}` |
+
+### Key Relationships
+- `EntityId` typically maps to `DeviceId` in `IntuneManagedDevices_CL` (depends on alert rule)
+- Alert rules and configuration defined in `functions/alert_engine/alerts.json`
+
+---
+
 ## IntuneSyncState_CL
 
-**Description:** Sync operation tracking and health status  
-**Update Frequency:** On-demand (via manual_trigger test endpoint)  
+**Description:** Sync operation tracking and health status
+**Update Frequency:** On-demand (via manual_trigger test endpoint)
 **Source:** Internal sync tracking
 
 | Column | Type | Description | Example |
@@ -523,3 +548,4 @@ All custom tables are configured with **30-day retention** by default. This can 
 | IntuneAutopilotDevices_CL | Daily 6 AM UTC | Varies |
 | IntuneAutopilotProfiles_CL | Daily 6 AM UTC | 5-20 |
 | IntuneUsers_CL | Daily 2 AM UTC | Varies |
+| IntuneAlertState_CL | Daily 9 AM UTC | Varies |

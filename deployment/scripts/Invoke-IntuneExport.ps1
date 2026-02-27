@@ -51,7 +51,7 @@ param(
     [string]$ResourceGroup = "ancIntuneReporting-Dev",
 
     [Parameter(Mandatory = $false)]
-    [ValidateSet("devices", "compliance", "analytics", "autopilot", "users", "all")]
+    [ValidateSet("devices", "compliance", "analytics", "autopilot", "users", "alerts", "all")]
     [string[]]$Export,
 
     [Parameter(Mandatory = $false)]
@@ -67,6 +67,7 @@ $ExportInfo = @{
     analytics  = @{ Name = "Endpoint Analytics"; Table = "IntuneDeviceScores_CL, IntuneStartupPerformance_CL, IntuneAppReliability_CL"; Description = "Device scores, startup performance, app reliability" }
     autopilot  = @{ Name = "Autopilot"; Table = "IntuneAutopilotDevices_CL, IntuneAutopilotProfiles_CL"; Description = "Autopilot devices and deployment profiles" }
     users      = @{ Name = "Entra ID Users"; Table = "IntuneUsers_CL"; Description = "User profiles with department, location, account status for device enrichment" }
+    alerts     = @{ Name = "Alert Engine"; Table = "IntuneAlertState_CL"; Description = "Run alert rules and send email notifications" }
 }
 
 function Get-FunctionKey {
@@ -105,6 +106,7 @@ function Show-Menu {
     Write-Host "  [3] Analytics    - Endpoint analytics scores & performance" -ForegroundColor White
     Write-Host "  [4] Autopilot    - Autopilot devices & profiles" -ForegroundColor White
     Write-Host "  [5] Users        - Entra ID user profiles (department, location, status)" -ForegroundColor White
+    Write-Host "  [6] Alerts       - Run alert engine (stale devices, etc.)" -ForegroundColor White
     Write-Host ""
     Write-Host "  [A] All          - Run all exports sequentially" -ForegroundColor Green
     Write-Host "  [Q] Quit         - Exit without running" -ForegroundColor DarkGray
@@ -199,26 +201,26 @@ $exportsToRun = @()
 if ($Export) {
     # Use command line parameter
     if ($Export -contains "all") {
-        $exportsToRun = @("devices", "compliance", "analytics", "autopilot", "users")
+        $exportsToRun = @("devices", "compliance", "analytics", "autopilot", "users", "alerts")
     } else {
         $exportsToRun = $Export
     }
 } else {
     # Interactive menu
     $selection = Show-Menu
-    
+
     switch -Regex ($selection.ToUpper()) {
         "^Q$" {
             Write-Host "Exiting." -ForegroundColor Yellow
             exit 0
         }
         "^A$" {
-            $exportsToRun = @("devices", "compliance", "analytics", "autopilot", "users")
+            $exportsToRun = @("devices", "compliance", "analytics", "autopilot", "users", "alerts")
         }
         default {
             # Parse numeric selections (e.g., "1,2" or "1 2" or "12")
-            $nums = $selection -replace '[^1-5]', '' -split '' | Where-Object { $_ }
-            $mapping = @{ "1" = "devices"; "2" = "compliance"; "3" = "analytics"; "4" = "autopilot"; "5" = "users" }
+            $nums = $selection -replace '[^1-6]', '' -split '' | Where-Object { $_ }
+            $mapping = @{ "1" = "devices"; "2" = "compliance"; "3" = "analytics"; "4" = "autopilot"; "5" = "users"; "6" = "alerts" }
             foreach ($n in $nums) {
                 if ($mapping.ContainsKey($n)) {
                     $exportsToRun += $mapping[$n]

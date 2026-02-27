@@ -8,6 +8,7 @@ Usage:
     GET/POST /api/export/compliance   - Run compliance export
     GET/POST /api/export/analytics    - Run endpoint analytics export
     GET/POST /api/export/autopilot    - Run autopilot export
+    GET/POST /api/export/alerts       - Run alert engine
     GET/POST /api/export/all          - Run all exports
     GET/POST /api/export/test         - Test Log Analytics ingestion with sample data
     GET/POST /api/export/health       - Health check (auth + config validation)
@@ -28,6 +29,7 @@ from export_compliance import run as run_compliance
 from export_endpoint_analytics import run as run_analytics
 from export_autopilot import run as run_autopilot
 from export_users import run as run_users
+from alert_engine import run as run_alerts
 from shared import validate_config, get_credential, get_graph_client, DataIngester, add_metadata
 
 EXPORTS = {
@@ -36,6 +38,7 @@ EXPORTS = {
     'analytics': ('Export Endpoint Analytics', run_analytics),
     'autopilot': ('Export Autopilot Devices & Profiles', run_autopilot),
     'users': ('Export Entra ID Users', run_users),
+    'alerts': ('Run Alert Engine', run_alerts),
 }
 
 
@@ -153,6 +156,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                     '/api/export/analytics',
                     '/api/export/autopilot',
                     '/api/export/users',
+                    '/api/export/alerts',
                     '/api/export/all',
                     '/api/export/test',
                     '/api/export/health',

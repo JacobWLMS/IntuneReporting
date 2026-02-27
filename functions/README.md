@@ -56,6 +56,8 @@ The script creates everything:
 | `export_compliance` | Every 6 hours | Compliance policies and per-device compliance states |
 | `export_endpoint_analytics` | Daily 8 AM UTC | Health scores, startup performance, app reliability |
 | `export_autopilot` | Daily 6 AM UTC | Autopilot devices and deployment profiles |
+| `export_users` | Daily 2 AM UTC | Entra ID user profiles for device enrichment |
+| `alert_engine` | Daily 9 AM UTC | Config-driven alerting with email notifications |
 | `manual_trigger` | HTTP (on-demand) | Manually trigger any export via REST API |
 
 ## Manual Trigger API
@@ -69,6 +71,8 @@ The script creates everything:
 | `GET/POST` | `/api/export/compliance` | Export compliance policies & states (~13,000+ records) |
 | `GET/POST` | `/api/export/analytics` | Export endpoint analytics (~4,000+ records) |
 | `GET/POST` | `/api/export/autopilot` | Export Autopilot devices & profiles |
+| `GET/POST` | `/api/export/users` | Export Entra ID user profiles |
+| `GET/POST` | `/api/export/alerts` | Run alert engine (query and send emails) |
 | `GET/POST` | `/api/export/all` | Run all exports sequentially |
 
 ### Authentication
@@ -139,6 +143,9 @@ Environment variables (set automatically by deploy script):
 | `AZURE_CLIENT_SECRET` | App registration secret | Yes |
 | `LOG_ANALYTICS_DCE` | Data Collection Endpoint URL | Yes |
 | `LOG_ANALYTICS_DCR_ID` | Data Collection Rule immutable ID (`dcr-...`) | Yes |
+| `LOG_ANALYTICS_WORKSPACE_ID` | Workspace GUID (for alert engine KQL queries) | For alerts |
+| `ALERT_SENDER_ADDRESS` | Email address (shared mailbox) for alert notifications | For alerts |
+| `ALERT_RECIPIENTS` | Comma-separated default alert recipient list | For alerts |
 
 ## Local Development
 
@@ -172,6 +179,8 @@ functions/
 ├── export_compliance/            # Timer: every 6 hours
 ├── export_endpoint_analytics/    # Timer: daily 8 AM
 ├── export_autopilot/             # Timer: daily 6 AM
+├── export_users/                 # Timer: daily 2 AM
+├── alert_engine/                 # Timer: daily 9 AM
 └── manual_trigger/               # HTTP: on-demand testing
 ```
 

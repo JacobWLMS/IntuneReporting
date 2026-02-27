@@ -60,7 +60,8 @@ param(
         "IntuneAppReliability_CL",
         "IntuneAutopilotDevices_CL",
         "IntuneAutopilotProfiles_CL",
-        "IntuneSyncState_CL"
+        "IntuneSyncState_CL",
+        "IntuneAlertState_CL"
     ),
 
     [Parameter(Mandatory = $false)]

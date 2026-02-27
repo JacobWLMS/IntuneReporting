@@ -78,6 +78,11 @@ $RequiredPermissions = @(
         Name = "AuditLog.Read.All"
         Id = "b0afded3-3588-46d8-8b3d-9842eff778da"
         Description = "Read sign-in activity (LastSignInDateTime) for stale user/device detection"
+    },
+    @{
+        Name = "Mail.Send"
+        Id = "b633e1c5-b582-4048-a93e-9f11b44c7e96"
+        Description = "Send alert notification emails via Graph API"
     }
 )
 

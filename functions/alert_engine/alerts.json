@@ -1,0 +1,75 @@
+{
+  "defaults": {
+    "enabled": true,
+    "cooldown_days": 30,
+    "severity": "medium",
+    "max_emails_per_run": 50,
+    "recipients": ["{ALERT_RECIPIENTS}"]
+  },
+  "alerts": [
+    {
+      "id": "stale_devices_30d",
+      "name": "Stale Device Alert (30+ days)",
+      "description": "Devices that have not synced with Intune in over 30 days",
+      "enabled": true,
+      "severity": "high",
+      "kql_query": "IntuneManagedDevices_CL | summarize arg_max(TimeGenerated, *) by DeviceId | extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime)) | where LastSyncDaysAgo > {threshold} | project DeviceId, DeviceName, UserPrincipalName, UserDisplayName, LastSyncDateTime, LastSyncDaysAgo, Model, OperatingSystem, ComplianceState, SerialNumber",
+      "entity_id_field": "DeviceId",
+      "parameters": {
+        "threshold": 30
+      },
+      "email": {
+        "recipients": ["{ALERT_RECIPIENTS}"],
+        "subject_template": "[Intune Alert] Stale Device: {DeviceName}",
+        "body_fields": [
+          "DeviceName",
+          "UserPrincipalName",
+          "LastSyncDateTime",
+          "LastSyncDaysAgo",
+          "Model",
+          "OperatingSystem",
+          "SerialNumber",
+          "ComplianceState"
+        ]
+      },
+      "max_emails_per_run": 50,
+      "auto_resolve": {
+        "enabled": true,
+        "send_resolve_email": false,
+        "resolve_query": "IntuneManagedDevices_CL | summarize arg_max(TimeGenerated, *) by DeviceId | extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime)) | where LastSyncDaysAgo <= {threshold} | project DeviceId"
+      },
+      "cooldown_days": 30
+    },
+    {
+      "id": "jacob_williams_devices",
+      "name": "Jacob Williams Device Alert",
+      "description": "Any device assigned to Jacob.Williams@Anchor.org.uk",
+      "enabled": true,
+      "severity": "medium",
+      "kql_query": "IntuneManagedDevices_CL | summarize arg_max(TimeGenerated, *) by DeviceId | where UserPrincipalName == '{upn}' | project DeviceId, DeviceName, UserPrincipalName, UserDisplayName, LastSyncDateTime, Model, OperatingSystem, ComplianceState, SerialNumber, EnrolledDateTime",
+      "entity_id_field": "DeviceId",
+      "parameters": {
+        "upn": "Jacob.Williams@Anchor.org.uk"
+      },
+      "email": {
+        "recipients": ["Jacob.Williams@Anchor.org.uk"],
+        "subject_template": "[Intune Alert] Device Detected: {DeviceName}",
+        "body_fields": [
+          "DeviceName",
+          "UserPrincipalName",
+          "LastSyncDateTime",
+          "Model",
+          "OperatingSystem",
+          "SerialNumber",
+          "ComplianceState",
+          "EnrolledDateTime"
+        ]
+      },
+      "max_emails_per_run": 10,
+      "auto_resolve": {
+        "enabled": false
+      },
+      "cooldown_days": 7
+    }
+  ]
+}

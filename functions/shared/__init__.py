@@ -189,6 +189,7 @@ LOG_ANALYTICS_STREAMS = {
     'AutopilotDevices': 'Custom-IntuneAutopilotDevices_CL',
     'AutopilotProfiles': 'Custom-IntuneAutopilotProfiles_CL',
     'SyncState': 'Custom-IntuneSyncState_CL',
+    'AlertState': 'Custom-IntuneAlertState_CL',
 }
 
 

@@ -63,12 +63,14 @@ After deployment, grant the required permissions:
 | `DeviceManagementServiceConfig.Read.All` | Read Autopilot devices & profiles |
 | `User.Read.All` | Read Entra ID user profiles |
 | `AuditLog.Read.All` | Read user sign-in activity (last sign-in dates) |
+| `Mail.Send` | Send alert notification emails via Graph API |
 
 **Required Azure Role:**
 
 | Role | Scope | Purpose |
 | ------ | ------- | --------- |
 | `Monitoring Metrics Publisher` | Data Collection Rule | Ingest data to Log Analytics |
+| `Log Analytics Reader` | Log Analytics Workspace | Query data for alert engine KQL rules |
 
 ---
 
@@ -86,6 +88,7 @@ Trigger exports on-demand without waiting for scheduled timers. Useful for testi
 | `GET/POST` | `/api/export/analytics` | Export endpoint analytics scores |
 | `GET/POST` | `/api/export/autopilot` | Export Autopilot devices & profiles |
 | `GET/POST` | `/api/export/users` | Export Entra ID user profiles |
+| `GET/POST` | `/api/export/alerts` | Run alert engine (query and send emails) |
 | `GET/POST` | `/api/export/all` | Run all exports sequentially |
 | `GET/POST` | `/api/export/test` | Send a test record to Log Analytics |
 | `GET/POST` | `/api/export/health` | Check auth, Graph API, and ingestion connectivity |
@@ -163,6 +166,7 @@ For `/api/export/all`:
 | `export_endpoint_analytics` | Daily 8 AM | `IntuneDeviceScores_CL`, `IntuneStartupPerformance_CL`, `IntuneAppReliability_CL` | Health scores, performance metrics |
 | `export_autopilot` | Daily 6 AM | `IntuneAutopilotDevices_CL`, `IntuneAutopilotProfiles_CL` | Autopilot enrollment status |
 | `export_users` | Daily 2 AM | `IntuneUsers_CL` | Entra ID user profiles, department, sign-in activity |
+| `alert_engine` | Daily 9 AM | `IntuneAlertState_CL` | Config-driven alerting with email notifications |
 
 ### Log Analytics Tables
 
@@ -177,6 +181,7 @@ For `/api/export/all`:
 | `IntuneAppReliability_CL` | AppName, AppCrashCount, AppHealthScore |
 | `IntuneAutopilotDevices_CL` | SerialNumber, EnrollmentState, GroupTag |
 | `IntuneAutopilotProfiles_CL` | ProfileId, DisplayName, DeviceNameTemplate |
+| `IntuneAlertState_CL` | AlertId, EntityId, EntityName, State, Severity, AlertedAt, ResolvedAt |
 | `IntuneSyncState_CL` | ExportType, RecordCount, DurationSeconds, Status |
 
 ---
@@ -257,6 +262,9 @@ When all three of `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET
 | `deployment/scripts/Grant-GraphPermissions.ps1` | Grant Graph API permissions to service principal or managed identity |
 | `deployment/scripts/Configure-Permissions.ps1` | Quick permission setup for Managed Identity |
 | `deployment/scripts/Update-DCRSchema.ps1` | Update DCR schema when adding tables or columns |
+| `deployment/scripts/Invoke-IntuneExport.ps1` | Manually trigger exports (interactive menu or `-Export` flag) |
+| `deployment/scripts/Clear-LogAnalyticsTables.ps1` | Purge data from Log Analytics tables |
+| `deployment/scripts/Deploy-SavedFunctions.ps1` | Deploy KQL saved functions to Log Analytics |
 
 ---
 
@@ -363,8 +371,11 @@ Edit `functions/local.settings.json` and fill in:
 | `AZURE_CLIENT_SECRET` | App registration client secret |
 | `LOG_ANALYTICS_DCE` | Data Collection Endpoint URL |
 | `LOG_ANALYTICS_DCR_ID` | DCR immutable ID (starts with `dcr-`) |
+| `LOG_ANALYTICS_WORKSPACE_ID` | Workspace GUID (for alert engine KQL queries) |
+| `ALERT_SENDER_ADDRESS` | Email address (shared mailbox) for alert notifications |
+| `ALERT_RECIPIENTS` | Comma-separated default alert recipient list |
 
-The app registration needs `Monitoring Metrics Publisher` on the DCR and the Graph API permissions listed above.
+The app registration needs `Monitoring Metrics Publisher` on the DCR, `Log Analytics Reader` on the workspace, and the Graph API permissions listed above.
 
 ### Run
 

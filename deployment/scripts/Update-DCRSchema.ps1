@@ -16,7 +16,7 @@ if ($tokenResponse.Token -is [System.Security.SecureString]) {
 $headers = @{ Authorization = "Bearer $token"; "Content-Type" = "application/json" }
 
 # Get existing DCR to preserve settings
-$dcrUri = "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.Insights/dataCollectionRules/$DcrName`?api-version=2022-06-01"
+$dcrUri = "https://management.azure.com/subscriptions/$SubscriptionId/resourceGroups/$ResourceGroup/providers/Microsoft.Insights/dataCollectionRules/$DcrName`?api-version=2023-03-11"
 $existingDcr = Invoke-RestMethod -Uri $dcrUri -Headers $headers -Method Get
 Write-Host "Got existing DCR, preserving DCE and workspace settings..."
 
@@ -259,18 +259,33 @@ $streamDeclarations = @{
             @{name="Status"; type="string"}
         )
     }
-}
-
-# Build data flows
-$dataFlows = @()
-foreach ($streamName in $streamDeclarations.Keys) {
-    $dataFlows += @{
-        streams = @($streamName)
-        destinations = @("logAnalyticsWorkspace")
-        transformKql = "source"
-        outputStream = $streamName
+    "Custom-IntuneAlertState_CL" = @{
+        columns = @(
+            @{name="TimeGenerated"; type="datetime"}
+            @{name="IngestionTime"; type="datetime"}
+            @{name="SourceSystem"; type="string"}
+            @{name="AlertId"; type="string"}
+            @{name="AlertName"; type="string"}
+            @{name="EntityId"; type="string"}
+            @{name="EntityName"; type="string"}
+            @{name="State"; type="string"}
+            @{name="Severity"; type="string"}
+            @{name="AlertedAt"; type="datetime"}
+            @{name="ResolvedAt"; type="datetime"}
+            @{name="Details"; type="string"}
+        )
     }
 }
+
+# Build data flows — single data flow with all streams (DCR has a 10 data flow limit)
+# When transformKql is "source", Azure routes each stream to its matching table by name
+$dataFlows = @(
+    @{
+        streams = @($streamDeclarations.Keys)
+        destinations = @("logAnalyticsWorkspace")
+        transformKql = "source"
+    }
+)
 
 # Build updated DCR body preserving existing settings
 $dcrBody = @{

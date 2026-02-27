@@ -3,6 +3,7 @@
 # Secrets & local config
 .env
 local.settings.json
+local.settings.json.old
 
 # Python
 .venv/

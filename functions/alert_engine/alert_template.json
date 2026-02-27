@@ -1,0 +1,32 @@
+{
+  "id": "unique_rule_id",
+  "name": "Human-Readable Alert Name",
+  "description": "What this alert detects",
+  "enabled": true,
+  "severity": "medium",
+
+  "kql_query": "IntuneManagedDevices_CL | summarize arg_max(TimeGenerated, *) by DeviceId | where <your_condition> | project DeviceId, DeviceName, UserPrincipalName, <other_fields>",
+  "entity_id_field": "DeviceId",
+
+  "parameters": {
+    "threshold": 30
+  },
+
+  "email": {
+    "recipients": ["{ALERT_RECIPIENTS}"],
+    "subject_template": "[Intune Alert] Your Subject: {DeviceName}",
+    "body_fields": [
+      "DeviceName",
+      "UserPrincipalName"
+    ]
+  },
+
+  "max_emails_per_run": 50,
+  "cooldown_days": 30,
+
+  "auto_resolve": {
+    "enabled": false,
+    "send_resolve_email": false,
+    "resolve_query": ""
+  }
+}
