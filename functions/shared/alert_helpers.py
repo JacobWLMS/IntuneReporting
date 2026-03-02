@@ -20,6 +20,8 @@ from msgraph_beta.generated.models.body_type import BodyType
 from msgraph_beta.generated.models.recipient import Recipient
 from msgraph_beta.generated.models.email_address import EmailAddress
 
+from azure.identity import ManagedIdentityCredential
+
 from shared import (
     get_credential,
     get_env,
@@ -42,7 +44,7 @@ class AlertEngine:
 
     def __init__(self, config_path: str):
         self.config = self._load_config(config_path)
-        self.query_client = LogsQueryClient(get_credential())
+        self.query_client = LogsQueryClient(ManagedIdentityCredential())
         self.graph_client = get_graph_client()
         self.ingester = DataIngester()
         self.workspace_id = get_env('LOG_ANALYTICS_WORKSPACE_ID')
@@ -111,7 +113,7 @@ class AlertEngine:
 
         rows = []
         for table in response.tables:
-            columns = [col.name for col in table.columns]
+            columns = [col if isinstance(col, str) else col.name for col in table.columns]
             for row in table.rows:
                 rows.append(dict(zip(columns, row)))
         return rows

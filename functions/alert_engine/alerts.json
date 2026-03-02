@@ -9,34 +9,37 @@
   "alerts": [
     {
       "id": "stale_devices_30d",
-      "name": "Stale Device Alert (30+ days)",
-      "description": "Devices that have not synced with Intune in over 30 days",
+      "name": "Stale Windows Device Alert (30+ days)",
+      "description": "Windows device has not synced with Intune in over 30 days. <a href=\"https://portal.azure.com/#blade/AppInsightsExtension/WorkbookViewerBlade/ComponentId/%2Fsubscriptions%2F1a51ea5e-d9ee-453e-94e5-cb61b5cd93cf%2FresourceGroups%2FancIntuneReporting-Dev%2Fproviders%2FMicrosoft.OperationalInsights%2Fworkspaces%2Fgraphreports-law/ConfigurationId/%2Fsubscriptions%2F1a51ea5e-d9ee-453e-94e5-cb61b5cd93cf%2Fresourcegroups%2Fancintunereporting-dev%2Fproviders%2Fmicrosoft.insights%2Fworkbooks%2Fce211a27-fd01-4e52-aa90-70bded8f3075/WorkbookTemplateName/Stale%20Devices%20v1\">View Stale Devices Workbook</a>",
       "enabled": true,
       "severity": "high",
-      "kql_query": "IntuneManagedDevices_CL | summarize arg_max(TimeGenerated, *) by DeviceId | extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime)) | where LastSyncDaysAgo > {threshold} | project DeviceId, DeviceName, UserPrincipalName, UserDisplayName, LastSyncDateTime, LastSyncDaysAgo, Model, OperatingSystem, ComplianceState, SerialNumber",
+      "kql_query": "let StaleDevices = IntuneManagedDevices_CL | summarize arg_max(TimeGenerated, *) by DeviceId | where OperatingSystem startswith \"Windows\" | extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime)) | where LastSyncDaysAgo > toint({StaleDays}); let UsersByUPN = IntuneUsers_CL | summarize arg_max(TimeGenerated, *) by UserPrincipalName; let UsersByIdLookup = IntuneUsers_CL | summarize arg_max(TimeGenerated, *) by UserId; StaleDevices | join kind=leftouter (UsersByUPN | project UserPrincipalName, PrimaryAccountEnabled = AccountEnabled, Department, JobTitle, OfficeLocation, City, State, Country, Mail, LastSignInDateTime, LastNonInteractiveSignInDateTime) on UserPrincipalName | join kind=leftouter (UsersByIdLookup | project LastLoggedOnUserId = UserId, LastLogonUserUPN = UserPrincipalName, LastLogonUserName = DisplayName, LastLogonDepartment = Department, LastLogonJobTitle = JobTitle, LastLogonMail = Mail, LastLogonOffice = OfficeLocation, LastLogonCity = City, LastLogonCountry = Country, LastLogonAccountEnabled = AccountEnabled, LastLogonLastSignIn = LastSignInDateTime) on LastLoggedOnUserId | extend BestKnownUser = coalesce(LastLogonUserUPN, UserPrincipalName, \"No Data\"), BestKnownUserName = coalesce(LastLogonUserName, UserDisplayName, \"No Data\"), BestKnownDept = coalesce(LastLogonDepartment, Department, \"No Data\"), BestKnownJobTitle = coalesce(LastLogonJobTitle, JobTitle, \"No Data\"), BestKnownMail = coalesce(LastLogonMail, Mail, EmailAddress, \"No Data\"), BestKnownOffice = coalesce(LastLogonOffice, OfficeLocation, \"No Data\"), BestKnownCity = coalesce(LastLogonCity, City, \"No Data\"), BestKnownCountry = coalesce(LastLogonCountry, Country, \"No Data\"), BestKnownAccountEnabled = coalesce(LastLogonAccountEnabled, PrimaryAccountEnabled) | extend Severity = case(LastSyncDaysAgo > 180, \"Critical\", LastSyncDaysAgo > 90, \"High\", LastSyncDaysAgo > 60, \"Medium\", \"Low\") | extend RecommendedAction = case(BestKnownAccountEnabled == false and LastSyncDaysAgo > 90, \"Retire\", isempty(UserPrincipalName) and isempty(LastLoggedOnUserId) and LastSyncDaysAgo > 90, \"Retire\", LastSyncDaysAgo > 180, \"Retire\", LastSyncDaysAgo > 90, \"Investigate\", BestKnownAccountEnabled == false, \"Investigate\", \"Monitor\") | project Severity, DeviceName, SerialNumber = coalesce(SerialNumber, \"No Data\"), Model = coalesce(Model, \"No Data\"), BestKnownUser, BestKnownDept, BestKnownOffice, LastSyncDaysAgo, ComplianceState = coalesce(ComplianceState, \"No Data\"), Encrypted = case(IsEncrypted == \"true\", \"Yes\", IsEncrypted == \"false\", \"No\", \"No Data\"), RecommendedAction, DeviceId",
       "entity_id_field": "DeviceId",
       "parameters": {
-        "threshold": 30
+        "StaleDays": 30
       },
       "email": {
         "recipients": ["{ALERT_RECIPIENTS}"],
-        "subject_template": "[Intune Alert] Stale Device: {DeviceName}",
+        "subject_template": "[Intune Alert] Stale Device: {DeviceName} ({LastSyncDaysAgo} days, {RecommendedAction})",
         "body_fields": [
           "DeviceName",
-          "UserPrincipalName",
-          "LastSyncDateTime",
-          "LastSyncDaysAgo",
-          "Model",
-          "OperatingSystem",
           "SerialNumber",
-          "ComplianceState"
+          "Model",
+          "BestKnownUser",
+          "BestKnownDept",
+          "BestKnownOffice",
+          "LastSyncDaysAgo",
+          "Severity",
+          "ComplianceState",
+          "Encrypted",
+          "RecommendedAction"
         ]
       },
       "max_emails_per_run": 50,
       "auto_resolve": {
         "enabled": true,
         "send_resolve_email": false,
-        "resolve_query": "IntuneManagedDevices_CL | summarize arg_max(TimeGenerated, *) by DeviceId | extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime)) | where LastSyncDaysAgo <= {threshold} | project DeviceId"
+        "resolve_query": "IntuneManagedDevices_CL | summarize arg_max(TimeGenerated, *) by DeviceId | where OperatingSystem startswith \"Windows\" | extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime)) | where LastSyncDaysAgo <= toint({StaleDays}) | project DeviceId"
       },
       "cooldown_days": 30
     },
