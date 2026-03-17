@@ -68,7 +68,7 @@
             "queryType": 0,
             "resourceType": "microsoft.operationalinsights/workspaces",
             "label": "Select Device",
-            "value": "ffde6e8f-1f14-4d92-84cb-ef9bb01118ea"
+            "value": "1fa8ed6f-85bd-467a-be84-e9f8f486e3c0"
           }
         ],
         "style": "pills",
@@ -229,7 +229,7 @@
             "content": {
               "version": "KqlItem/1.0",
               "query": "let StaleDevices = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where OperatingSystem startswith \"Windows\"\r\n| extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))\r\n| where LastSyncDaysAgo > toint({StaleDays});\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nStaleDevices\r\n| join kind=leftouter (\r\n    UsersByUPN\r\n    | project UserPrincipalName, PrimaryAccountEnabled = AccountEnabled,\r\n             Department, JobTitle, OfficeLocation, City, State, Country,\r\n             Mail, LastSignInDateTime, LastNonInteractiveSignInDateTime\r\n) on UserPrincipalName\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LastLoggedOnUserId = UserId,\r\n             LastLogonUserUPN = UserPrincipalName,\r\n             LastLogonUserName = DisplayName,\r\n             LastLogonDepartment = Department,\r\n             LastLogonJobTitle = JobTitle,\r\n             LastLogonMail = Mail,\r\n             LastLogonOffice = OfficeLocation,\r\n             LastLogonCity = City,\r\n             LastLogonCountry = Country,\r\n             LastLogonAccountEnabled = AccountEnabled,\r\n             LastLogonLastSignIn = LastSignInDateTime\r\n) on LastLoggedOnUserId\r\n| extend\r\n    BestKnownUser = coalesce(LastLogonUserUPN, UserPrincipalName, \"No Data\"),\r\n    BestKnownUserName = coalesce(LastLogonUserName, UserDisplayName, \"No Data\"),\r\n    BestKnownDept = coalesce(LastLogonDepartment, Department, \"No Data\"),\r\n    BestKnownJobTitle = coalesce(LastLogonJobTitle, JobTitle, \"No Data\"),\r\n    BestKnownMail = coalesce(LastLogonMail, Mail, EmailAddress, \"No Data\"),\r\n    BestKnownOffice = coalesce(LastLogonOffice, OfficeLocation, \"No Data\"),\r\n    BestKnownCity = coalesce(LastLogonCity, City, \"No Data\"),\r\n    BestKnownCountry = coalesce(LastLogonCountry, Country, \"No Data\"),\r\n    BestKnownAccountEnabled = coalesce(LastLogonAccountEnabled, PrimaryAccountEnabled)\r\n| extend Severity = case(\r\n    LastSyncDaysAgo > 180, \"Critical\",\r\n    LastSyncDaysAgo > 90,  \"High\",\r\n    LastSyncDaysAgo > 60,  \"Medium\",\r\n    \"Low\")\r\n| extend RecommendedAction = case(\r\n    BestKnownAccountEnabled == false and LastSyncDaysAgo > 90, \"Retire\",\r\n    isempty(UserPrincipalName) and isempty(LastLoggedOnUserId) and LastSyncDaysAgo > 90, \"Retire\",\r\n    LastSyncDaysAgo > 180, \"Retire\",\r\n    LastSyncDaysAgo > 90, \"Investigate\",\r\n    BestKnownAccountEnabled == false, \"Investigate\",\r\n    \"Monitor\")\r\n| project\r\n    Severity,\r\n    DeviceName,\r\n    SerialNumber = coalesce(SerialNumber, \"No Data\"),\r\n    Model = coalesce(Model, \"No Data\"),\r\n    BestKnownUser,\r\n    BestKnownDept,\r\n    BestKnownOffice,\r\n    LastSyncDaysAgo,\r\n    ComplianceState = coalesce(ComplianceState, \"No Data\"),\r\n    Encrypted = case(IsEncrypted == \"true\", \"Yes\", IsEncrypted == \"false\", \"No\", \"No Data\"),\r\n    RecommendedAction,\r\n    DeviceId\r\n| order by case(Severity == \"Critical\", 1, Severity == \"High\", 2, Severity == \"Medium\", 3, 4) asc, LastSyncDaysAgo desc",
-              "size": 0,
+              "size": 1,
               "title": "Stale Device Queue",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -381,7 +381,7 @@
             "content": {
               "version": "KqlItem/1.0",
               "query": "let StaleDevices = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where OperatingSystem startswith \"Windows\"\r\n| extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))\r\n| where LastSyncDaysAgo > toint({StaleDays});\r\nStaleDevices\r\n| extend Severity = case(\r\n    LastSyncDaysAgo > 180, \"Critical\",\r\n    LastSyncDaysAgo > 90,  \"High\",\r\n    LastSyncDaysAgo > 60,  \"Medium\",\r\n    \"Low\")\r\n| summarize Devices = count() by Severity\r\n| order by Severity asc",
-              "size": 0,
+              "size": 1,
               "title": "Severity Distribution",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -395,7 +395,7 @@
             "content": {
               "version": "KqlItem/1.0",
               "query": "let StaleDevices = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where OperatingSystem startswith \"Windows\"\r\n| extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))\r\n| where LastSyncDaysAgo > toint({StaleDays});\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nStaleDevices\r\n| join kind=leftouter (UsersByUPN | project UserPrincipalName, Department, OfficeLocation) on UserPrincipalName\r\n| extend Dept = coalesce(Department, \"No Data\")\r\n| summarize\r\n    StaleCount = count(),\r\n    Critical = countif(LastSyncDaysAgo > 180),\r\n    AvgDays = round(avg(LastSyncDaysAgo), 0)\r\n    by Dept\r\n| order by StaleCount desc\r\n| take 10",
-              "size": 0,
+              "size": 1,
               "title": "Top 10 Departments",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -542,6 +542,9 @@
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
               "visualization": "stat",
+              "tileSettings": {
+                "showBorder": false
+              },
               "statSettings": {
                 "valueColumn": "ComplianceState",
                 "colorSettings": {
@@ -623,23 +626,11 @@
             "name": "details-status-note"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "### Device Identity & Hardware"
-            },
-            "conditionalVisibility": {
-              "parameterName": "SelectedDevice",
-              "comparison": "isNotEqualTo",
-              "value": ""
-            },
-            "name": "details-section-identity"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nDevice\r\n| extend FormFactor = case(\r\n    ChassisType in (\"laptop\", \"notebook\"), \"Laptop\",\r\n    ChassisType in (\"desktop\", \"tower\", \"miniTower\", \"allInOne\"), \"Desktop\",\r\n    ChassisType == \"tablet\", \"Tablet\",\r\n    isempty(ChassisType) or ChassisType == \"unknown\", \"No Data\",\r\n    tostring(ChassisType))\r\n| project\r\n    DeviceName = coalesce(DeviceName, \"No Data\"),\r\n    SerialNumber = coalesce(SerialNumber, \"No Data\"),\r\n    Manufacturer = coalesce(Manufacturer, \"No Data\"),\r\n    Model = coalesce(Model, \"No Data\"),\r\n    FormFactor,\r\n    OperatingSystem = coalesce(OperatingSystem, \"No Data\"),\r\n    OSVersion = coalesce(OSVersion, \"No Data\"),\r\n    ['Storage (Total/Free GB)'] = iff(isnotnull(TotalStorageGB), strcat(round(TotalStorageGB, 0), \" / \", round(FreeStorageGB, 0)), \"No Data\"),\r\n    ['RAM (GB)'] = iff(isnotnull(PhysicalMemoryGB), tostring(round(PhysicalMemoryGB, 0)), \"No Data\")",
-              "size": 0,
+              "size": 1,
               "title": "Device Identity",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -661,11 +652,11 @@
             "content": {
               "version": "KqlItem/1.0",
               "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nDevice\r\n| join kind=leftouter (\r\n    UsersByUPN | project UserPrincipalName, UserLastSignIn = LastSignInDateTime, UserLastNonInteractive = LastNonInteractiveSignInDateTime\r\n) on UserPrincipalName\r\n| extend\r\n    SyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime)),\r\n    LogonDaysAgo = iff(isnotempty(LastLoggedOnDateTime), datetime_diff('day', now(), todatetime(LastLoggedOnDateTime)), int(null)),\r\n    SignInDaysAgo = iff(isnotempty(UserLastSignIn), datetime_diff('day', now(), todatetime(UserLastSignIn)), int(null)),\r\n    NonInteractiveDaysAgo = iff(isnotempty(UserLastNonInteractive), datetime_diff('day', now(), todatetime(UserLastNonInteractive)), int(null))\r\n| project p = pack_array(\r\n    pack(\"Signal\", \"Intune Sync\", \"DaysAgo\", SyncDaysAgo),\r\n    pack(\"Signal\", \"Device Logon\", \"DaysAgo\", LogonDaysAgo),\r\n    pack(\"Signal\", \"User Sign-In\", \"DaysAgo\", SignInDaysAgo),\r\n    pack(\"Signal\", \"Non-Interactive Sign-In\", \"DaysAgo\", NonInteractiveDaysAgo))\r\n| mv-expand p\r\n| evaluate bag_unpack(p)\r\n| where isnotnull(DaysAgo) and tolong(DaysAgo) >= 0\r\n| extend DaysAgo = tolong(DaysAgo)\r\n| order by DaysAgo desc",
-              "size": 0,
+              "size": 1,
               "title": "Staleness Signals (days since last activity)",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
-              "visualization": "barchart"
+              "visualization": "piechart"
             },
             "customWidth": "45",
             "conditionalVisibility": {
@@ -688,23 +679,11 @@
             "name": "details-identity-note"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "### Compliance Policies"
-            },
-            "conditionalVisibility": {
-              "parameterName": "SelectedDevice",
-              "comparison": "isNotEqualTo",
-              "value": ""
-            },
-            "name": "details-section-compliance"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "IntuneComplianceStates_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId, PolicyId\r\n| where DeviceId == '{SelectedDevice}'\r\n| extend StatusLabel = case(\r\n    StatusRaw == 2, \"Compliant\",\r\n    StatusRaw == 3, \"In Grace Period\",\r\n    StatusRaw == 4, \"Non-Compliant\",\r\n    StatusRaw == 5, \"Error\",\r\n    StatusRaw == 6, \"Conflict\",\r\n    StatusRaw == 7, \"Not Applicable\",\r\n    \"Unknown\")\r\n| project\r\n    PolicyName = coalesce(PolicyName, \"No Data\"),\r\n    Status = StatusLabel,\r\n    FailedSettings = coalesce(FailedSettingCount, 0),\r\n    LastContact = coalesce(tostring(LastContact), \"No Data\")\r\n| order by case(\r\n    Status == \"Non-Compliant\", 1, Status == \"Error\", 2, Status == \"Conflict\", 3,\r\n    Status == \"In Grace Period\", 4, Status == \"Compliant\", 5, 6) asc",
-              "size": 0,
+              "size": 1,
               "title": "Compliance Policy Status",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -795,23 +774,11 @@
             "name": "details-compliance-note"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "### Enrollment & Management"
-            },
-            "conditionalVisibility": {
-              "parameterName": "SelectedDevice",
-              "comparison": "isNotEqualTo",
-              "value": ""
-            },
-            "name": "details-section-enrollment"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nDevice\r\n| project\r\n    OwnerType = coalesce(OwnerType, \"No Data\"),\r\n    JoinType = coalesce(JoinType, \"No Data\"),\r\n    EnrollmentType = coalesce(DeviceEnrollmentType, \"No Data\"),\r\n    ManagementState = coalesce(ManagementState, \"No Data\"),\r\n    ManagementAgent = coalesce(ManagementAgent, \"No Data\"),\r\n    AutopilotEnrolled = case(AutopilotEnrolled == \"true\", \"Yes\", AutopilotEnrolled == \"false\", \"No\", \"No Data\"),\r\n    EnrolledDateTime = coalesce(tostring(EnrolledDateTime), \"No Data\"),\r\n    ['Enrollment Age'] = iff(isnotempty(EnrolledDateTime), strcat(datetime_diff('month', now(), todatetime(EnrolledDateTime)), \" months\"), \"No Data\"),\r\n    CertExpiry = coalesce(tostring(ManagementCertificateExpirationDate), \"No Data\"),\r\n    RetireAfterDateTime = iff(isnotempty(RetireAfterDateTime), tostring(RetireAfterDateTime), \"Not set\"),\r\n    Notes = coalesce(Notes, \"None\")",
-              "size": 0,
+              "size": 1,
               "title": "Enrollment & Management",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -833,7 +800,7 @@
             "content": {
               "version": "KqlItem/1.0",
               "query": "let DeviceName_ = toscalar(IntuneManagedDevices_CL\r\n    | summarize arg_max(TimeGenerated, *) by DeviceId\r\n    | where DeviceId == '{SelectedDevice}'\r\n    | project DeviceName);\r\nIntuneDeviceScores_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceName == DeviceName_ or DeviceId == DeviceName_\r\n| project\r\n    HealthStatus = coalesce(HealthStatus, \"No Data\"),\r\n    OverallScore = iff(isnotnull(EndpointAnalyticsScore), round(EndpointAnalyticsScore, 1), real(null)),\r\n    StartupScore = iff(isnotnull(StartupPerformanceScore), round(StartupPerformanceScore, 1), real(null)),\r\n    AppReliabilityScore = iff(isnotnull(AppReliabilityScore), round(AppReliabilityScore, 1), real(null)),\r\n    WorkFromAnywhereScore = iff(isnotnull(WorkFromAnywhereScore), round(WorkFromAnywhereScore, 1), real(null))",
-              "size": 0,
+              "size": 1,
               "title": "Endpoint Analytics Scores",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -928,23 +895,11 @@
             "name": "locate-no-device"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "### Most Likely User"
-            },
-            "conditionalVisibility": {
-              "parameterName": "SelectedDevice",
-              "comparison": "isNotEqualTo",
-              "value": ""
-            },
-            "name": "locate-section-bestuser"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nDevice\r\n| join kind=leftouter (\r\n    UsersByUPN\r\n    | project UserPrincipalName, PrimaryAccountEnabled = AccountEnabled,\r\n             Department, JobTitle, OfficeLocation, City, State, Country,\r\n             Mail, LastSignInDateTime, LastNonInteractiveSignInDateTime\r\n) on UserPrincipalName\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LastLoggedOnUserId = UserId,\r\n             LastLogonUserUPN = UserPrincipalName,\r\n             LastLogonUserName = DisplayName,\r\n             LastLogonDepartment = Department,\r\n             LastLogonJobTitle = JobTitle,\r\n             LastLogonMail = Mail,\r\n             LastLogonOffice = OfficeLocation,\r\n             LastLogonCity = City,\r\n             LastLogonCountry = Country,\r\n             LastLogonAccountEnabled = AccountEnabled,\r\n             LastLogonLastSignIn = LastSignInDateTime\r\n) on LastLoggedOnUserId\r\n| extend\r\n    BestKnownUser = coalesce(LastLogonUserUPN, UserPrincipalName, \"No Data\"),\r\n    BestKnownUserName = coalesce(LastLogonUserName, UserDisplayName, \"No Data\"),\r\n    BestKnownDept = coalesce(LastLogonDepartment, Department, \"No Data\"),\r\n    BestKnownJobTitle = coalesce(LastLogonJobTitle, JobTitle, \"No Data\"),\r\n    BestKnownMail = coalesce(LastLogonMail, Mail, EmailAddress, \"No Data\"),\r\n    BestKnownOffice = coalesce(LastLogonOffice, OfficeLocation, \"No Data\"),\r\n    BestKnownCity = coalesce(LastLogonCity, City, \"No Data\"),\r\n    BestKnownCountry = coalesce(LastLogonCountry, Country, \"No Data\"),\r\n    BestKnownAccountEnabled = coalesce(LastLogonAccountEnabled, PrimaryAccountEnabled)\r\n| extend UserSource = case(\r\n    isnotempty(LastLoggedOnUserId) and isnotempty(LastLogonUserUPN), \"Last Logon\",\r\n    isnotempty(UserPrincipalName), \"Primary (Assigned)\",\r\n    \"No Data\")\r\n| extend LastDeviceLogon = iff(isnotempty(LastLoggedOnDateTime),\r\n    strcat(format_datetime(todatetime(LastLoggedOnDateTime), 'yyyy-MM-dd HH:mm'),\r\n        \" (\", datetime_diff('day', now(), todatetime(LastLoggedOnDateTime)), \" days ago)\"),\r\n    \"No Data\")\r\n| project\r\n    Source = UserSource,\r\n    ['Display Name'] = BestKnownUserName,\r\n    ['Email'] = BestKnownMail,\r\n    ['UPN'] = BestKnownUser,\r\n    ['Job Title'] = BestKnownJobTitle,\r\n    Department = BestKnownDept,\r\n    Office = BestKnownOffice,\r\n    City = BestKnownCity,\r\n    Country = BestKnownCountry,\r\n    ['Account Status'] = iff(BestKnownAccountEnabled == true, \"Active\", iff(BestKnownAccountEnabled == false, \"Disabled\", \"No Data\")),\r\n    ['Last Sign-In'] = iff(isnotempty(coalesce(LastLogonLastSignIn, LastSignInDateTime)),\r\n        strcat(tostring(coalesce(LastLogonLastSignIn, LastSignInDateTime)), \" (\",\r\n            datetime_diff('day', now(), todatetime(coalesce(LastLogonLastSignIn, LastSignInDateTime))), \" days ago)\"),\r\n        \"No Data\"),\r\n    ['Last Device Logon'] = LastDeviceLogon",
-              "size": 0,
+              "size": 4,
               "title": "Most Likely User",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -1029,23 +984,11 @@
             "name": "locate-bestuser-note"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "### User Identification Breakdown"
-            },
-            "conditionalVisibility": {
-              "parameterName": "SelectedDevice",
-              "comparison": "isNotEqualTo",
-              "value": ""
-            },
-            "name": "locate-section-breakdown"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nlet PrimaryUser = Device\r\n| where isnotempty(UserPrincipalName)\r\n| join kind=inner (UsersByUPN) on UserPrincipalName\r\n| project\r\n    Source = \"Primary (Assigned)\",\r\n    DisplayName = coalesce(DisplayName, \"No Data\"),\r\n    UPN = UserPrincipalName,\r\n    Email = coalesce(Mail, \"No Data\"),\r\n    ['Job Title'] = coalesce(JobTitle, \"No Data\"),\r\n    Department = coalesce(Department, \"No Data\"),\r\n    Office = coalesce(OfficeLocation, \"No Data\"),\r\n    ['Account Status'] = iff(AccountEnabled == true, \"Active\", iff(AccountEnabled == false, \"Disabled\", \"No Data\")),\r\n    ['Last Sign-In'] = iff(isnotempty(LastSignInDateTime),\r\n        strcat(tostring(LastSignInDateTime), \" (\", datetime_diff('day', now(), todatetime(LastSignInDateTime)), \" days ago)\"),\r\n        \"No Data\");\r\nlet LastLogonUser = Device\r\n| where isnotempty(LastLoggedOnUserId)\r\n| join kind=inner (\r\n    UsersByIdLookup\r\n    | project UserId, LogonUserUPN = UserPrincipalName, DisplayName, Mail, JobTitle, Department, OfficeLocation, AccountEnabled, LastSignInDateTime\r\n) on $left.LastLoggedOnUserId == $right.UserId\r\n| project\r\n    Source = \"Last Logon\",\r\n    DisplayName = coalesce(DisplayName, \"No Data\"),\r\n    UPN = LogonUserUPN,\r\n    Email = coalesce(Mail, \"No Data\"),\r\n    ['Job Title'] = coalesce(JobTitle, \"No Data\"),\r\n    Department = coalesce(Department, \"No Data\"),\r\n    Office = coalesce(OfficeLocation, \"No Data\"),\r\n    ['Account Status'] = iff(AccountEnabled == true, \"Active\", iff(AccountEnabled == false, \"Disabled\", \"No Data\")),\r\n    ['Last Sign-In'] = iff(isnotempty(LastSignInDateTime),\r\n        strcat(tostring(LastSignInDateTime), \" (\", datetime_diff('day', now(), todatetime(LastSignInDateTime)), \" days ago)\"),\r\n        \"No Data\");\r\nunion PrimaryUser, LastLogonUser\r\n| distinct *",
-              "size": 0,
+              "size": 1,
               "title": "Primary vs Last Logon User",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -1134,7 +1077,7 @@
             "content": {
               "version": "KqlItem/1.0",
               "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nDevice\r\n| where isnotempty(UsersLoggedOnJson)\r\n| extend LoggedOnUsers = parse_json(UsersLoggedOnJson)\r\n| mv-expand LoggedOnUser = LoggedOnUsers\r\n| extend\r\n    LogonUserId = tostring(LoggedOnUser.userId),\r\n    LogonDateTime = todatetime(LoggedOnUser.lastLogOnDateTime)\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LogonUserId = UserId,\r\n             LogonDisplayName = DisplayName,\r\n             LogonUPN = UserPrincipalName,\r\n             LogonMail = Mail,\r\n             LogonDepartment = Department,\r\n             LogonJobTitle = JobTitle,\r\n             LogonOffice = OfficeLocation,\r\n             LogonAccountEnabled = AccountEnabled,\r\n             LogonEntraSignIn = LastSignInDateTime\r\n) on LogonUserId\r\n| summarize arg_max(LogonDateTime, *) by LogonUserId\r\n| order by LogonDateTime desc\r\n| extend\r\n    LogonDaysAgo = datetime_diff('day', now(), LogonDateTime),\r\n    EntraSignInDaysAgo = iff(isnotempty(LogonEntraSignIn),\r\n        datetime_diff('day', now(), todatetime(LogonEntraSignIn)), int(null))\r\n| project\r\n    ['Display Name'] = coalesce(LogonDisplayName, \"Unknown\"),\r\n    UPN = coalesce(LogonUPN, \"Unknown\"),\r\n    Email = coalesce(LogonMail, \"No Data\"),\r\n    Department = coalesce(LogonDepartment, \"No Data\"),\r\n    ['Job Title'] = coalesce(LogonJobTitle, \"No Data\"),\r\n    Office = coalesce(LogonOffice, \"No Data\"),\r\n    ['Account Status'] = iff(LogonAccountEnabled == true, \"Active\",\r\n        iff(LogonAccountEnabled == false, \"Disabled\", \"Unknown\")),\r\n    ['Last Device Logon'] = strcat(format_datetime(LogonDateTime, 'yyyy-MM-dd HH:mm'),\r\n        \" (\", LogonDaysAgo, \" days ago)\"),\r\n    ['Last Entra Sign-In'] = iff(isnotempty(LogonEntraSignIn),\r\n        strcat(tostring(LogonEntraSignIn),\r\n            \" (\", EntraSignInDaysAgo, \" days ago)\"),\r\n        \"No Data\")",
-              "size": 0,
+              "size": 1,
               "title": "Signed-In Users History",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -1192,23 +1135,11 @@
             "name": "locate-logon-history-note"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "### Location & Physical Identifiers"
-            },
-            "conditionalVisibility": {
-              "parameterName": "SelectedDevice",
-              "comparison": "isNotEqualTo",
-              "value": ""
-            },
-            "name": "locate-section-location"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nDevice\r\n| join kind=leftouter (\r\n    UsersByUPN\r\n    | project UserPrincipalName, PrimaryAccountEnabled = AccountEnabled,\r\n             Department, JobTitle, OfficeLocation, City, State, Country,\r\n             Mail, LastSignInDateTime, LastNonInteractiveSignInDateTime\r\n) on UserPrincipalName\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LastLoggedOnUserId = UserId,\r\n             LastLogonUserUPN = UserPrincipalName,\r\n             LastLogonUserName = DisplayName,\r\n             LastLogonDepartment = Department,\r\n             LastLogonJobTitle = JobTitle,\r\n             LastLogonMail = Mail,\r\n             LastLogonOffice = OfficeLocation,\r\n             LastLogonCity = City,\r\n             LastLogonCountry = Country,\r\n             LastLogonAccountEnabled = AccountEnabled,\r\n             LastLogonLastSignIn = LastSignInDateTime\r\n) on LastLoggedOnUserId\r\n| extend\r\n    BestKnownUser = coalesce(LastLogonUserUPN, UserPrincipalName, \"No Data\"),\r\n    BestKnownUserName = coalesce(LastLogonUserName, UserDisplayName, \"No Data\"),\r\n    BestKnownDept = coalesce(LastLogonDepartment, Department, \"No Data\"),\r\n    BestKnownJobTitle = coalesce(LastLogonJobTitle, JobTitle, \"No Data\"),\r\n    BestKnownMail = coalesce(LastLogonMail, Mail, EmailAddress, \"No Data\"),\r\n    BestKnownOffice = coalesce(LastLogonOffice, OfficeLocation, \"No Data\"),\r\n    BestKnownCity = coalesce(LastLogonCity, City, \"No Data\"),\r\n    BestKnownCountry = coalesce(LastLogonCountry, Country, \"No Data\"),\r\n    BestKnownAccountEnabled = coalesce(LastLogonAccountEnabled, PrimaryAccountEnabled)\r\n| extend WiFiMAC = iff(\r\n    isnotempty(WiFiMacAddress) and strlen(WiFiMacAddress) == 12,\r\n    strcat(substring(WiFiMacAddress,0,2),\":\",substring(WiFiMacAddress,2,2),\":\",substring(WiFiMacAddress,4,2),\":\",substring(WiFiMacAddress,6,2),\":\",substring(WiFiMacAddress,8,2),\":\",substring(WiFiMacAddress,10,2)),\r\n    \"No Data\")\r\n| extend EthernetMAC = iff(\r\n    isnotempty(EthernetMacAddress) and strlen(EthernetMacAddress) == 12,\r\n    strcat(substring(EthernetMacAddress,0,2),\":\",substring(EthernetMacAddress,2,2),\":\",substring(EthernetMacAddress,4,2),\":\",substring(EthernetMacAddress,6,2),\":\",substring(EthernetMacAddress,8,2),\":\",substring(EthernetMacAddress,10,2)),\r\n    \"No Data\")\r\n| extend FormFactor = case(\r\n    ChassisType in (\"laptop\", \"notebook\"), \"Laptop\",\r\n    ChassisType in (\"desktop\", \"tower\", \"miniTower\", \"allInOne\"), \"Desktop\",\r\n    ChassisType == \"tablet\", \"Tablet\",\r\n    \"No Data\")\r\n| project\r\n    Office = BestKnownOffice,\r\n    City = BestKnownCity,\r\n    Country = BestKnownCountry,\r\n    FormFactor,\r\n    Ownership = coalesce(OwnerType, \"No Data\"),\r\n    SerialNumber = coalesce(SerialNumber, \"No Data\"),\r\n    ['Wi-Fi MAC'] = WiFiMAC,\r\n    ['Ethernet MAC'] = EthernetMAC,\r\n    IMEI = coalesce(IMEI, \"No Data\")",
-              "size": 0,
+              "size": 1,
               "title": "Location & Physical IDs",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -1237,23 +1168,11 @@
             "name": "locate-location-note"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "### Nearby Contacts"
-            },
-            "conditionalVisibility": {
-              "parameterName": "SelectedDevice",
-              "comparison": "isNotEqualTo",
-              "value": ""
-            },
-            "name": "locate-section-contacts"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nlet DeviceContext = Device\r\n| join kind=leftouter (\r\n    UsersByUPN\r\n    | project UserPrincipalName, PrimaryAccountEnabled = AccountEnabled,\r\n             Department, JobTitle, OfficeLocation, City, State, Country,\r\n             Mail, LastSignInDateTime, LastNonInteractiveSignInDateTime\r\n) on UserPrincipalName\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LastLoggedOnUserId = UserId,\r\n             LastLogonUserUPN = UserPrincipalName,\r\n             LastLogonUserName = DisplayName,\r\n             LastLogonDepartment = Department,\r\n             LastLogonJobTitle = JobTitle,\r\n             LastLogonMail = Mail,\r\n             LastLogonOffice = OfficeLocation,\r\n             LastLogonCity = City,\r\n             LastLogonCountry = Country,\r\n             LastLogonAccountEnabled = AccountEnabled,\r\n             LastLogonLastSignIn = LastSignInDateTime\r\n) on LastLoggedOnUserId\r\n| extend\r\n    BestKnownDept = coalesce(LastLogonDepartment, Department, \"\"),\r\n    BestKnownOffice = coalesce(LastLogonOffice, OfficeLocation, \"\")\r\n| project\r\n    BestDept = BestKnownDept,\r\n    BestOffice = BestKnownOffice,\r\n    MatchOn = case(\r\n        isnotempty(BestKnownDept) and BestKnownDept != \" \", \"Department\",\r\n        isnotempty(BestKnownOffice), \"Office\",\r\n        \"None\"),\r\n    DeviceUserUPN = coalesce(LastLogonUserUPN, UserPrincipalName, \"\");\r\nlet MatchField = toscalar(DeviceContext | project MatchOn);\r\nlet MatchValue = toscalar(DeviceContext | project iff(MatchOn == \"Department\", BestDept, BestOffice));\r\nlet DeviceUserUPN_ = toscalar(DeviceContext | project DeviceUserUPN);\r\nIntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName\r\n| where AccountEnabled == true\r\n| where UserPrincipalName != DeviceUserUPN_\r\n| where (MatchField == \"Department\" and Department == MatchValue)\r\n     or (MatchField == \"Office\" and OfficeLocation == MatchValue)\r\n| project\r\n    ['Display Name'] = coalesce(DisplayName, \"No Data\"),\r\n    Email = coalesce(Mail, \"No Data\"),\r\n    ['Job Title'] = coalesce(JobTitle, \"No Data\"),\r\n    Department = coalesce(Department, \"No Data\"),\r\n    Office = coalesce(OfficeLocation, \"No Data\"),\r\n    ['Matched On'] = MatchField,\r\n    ['Last Sign-In (days ago)'] = iff(isnotempty(LastSignInDateTime), datetime_diff('day', now(), todatetime(LastSignInDateTime)), int(null))\r\n| where ['Last Sign-In (days ago)'] < 14 or isnull(['Last Sign-In (days ago)'])\r\n| order by ['Display Name'] asc\r\n| take 10",
-              "size": 0,
+              "size": 1,
               "title": "Nearby Contacts (same department or office, active, recently signed in)",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -1309,23 +1228,11 @@
             "name": "action-no-device"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "### Risk Assessment"
-            },
-            "conditionalVisibility": {
-              "parameterName": "SelectedDevice",
-              "comparison": "isNotEqualTo",
-              "value": ""
-            },
-            "name": "action-section-risk"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nlet ComplianceSummary = IntuneComplianceStates_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId, PolicyId\r\n| where DeviceId == '{SelectedDevice}'\r\n| summarize\r\n    TotalPolicies = count(),\r\n    NonCompliantPolicies = countif(StatusRaw == 4);\r\nDevice\r\n| join kind=leftouter (\r\n    UsersByUPN\r\n    | project UserPrincipalName, PrimaryAccountEnabled = AccountEnabled,\r\n             Department, JobTitle, OfficeLocation, City, State, Country,\r\n             Mail, LastSignInDateTime, LastNonInteractiveSignInDateTime\r\n) on UserPrincipalName\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LastLoggedOnUserId = UserId,\r\n             LastLogonUserUPN = UserPrincipalName,\r\n             LastLogonUserName = DisplayName,\r\n             LastLogonDepartment = Department,\r\n             LastLogonJobTitle = JobTitle,\r\n             LastLogonMail = Mail,\r\n             LastLogonOffice = OfficeLocation,\r\n             LastLogonCity = City,\r\n             LastLogonCountry = Country,\r\n             LastLogonAccountEnabled = AccountEnabled,\r\n             LastLogonLastSignIn = LastSignInDateTime\r\n) on LastLoggedOnUserId\r\n| extend\r\n    BestKnownUser = coalesce(LastLogonUserUPN, UserPrincipalName, \"No Data\"),\r\n    BestKnownUserName = coalesce(LastLogonUserName, UserDisplayName, \"No Data\"),\r\n    BestKnownDept = coalesce(LastLogonDepartment, Department, \"No Data\"),\r\n    BestKnownJobTitle = coalesce(LastLogonJobTitle, JobTitle, \"No Data\"),\r\n    BestKnownMail = coalesce(LastLogonMail, Mail, EmailAddress, \"No Data\"),\r\n    BestKnownOffice = coalesce(LastLogonOffice, OfficeLocation, \"No Data\"),\r\n    BestKnownCity = coalesce(LastLogonCity, City, \"No Data\"),\r\n    BestKnownCountry = coalesce(LastLogonCountry, Country, \"No Data\"),\r\n    BestKnownAccountEnabled = coalesce(LastLogonAccountEnabled, PrimaryAccountEnabled)\r\n| extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))\r\n| extend Severity = case(\r\n    LastSyncDaysAgo > 180, \"Critical\",\r\n    LastSyncDaysAgo > 90,  \"High\",\r\n    LastSyncDaysAgo > 60,  \"Medium\",\r\n    \"Low\")\r\n| extend RecommendedAction = case(\r\n    BestKnownAccountEnabled == false and LastSyncDaysAgo > 90, \"Retire\",\r\n    isempty(UserPrincipalName) and isempty(LastLoggedOnUserId) and LastSyncDaysAgo > 90, \"Retire\",\r\n    LastSyncDaysAgo > 180, \"Retire\",\r\n    LastSyncDaysAgo > 90, \"Investigate\",\r\n    BestKnownAccountEnabled == false, \"Investigate\",\r\n    \"Monitor\")\r\n| extend RiskFactors = strcat_array(array_concat(\r\n    iff(BestKnownAccountEnabled == false, dynamic([\"User account disabled\"]), dynamic([])),\r\n    iff(LastSyncDaysAgo > 180, dynamic([\"6+ months without sync\"]), dynamic([])),\r\n    iff(IsEncrypted != \"true\", dynamic([\"Device NOT encrypted\"]), dynamic([])),\r\n    iff(tolower(ComplianceState) == \"noncompliant\", dynamic([\"Non-compliant\"]), dynamic([])),\r\n    iff(WindowsActiveMalwareCount > 0, dynamic([\"Active malware detected\"]), dynamic([]))), \" | \")\r\n| extend RiskFactors = iff(isempty(RiskFactors), \"None identified\", RiskFactors)\r\n| project\r\n    Severity,\r\n    ['Recommended Action'] = RecommendedAction,\r\n    ['User Account'] = iff(BestKnownAccountEnabled == true, \"Active\", iff(BestKnownAccountEnabled == false, \"DISABLED\", \"No Data\")),\r\n    Encrypted = case(IsEncrypted == \"true\", \"Yes\", IsEncrypted == \"false\", \"NO\", \"No Data\"),\r\n    Compliance = coalesce(ComplianceState, \"No Data\"),\r\n    ['Active Malware'] = iff(WindowsActiveMalwareCount > 0, tostring(WindowsActiveMalwareCount), \"None\"),\r\n    ['Risk Factors'] = RiskFactors",
-              "size": 0,
+              "size": 1,
               "title": "Risk Assessment",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -1470,23 +1377,11 @@
             "name": "action-risk-note"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "### Other Devices from Same User"
-            },
-            "conditionalVisibility": {
-              "parameterName": "SelectedDevice",
-              "comparison": "isNotEqualTo",
-              "value": ""
-            },
-            "name": "action-section-other"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "let Device = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId == '{SelectedDevice}';\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nlet DeviceUser = Device\r\n| join kind=leftouter (\r\n    UsersByUPN\r\n    | project UserPrincipalName, PrimaryAccountEnabled = AccountEnabled,\r\n             Department, JobTitle, OfficeLocation, City, State, Country,\r\n             Mail, LastSignInDateTime, LastNonInteractiveSignInDateTime\r\n) on UserPrincipalName\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LastLoggedOnUserId = UserId,\r\n             LastLogonUserUPN = UserPrincipalName,\r\n             LastLogonUserName = DisplayName,\r\n             LastLogonDepartment = Department,\r\n             LastLogonJobTitle = JobTitle,\r\n             LastLogonMail = Mail,\r\n             LastLogonOffice = OfficeLocation,\r\n             LastLogonCity = City,\r\n             LastLogonCountry = Country,\r\n             LastLogonAccountEnabled = AccountEnabled,\r\n             LastLogonLastSignIn = LastSignInDateTime\r\n) on LastLoggedOnUserId\r\n| extend\r\n    BestKnownUser = coalesce(LastLogonUserUPN, UserPrincipalName, \"No Data\"),\r\n    BestKnownUserName = coalesce(LastLogonUserName, UserDisplayName, \"No Data\"),\r\n    BestKnownDept = coalesce(LastLogonDepartment, Department, \"No Data\"),\r\n    BestKnownJobTitle = coalesce(LastLogonJobTitle, JobTitle, \"No Data\"),\r\n    BestKnownMail = coalesce(LastLogonMail, Mail, EmailAddress, \"No Data\"),\r\n    BestKnownOffice = coalesce(LastLogonOffice, OfficeLocation, \"No Data\"),\r\n    BestKnownCity = coalesce(LastLogonCity, City, \"No Data\"),\r\n    BestKnownCountry = coalesce(LastLogonCountry, Country, \"No Data\"),\r\n    BestKnownAccountEnabled = coalesce(LastLogonAccountEnabled, PrimaryAccountEnabled)\r\n| project BestKnownUser, DeviceId;\r\nIntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where DeviceId != '{SelectedDevice}'\r\n| where UserPrincipalName == toscalar(DeviceUser | project BestKnownUser)\r\n    or LastLoggedOnUserId in (toscalar(IntuneUsers_CL | summarize arg_max(TimeGenerated, *) by UserPrincipalName | where UserPrincipalName == toscalar(DeviceUser | project BestKnownUser) | project UserId))\r\n| extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))\r\n| extend Status = iff(LastSyncDaysAgo > toint({StaleDays}), \"STALE\", \"Active\")\r\n| project\r\n    Status,\r\n    DeviceName = coalesce(DeviceName, \"No Data\"),\r\n    Model = coalesce(Model, \"No Data\"),\r\n    LastSyncDaysAgo,\r\n    Compliance = coalesce(ComplianceState, \"No Data\")\r\n| order by Status desc, LastSyncDaysAgo desc",
-              "size": 0,
+              "size": 1,
               "title": "Other Devices from Same User",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -1553,13 +1448,6 @@
             "name": "action-other-note"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "---\n### Batch Action Lists\n\n*The lists below show all stale devices grouped by recommended action. Export each list to Excel for batch processing in Intune.*"
-            },
-            "name": "action-batch-header"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
@@ -1623,18 +1511,11 @@
             "name": "stat-monitor"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "#### Ready to Retire\n*User account disabled + 90d stale, no known user + 90d stale, or 6+ months without contact.*"
-            },
-            "name": "action-retire-header"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "let StaleDevices = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where OperatingSystem startswith \"Windows\"\r\n| extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))\r\n| where LastSyncDaysAgo > toint({StaleDays});\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nStaleDevices\r\n| join kind=leftouter (\r\n    UsersByUPN\r\n    | project UserPrincipalName, PrimaryAccountEnabled = AccountEnabled,\r\n             Department, JobTitle, OfficeLocation, City, State, Country,\r\n             Mail, LastSignInDateTime, LastNonInteractiveSignInDateTime\r\n) on UserPrincipalName\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LastLoggedOnUserId = UserId,\r\n             LastLogonUserUPN = UserPrincipalName,\r\n             LastLogonUserName = DisplayName,\r\n             LastLogonDepartment = Department,\r\n             LastLogonJobTitle = JobTitle,\r\n             LastLogonMail = Mail,\r\n             LastLogonOffice = OfficeLocation,\r\n             LastLogonCity = City,\r\n             LastLogonCountry = Country,\r\n             LastLogonAccountEnabled = AccountEnabled,\r\n             LastLogonLastSignIn = LastSignInDateTime\r\n) on LastLoggedOnUserId\r\n| extend\r\n    BestKnownUser = coalesce(LastLogonUserUPN, UserPrincipalName, \"No Data\"),\r\n    BestKnownUserName = coalesce(LastLogonUserName, UserDisplayName, \"No Data\"),\r\n    BestKnownDept = coalesce(LastLogonDepartment, Department, \"No Data\"),\r\n    BestKnownJobTitle = coalesce(LastLogonJobTitle, JobTitle, \"No Data\"),\r\n    BestKnownMail = coalesce(LastLogonMail, Mail, EmailAddress, \"No Data\"),\r\n    BestKnownOffice = coalesce(LastLogonOffice, OfficeLocation, \"No Data\"),\r\n    BestKnownCity = coalesce(LastLogonCity, City, \"No Data\"),\r\n    BestKnownCountry = coalesce(LastLogonCountry, Country, \"No Data\"),\r\n    BestKnownAccountEnabled = coalesce(LastLogonAccountEnabled, PrimaryAccountEnabled)\r\n| extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))\r\n| extend RecommendedAction = case(\r\n    BestKnownAccountEnabled == false and LastSyncDaysAgo > 90, \"Retire\",\r\n    isempty(UserPrincipalName) and isempty(LastLoggedOnUserId) and LastSyncDaysAgo > 90, \"Retire\",\r\n    LastSyncDaysAgo > 180, \"Retire\",\r\n    LastSyncDaysAgo > 90, \"Investigate\",\r\n    BestKnownAccountEnabled == false, \"Investigate\",\r\n    \"Monitor\")\r\n| where RecommendedAction == \"Retire\"\r\n| extend Reason = case(\r\n    BestKnownAccountEnabled == false and LastSyncDaysAgo > 90, \"User disabled + 90d stale\",\r\n    isempty(UserPrincipalName) and isempty(LastLoggedOnUserId) and LastSyncDaysAgo > 90, \"No user + 90d stale\",\r\n    LastSyncDaysAgo > 180, \"6+ months uncontacted\",\r\n    \"Other\")\r\n| project\r\n    Reason,\r\n    DeviceName = coalesce(DeviceName, \"No Data\"),\r\n    SerialNumber = coalesce(SerialNumber, \"No Data\"),\r\n    BestKnownUser,\r\n    LastSyncDaysAgo,\r\n    Model = coalesce(Model, \"No Data\"),\r\n    Encrypted = case(IsEncrypted == \"true\", \"Yes\", IsEncrypted == \"false\", \"No\", \"No Data\"),\r\n    DeviceId\r\n| order by LastSyncDaysAgo desc",
-              "size": 0,
+              "size": 1,
               "title": "Devices to Retire",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -1703,18 +1584,11 @@
             "name": "grid-retire"
           },
           {
-            "type": 1,
-            "content": {
-              "json": "#### Needs Investigation\n*These devices need manual follow-up. Contact the user or their department to determine device status.*"
-            },
-            "name": "action-investigate-header"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "let StaleDevices = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where OperatingSystem startswith \"Windows\"\r\n| extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))\r\n| where LastSyncDaysAgo > toint({StaleDays});\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nStaleDevices\r\n| join kind=leftouter (\r\n    UsersByUPN\r\n    | project UserPrincipalName, PrimaryAccountEnabled = AccountEnabled,\r\n             Department, JobTitle, OfficeLocation, City, State, Country,\r\n             Mail, LastSignInDateTime, LastNonInteractiveSignInDateTime\r\n) on UserPrincipalName\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LastLoggedOnUserId = UserId,\r\n             LastLogonUserUPN = UserPrincipalName,\r\n             LastLogonUserName = DisplayName,\r\n             LastLogonDepartment = Department,\r\n             LastLogonJobTitle = JobTitle,\r\n             LastLogonMail = Mail,\r\n             LastLogonOffice = OfficeLocation,\r\n             LastLogonCity = City,\r\n             LastLogonCountry = Country,\r\n             LastLogonAccountEnabled = AccountEnabled,\r\n             LastLogonLastSignIn = LastSignInDateTime\r\n) on LastLoggedOnUserId\r\n| extend\r\n    BestKnownUser = coalesce(LastLogonUserUPN, UserPrincipalName, \"No Data\"),\r\n    BestKnownUserName = coalesce(LastLogonUserName, UserDisplayName, \"No Data\"),\r\n    BestKnownDept = coalesce(LastLogonDepartment, Department, \"No Data\"),\r\n    BestKnownJobTitle = coalesce(LastLogonJobTitle, JobTitle, \"No Data\"),\r\n    BestKnownMail = coalesce(LastLogonMail, Mail, EmailAddress, \"No Data\"),\r\n    BestKnownOffice = coalesce(LastLogonOffice, OfficeLocation, \"No Data\"),\r\n    BestKnownCity = coalesce(LastLogonCity, City, \"No Data\"),\r\n    BestKnownCountry = coalesce(LastLogonCountry, Country, \"No Data\"),\r\n    BestKnownAccountEnabled = coalesce(LastLogonAccountEnabled, PrimaryAccountEnabled)\r\n| extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))\r\n| extend RecommendedAction = case(\r\n    BestKnownAccountEnabled == false and LastSyncDaysAgo > 90, \"Retire\",\r\n    isempty(UserPrincipalName) and isempty(LastLoggedOnUserId) and LastSyncDaysAgo > 90, \"Retire\",\r\n    LastSyncDaysAgo > 180, \"Retire\",\r\n    LastSyncDaysAgo > 90, \"Investigate\",\r\n    BestKnownAccountEnabled == false, \"Investigate\",\r\n    \"Monitor\")\r\n| where RecommendedAction == \"Investigate\"\r\n| extend Reason = case(\r\n    LastSyncDaysAgo > 90, \"90+ days stale\",\r\n    BestKnownAccountEnabled == false, \"User recently disabled\",\r\n    \"Needs review\")\r\n| project\r\n    Reason,\r\n    DeviceName = coalesce(DeviceName, \"No Data\"),\r\n    SerialNumber = coalesce(SerialNumber, \"No Data\"),\r\n    BestKnownUser,\r\n    ['Contact Email'] = BestKnownMail,\r\n    Department = BestKnownDept,\r\n    LastSyncDaysAgo,\r\n    Model = coalesce(Model, \"No Data\")\r\n| order by LastSyncDaysAgo desc",
-              "size": 0,
+              "size": 1,
               "title": "Devices to Investigate",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -1763,7 +1637,7 @@
             "content": {
               "version": "KqlItem/1.0",
               "query": "let StaleDevices = IntuneManagedDevices_CL\r\n| summarize arg_max(TimeGenerated, *) by DeviceId\r\n| where OperatingSystem startswith \"Windows\"\r\n| extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))\r\n| where LastSyncDaysAgo > toint({StaleDays});\r\nlet UsersByUPN = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserPrincipalName;\r\nlet UsersByIdLookup = IntuneUsers_CL\r\n| summarize arg_max(TimeGenerated, *) by UserId;\r\nStaleDevices\r\n| join kind=leftouter (\r\n    UsersByUPN\r\n    | project UserPrincipalName, PrimaryAccountEnabled = AccountEnabled,\r\n             Department, JobTitle, OfficeLocation, City, State, Country,\r\n             Mail, LastSignInDateTime, LastNonInteractiveSignInDateTime\r\n) on UserPrincipalName\r\n| join kind=leftouter (\r\n    UsersByIdLookup\r\n    | project LastLoggedOnUserId = UserId,\r\n             LastLogonUserUPN = UserPrincipalName,\r\n             LastLogonUserName = DisplayName,\r\n             LastLogonDepartment = Department,\r\n             LastLogonJobTitle = JobTitle,\r\n             LastLogonMail = Mail,\r\n             LastLogonOffice = OfficeLocation,\r\n             LastLogonCity = City,\r\n             LastLogonCountry = Country,\r\n             LastLogonAccountEnabled = AccountEnabled,\r\n             LastLogonLastSignIn = LastSignInDateTime\r\n) on LastLoggedOnUserId\r\n| extend\r\n    BestKnownUser = coalesce(LastLogonUserUPN, UserPrincipalName, \"No Data\"),\r\n    BestKnownUserName = coalesce(LastLogonUserName, UserDisplayName, \"No Data\"),\r\n    BestKnownDept = coalesce(LastLogonDepartment, Department, \"No Data\"),\r\n    BestKnownJobTitle = coalesce(LastLogonJobTitle, JobTitle, \"No Data\"),\r\n    BestKnownMail = coalesce(LastLogonMail, Mail, EmailAddress, \"No Data\"),\r\n    BestKnownOffice = coalesce(LastLogonOffice, OfficeLocation, \"No Data\"),\r\n    BestKnownCity = coalesce(LastLogonCity, City, \"No Data\"),\r\n    BestKnownCountry = coalesce(LastLogonCountry, Country, \"No Data\"),\r\n    BestKnownAccountEnabled = coalesce(LastLogonAccountEnabled, PrimaryAccountEnabled)\r\n| extend LastSyncDaysAgo = datetime_diff('day', now(), todatetime(LastSyncDateTime))\r\n| extend RecommendedAction = case(\r\n    BestKnownAccountEnabled == false and LastSyncDaysAgo > 90, \"Retire\",\r\n    isempty(UserPrincipalName) and isempty(LastLoggedOnUserId) and LastSyncDaysAgo > 90, \"Retire\",\r\n    LastSyncDaysAgo > 180, \"Retire\",\r\n    LastSyncDaysAgo > 90, \"Investigate\",\r\n    BestKnownAccountEnabled == false, \"Investigate\",\r\n    \"Monitor\")\r\n| where RecommendedAction == \"Monitor\"\r\n| project\r\n    DeviceName = coalesce(DeviceName, \"No Data\"),\r\n    BestKnownUser,\r\n    Department = BestKnownDept,\r\n    LastSyncDaysAgo,\r\n    Model = coalesce(Model, \"No Data\")\r\n| order by LastSyncDaysAgo desc",
-              "size": 0,
+              "size": 1,
               "title": "Devices to Monitor",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -1801,18 +1675,12 @@
         "groupType": "editable",
         "items": [
           {
-            "type": 1,
-            "content": {
-              "json": "## Trends\n\nHistorical view of stale device counts for management reporting. Is the situation improving or getting worse?"
-            },
-            "name": "trends-intro"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
               "query": "let StaleDays = toint({StaleDays});\r\nIntuneManagedDevices_CL\r\n| where TimeGenerated > ago(30d)\r\n| where OperatingSystem startswith \"Windows\"\r\n| extend SnapshotDay = bin(TimeGenerated, 1d)\r\n| summarize arg_max(TimeGenerated, LastSyncDateTime) by DeviceId, SnapshotDay\r\n| extend LastSyncDaysAtSnapshot = datetime_diff('day', SnapshotDay, todatetime(LastSyncDateTime))\r\n| where LastSyncDaysAtSnapshot > StaleDays\r\n| summarize StaleCount = dcount(DeviceId) by SnapshotDay\r\n| order by SnapshotDay asc",
               "size": 0,
+              "aggregation": 5,
               "title": "Total Stale Devices - Last 30 Days",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -1841,6 +1709,7 @@
               "version": "KqlItem/1.0",
               "query": "let StaleDays = toint({StaleDays});\r\nIntuneManagedDevices_CL\r\n| where TimeGenerated > ago(30d)\r\n| where OperatingSystem startswith \"Windows\"\r\n| extend SnapshotDay = bin(TimeGenerated, 1d)\r\n| summarize arg_max(TimeGenerated, LastSyncDateTime) by DeviceId, SnapshotDay\r\n| extend DaysStaleAtSnapshot = datetime_diff('day', SnapshotDay, todatetime(LastSyncDateTime))\r\n| where DaysStaleAtSnapshot > StaleDays\r\n| extend Severity = case(\r\n    DaysStaleAtSnapshot > 180, \"Critical\",\r\n    DaysStaleAtSnapshot > 90,  \"High\",\r\n    DaysStaleAtSnapshot > 60,  \"Medium\",\r\n    \"Low\")\r\n| summarize Devices = dcount(DeviceId) by SnapshotDay, Severity\r\n| order by SnapshotDay asc",
               "size": 0,
+              "aggregation": 5,
               "title": "Stale Devices by Severity - Last 30 Days",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -1921,7 +1790,7 @@
     }
   ],
   "fallbackResourceIds": [
-    "/subscriptions/1a51ea5e-d9ee-453e-94e5-cb61b5cd93cf/resourceGroups/ancIntuneReporting-Dev/providers/Microsoft.OperationalInsights/workspaces/graphreports-law"
+    "/subscriptions/1a51ea5e-d9ee-453e-94e5-cb61b5cd93cf/resourcegroups/ancintunereporting-dev/providers/microsoft.operationalinsights/workspaces/graphreports-law"
   ],
   "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
 }
